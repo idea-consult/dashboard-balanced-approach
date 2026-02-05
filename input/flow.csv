@@ -1,0 +1,19 @@
+naam,zone,type,maatregel_toepassen,waarde_normaal,waarde_na_maatregel,kost_maatregel
+woonverdichtingsverbod_percelen,A,onbebouwd perceel,False,0.02,0,0
+woongebiedverbod,A,onbebouwd perceel,False,0.02,0,0
+aankoopbeleid_percelen,A,onbebouwd perceel,False,0,0.01,1000000
+voorkooprecht_percelen,A,onbebouwd perceel,False,0,0.02,2000000
+onteigening_percelen,A,onbebouwd perceel,False,0,0.3,3000000
+verbod_kleine_woning,A,bijkomende woning,False,0.03,0,5000000
+verbod_grote_woning,A,bijkomende woning,False,0.01,0,3000000
+verbod_kwetsbare_groep,A,bijkomende woning,False,0.005,0,1000000
+woonverdichtingsverbod_woningen,A,bestaande woning,False,0.02,0,0
+aankoopbeleid_woningen,A,bestaande woning,False,0,0.01,2000000
+voorkooprecht_woningen,A,bestaande woning,False,0,0.02,4000000
+onteigening_woningen,A,bestaande woning,False,0,0.3,8000000
+landingsbaan_verschuiven,A,bestaande woning,False,,,
+isolatievoorschriften_nieuwbouw,A,bijkomende woning,False,0.3,1,
+verplicht_isoleren_renovatie,A,bestaande woning,False,0.02,0.03,
+gesubsidieerd_isolatieprogramma,A,bestaande woning,False,0,0.075,
+gestuurd_isolatieprogramma,A,bestaande woning,False,0,0.15,
+aanleg_geluidsbuffers,A,bestaande woning,False,0,0.01,

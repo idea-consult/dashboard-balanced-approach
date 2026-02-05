@@ -1,0 +1,16 @@
+naam,jaar,zone,aantal
+onbebouwde_bebouwbare_percelen,2026,A,1000
+onbebouwde_bebouwbare_percelen,2026,B,950
+onbebouwde_bebouwbare_percelen,2026,C,900
+onbebouwde_bebouwbare_percelen,2026,D,850
+onbebouwde_bebouwbare_percelen,2026,E,800
+niet_geisoleerde_woningen,2026,A,1050
+niet_geisoleerde_woningen,2026,B,1100
+niet_geisoleerde_woningen,2026,C,1200
+niet_geisoleerde_woningen,2026,D,1300
+niet_geisoleerde_woningen,2026,E,1400
+geisoleerde_woningen,2026,A,1050
+geisoleerde_woningen,2026,B,1100
+geisoleerde_woningen,2026,C,1200
+geisoleerde_woningen,2026,D,1300
+geisoleerde_woningen,2026,E,1400
