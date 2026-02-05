@@ -208,19 +208,31 @@ col1, col2 = st.columns(2)
 df_plot = df_stock.reset_index()
 df_plot = df_plot[df_plot["naam"] == "onbebouwde_bebouwbare_percelen"]
 
-chart = (
+onbebouwde_bebouwbare_percelen_chart = (
     alt.Chart(df_plot)
     .mark_line(point=True)
     .encode(
         x=alt.X("jaar:O", title="Jaar"),
-        y=alt.Y("aantal:Q", title="# onbebouwde bebouwb percelen"),
+        y=alt.Y("aantal:Q", title="# onbebouwde bebouwbare perc"),
         color=alt.Color("zone:N", title="Zone"),
         tooltip=["zone", "jaar", "aantal"],
     )
     .properties(title="Evolutie van onbebouwde bebouwbare percelen per zone")
 )
+onbebouwde_onbebouwbare_percelen_chart = (
+    alt.Chart(df_plot)
+    .mark_line(point=True)
+    .encode(
+        x=alt.X("jaar:O", title="Jaar"),
+        y=alt.Y("aantal:Q", title="# onbebouwde onbebouwbare perc"),
+        color=alt.Color("zone:N", title="Zone"),
+        tooltip=["zone", "jaar", "aantal"],
+    )
+    .properties(title="Evolutie van onbebouwde onbebouwbare percelen per zone")
+)
 with col1:
-    st.altair_chart(chart)
+    st.altair_chart(onbebouwde_bebouwbare_percelen_chart)
+    st.altair_chart(onbebouwde_onbebouwbare_percelen_chart)
 
 df_plot = df_stock.reset_index()
 df_plot = df_plot[df_plot["naam"] == "niet_geisoleerde_woningen"]
