@@ -3,7 +3,8 @@ import streamlit as st
 import os
 
 # ---- CONFIG ----
-ACCESS_CODE = os.getenv("ACCESS_CODE", "code")  
+ACCESS_CODE = os.getenv("ACCESS_CODE", "code") 
+ 
 # Better to set via environment variable on your host
 
 # ---- AUTH ----

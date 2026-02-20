@@ -19,6 +19,8 @@ gestuurd_isolatieprogramma,A,bestaande woning,False,0,0.15,
 aanleg_geluidsbuffers,A,bestaande woning,False,0,0.01,
 compensatie_buitenzone,A,bestaande woning,False,0,0,1000000
 compensatie_verhuis,A,bestaande woning,False,0,0,1000000
+versterken_sociale_cohesie,A,bestaande woning,False, 0,0,1000000
+vergroenen_leefomgeving,A,bestaande woning,False, 0,0,1000000
 verkavelingsverbod,B,onbebouwd perceel,False,0.02,0,0
 woongebiedverbod,B,onbebouwd perceel,False,0.02,0,0
 aankoopbeleid_percelen,B,onbebouwd perceel,False,0,0.01,1000000
@@ -39,6 +41,8 @@ gestuurd_isolatieprogramma,B,bestaande woning,False,0,0.15,
 aanleg_geluidsbuffers,B,bestaande woning,False,0,0.01,
 compensatie_buitenzone,B,bestaande woning,False,0,0,1000000
 compensatie_verhuis,B,bestaande woning,False,0,0,1000000
+versterken_sociale_cohesie,B,bestaande woning,False, 0,0,1000000
+vergroenen_leefomgeving,B,bestaande woning,False, 0,0,1000000
 verkavelingsverbod,C,onbebouwd perceel,False,0.02,0,0
 woongebiedverbod,C,onbebouwd perceel,False,0.02,0,0
 aankoopbeleid_percelen,C,onbebouwd perceel,False,0,0.01,1000000
@@ -59,6 +63,8 @@ gestuurd_isolatieprogramma,C,bestaande woning,False,0,0.15,
 aanleg_geluidsbuffers,C,bestaande woning,False,0,0.01,
 compensatie_buitenzone,C,bestaande woning,False,0,0,1000000
 compensatie_verhuis,C,bestaande woning,False,0,0,1000000
+versterken_sociale_cohesie,C,bestaande woning,False, 0,0,1000000
+vergroenen_leefomgeving,C,bestaande woning,False, 0,0,1000000
 verkavelingsverbod,D,onbebouwd perceel,False,0.02,0,0
 woongebiedverbod,D,onbebouwd perceel,False,0.02,0,0
 aankoopbeleid_percelen,D,onbebouwd perceel,False,0,0.01,1000000
@@ -79,6 +85,8 @@ gestuurd_isolatieprogramma,D,bestaande woning,False,0,0.15,
 aanleg_geluidsbuffers,D,bestaande woning,False,0,0.01,
 compensatie_buitenzone,D,bestaande woning,False,0,0,1000000
 compensatie_verhuis,D,bestaande woning,False,0,0,1000000
+versterken_sociale_cohesie,D,bestaande woning,False, 0,0,1000000
+vergroenen_leefomgeving,D,bestaande woning,False, 0,0,1000000
 verkavelingsverbod,E,onbebouwd perceel,False,0.02,0,0
 woongebiedverbod,E,onbebouwd perceel,False,0.02,0,0
 aankoopbeleid_percelen,E,onbebouwd perceel,False,0,0.01,1000000
@@ -99,3 +107,5 @@ gestuurd_isolatieprogramma,E,bestaande woning,False,0,0.15,
 aanleg_geluidsbuffers,E,bestaande woning,False,0,0.01,
 compensatie_buitenzone,E,bestaande woning,False,0,0,1000000
 compensatie_verhuis,E,bestaande woning,False,0,0,1000000
+versterken_sociale_cohesie,E,bestaande woning,False, 0,0,1000000
+vergroenen_leefomgeving,E,bestaande woning,False, 0,0,1000000
