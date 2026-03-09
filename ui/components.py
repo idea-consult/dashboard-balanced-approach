@@ -9,7 +9,7 @@ from models.validation import validate_measure_combinations, get_conflict_messag
 from config import ZONES, BEGINJAAR, EINDJAAR
 
 
-def render_sidebar_controls(flow_manager: FlowManager) -> None:
+def render_sidebar_controls(flow_manager: FlowManager):
     """
     Render sidebar controls for measure selection.
     
@@ -30,13 +30,10 @@ def render_sidebar_controls(flow_manager: FlowManager) -> None:
                 width="stretch",
             )
             flow_manager.set_selected_zones(maatregel, selected)
-        
-        # Valideer maatregel combinaties na alle selecties
-        conflicts = validate_measure_combinations(flow_manager)
-        if conflicts:
-            st.error("**Incompatibele maatregel combinaties:**")
-            for zone, measure1, measure2 in conflicts:
-                st.error(get_conflict_message(zone, measure1, measure2, flow_manager))
+
+    # Valideer maatregel combinaties na alle selecties (buiten de sidebar)
+    conflicts = validate_measure_combinations(flow_manager)
+    return conflicts
 
 
 def render_metrics(stock_manager: StockManager) -> None:
@@ -104,7 +101,9 @@ def plot_metric(df_stock: pd.DataFrame, stock_name: str, title: str, y_label: st
         title: Chart title
         y_label: Y-axis label
     """
-    df_plot = df_stock[df_stock["naam"] == stock_name]
+    df_plot = df_stock[
+        (df_stock["naam"] == stock_name) & (df_stock["zone"] != "Totaal")
+    ]
     chart = (
         alt.Chart(df_plot)
         .mark_line(point=True)
@@ -146,13 +145,13 @@ def render_charts(stock_manager: StockManager) -> None:
     with col2:
         plot_metric(
             df_stock,
-            "niet_geisoleerde_woningen",
+            "bewoonde_niet_geïsoleerde_woning",
             "Evolutie van niet geïsoleerde woningen per zone",
             "Aantal woningen",
         )
         plot_metric(
             df_stock,
-            "geisoleerde_woningen",
+            "bewoonde_geïsoleerde_woning",
             "Evolutie van geïsoleerde woningen per zone",
             "Aantal woningen",
         )

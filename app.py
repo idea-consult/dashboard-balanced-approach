@@ -23,6 +23,7 @@ from config import (
 )
 from models.stock_manager import StockManager
 from models.flow_manager import FlowManager
+from models.validation import get_conflict_message
 from simulation.engine import SimulationEngine
 from ui.auth import check_password
 from ui.components import (
@@ -42,8 +43,13 @@ st.set_page_config(layout="wide")
 stock_manager = StockManager(STOCK_FILE)
 flow_manager = FlowManager(FLOW_FILE, BESCHRIJVING_MAATREGELEN_FILE)
 
-# Render sidebar controls
-render_sidebar_controls(flow_manager)
+# Render sidebar controls en toon eventuele conflicten centraal
+conflicts = render_sidebar_controls(flow_manager)
+if conflicts:
+    st.error("**Incompatibele maatregelcombinaties:**")
+    for zone, measure1, measure2 in conflicts:
+        st.error(get_conflict_message(zone, measure1, measure2, flow_manager))
+    st.stop()
 
 # Run simulation
 simulation_engine = SimulationEngine(stock_manager, flow_manager, ZONES)

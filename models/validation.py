@@ -11,6 +11,10 @@ INCOMPATIBLE_MEASURES = [
     # Aankoopbeleid en voorkooprecht kunnen niet samen
     ("aankoopbeleid_woningen", "voorkooprecht_woningen"),
     ("aankoopbeleid_percelen", "voorkooprecht_percelen"),
+    # Nieuw: drie percelenmaatregelen mogen nooit gecombineerd worden
+    ("aankoopbeleid_percelen", "onteigening_percelen"),
+    ("voorkooprecht_percelen", "onteigening_percelen"),
+    ("aankoopbeleid_percelen", "voorkooprecht_percelen"),
     # Isolatievoorschriften en verbod op kleinschalige woningen zijn incompatibel
     ("isolatievoorschriften_nieuwbouw", "verbod_kleine_woning"),
 ]

@@ -4,6 +4,7 @@ import unittest
 from pathlib import Path
 
 from models.flow_manager import FlowManager
+from config import ZONES
 
 
 class TestFlowManagerIsolatievoorschriften(unittest.TestCase):
@@ -14,7 +15,7 @@ class TestFlowManagerIsolatievoorschriften(unittest.TestCase):
         """Load flow manager with actual input files."""
         base = Path(__file__).parent.parent
         cls.flow_manager = FlowManager(
-            str(base / "input" / "flow.csv"),
+            str(base / "input" / "20260302_flows.csv"),
             str(base / "input" / "beschrijving_maatregelen.csv"),
         )
 
@@ -23,17 +24,19 @@ class TestFlowManagerIsolatievoorschriften(unittest.TestCase):
         Als isolatievoorschriften_nieuwbouw is geactiveerd voor een zone,
         moet get_flow ratio 1 retourneren (100% van nieuwbouw is geïsoleerd).
         """
-        zones = ("A", "B", "C", "D", "E")
+        
 
-        for zone in zones:
+        for zone in ZONES:
             with self.subTest(zone=zone):
                 self.flow_manager.set_selected_zones(
                     "isolatievoorschriften_nieuwbouw", (zone,)
                 )
-                ratio = self.flow_manager.get_flow("isolatievoorschriften_nieuwbouw", zone)
+                ratio = self.flow_manager.get_flow(
+                    "isolatievoorschriften_nieuwbouw", zone
+                )
                 self.assertEqual(
                     ratio,
-                    1,
+                    (1,1),
                     f"Zone {zone}: verwacht ratio 1 wanneer maatregel actief, krijg {ratio}",
                 )
 

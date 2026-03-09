@@ -1,20 +1,21 @@
 """Simulation engine for year-by-year stock and flow calculations."""
 
 from typing import Tuple
+import csv
+import os
 from models.stock_manager import StockManager
 from models.flow_manager import FlowManager
-from simulation.calculators import calculate_initial_metrics, calculate_totals
-from util.helpers import (
+from simulation.helpers import (
     get_hinder_punten,
     get_hinder_punten_met_isolatie,
     get_hinder_punten_zonder_isolatie,
 )
-from config import PERSONEN_PER_WOONUNIT
+from config import PERSONEN_PER_WOONUNIT, OUTPUT_DIR
 
 
 class SimulationEngine:
     """Engine for running year-by-year simulations."""
-    
+
     def __init__(
         self,
         stock_manager: StockManager,
@@ -23,7 +24,7 @@ class SimulationEngine:
     ):
         """
         Initialize the simulation engine.
-        
+
         Args:
             stock_manager: StockManager instance
             flow_manager: FlowManager instance
@@ -32,158 +33,209 @@ class SimulationEngine:
         self.stock_manager = stock_manager
         self.flow_manager = flow_manager
         self.zones = zones
-    
+        self._flow_log_rows = []
+
     def run_simulation(self, beginjaar: int, eindjaar: int) -> None:
         """
         Run the simulation from beginjaar to eindjaar.
-        
+
         Args:
             beginjaar: Starting year
             eindjaar: Ending year (exclusive)
         """
-        # Calculate initial metrics
-        calculate_initial_metrics(self.stock_manager, self.zones, beginjaar)
-        
         # Run year-by-year simulation
         jaren = range(beginjaar, eindjaar)
         for j in jaren:
-            for z in self.zones:
-                self._simulate_year_zone(j, z)
-        
-        # Calculate totals across zones
-        calculate_totals(self.stock_manager, self.zones, beginjaar, eindjaar)
-    
+            for zone in self.zones:
+                self._simulate_year_zone(j, zone)
+
+        self._calculate_derived_metrics(beginjaar, eindjaar)
+        self._calculate_totals(beginjaar, eindjaar)
+
+        # Schrijf flow-log naar CSV
+        log_path = os.path.join(OUTPUT_DIR, "flow_log.csv")
+        fieldnames = [
+            "zone",
+            "jaar", 
+            "naam_flow",
+            "maatregel_toegepast",
+            "inflow_relative",
+            "outflow_relative",
+            "inflow_stock_name",
+            "orig_future_inflow_stock_value",
+            "new_future_inflow_stock_value",
+            "outflow_stock_name",
+            "orig_future_outflow_stock_value",
+            "new_future_outflow_stock_value",
+        ]
+        with open(log_path, "w", newline="", encoding="utf-8") as f:
+            writer = csv.DictWriter(f, fieldnames=fieldnames, delimiter=";")
+            writer.writeheader()
+            writer.writerows(self._flow_log_rows)
+
     def _simulate_year_zone(self, jaar: int, zone: str) -> None:
         """Simulate one year for one zone."""
-        if self.flow_manager.is_measure_applied("landingsbaan_verschuiven", zone):
-            return
-        
-        # Calculate new houses from parcels (needed for both parcel and house simulation)
-        huidige_percelen = self.stock_manager.get_aantal(
-            "onbebouwde_bebouwbare_percelen", jaar, zone
-        )
-        nieuwe_woningen = self._calculate_new_houses_from_parcels(huidige_percelen, zone)
-        
-        # Simulate parcels and houses
-        self._simulate_parcels(jaar, zone, nieuwe_woningen)
-        self._simulate_houses(jaar, zone, nieuwe_woningen)
-        
-        # Calculate derived metrics
-        self._calculate_derived_metrics(jaar + 1, zone)
-    
-    def _flow(self, flow_name: str, zone: str, base_value: float) -> float:
-        """Helper: Calculate flow value * base value."""
-        return base_value * self.flow_manager.get_flow(flow_name, zone)
-    
-    def _calculate_new_houses_from_parcels(self, percelen: float, zone: str) -> dict:
-        """Calculate new houses from parcel flows."""
-        return {
-            "klein": self._flow("verbod_kleine_woning", zone, percelen),
-            "groot": self._flow("verbod_grote_woning", zone, percelen),
-            "kwetsbaar": self._flow("verbod_kwetsbare_groep", zone, percelen),
-        }
-    
-    def _simulate_parcels(self, jaar: int, zone: str, nieuwe_woningen: dict) -> None:
-        """Simulate parcel stock changes."""
-        huidige_onbebouwde_bebouwbare_percelen = self.stock_manager.get_aantal("onbebouwde_bebouwbare_percelen", jaar, zone)
-        
-        # Calculate flows
-        toevoegingen = (
-            self._flow("verkavelingsverbod", zone, huidige_onbebouwde_bebouwbare_percelen) +
-            self._flow("woongebiedverbod", zone, huidige_onbebouwde_bebouwbare_percelen)
-        )
-        verwijderingen = (
-            self._flow("aankoopbeleid_percelen", zone, huidige_onbebouwde_bebouwbare_percelen) +
-            self._flow("voorkooprecht_percelen", zone, huidige_onbebouwde_bebouwbare_percelen) +
-            self._flow("onteigening_percelen", zone, huidige_onbebouwde_bebouwbare_percelen) +
-            sum(nieuwe_woningen.values())
-        )
-        overheid_percelen = (
-            self._flow("aankoopbeleid_percelen", zone, huidige_onbebouwde_bebouwbare_percelen) +
-            self._flow("voorkooprecht_percelen", zone, huidige_onbebouwde_bebouwbare_percelen) +
-            self._flow("onteigening_percelen", zone, huidige_onbebouwde_bebouwbare_percelen)
-        )
-        
-        # Update stocks
-        toekomstige = huidige_onbebouwde_bebouwbare_percelen + toevoegingen - verwijderingen
-        self.stock_manager.set_aantal("onbebouwde_bebouwbare_percelen", jaar + 1, zone, toekomstige)
-        self.stock_manager.set_aantal("onbebouwde_onbebouwbare_percelen", jaar + 1, zone, overheid_percelen)
-    
-    def _simulate_houses(self, jaar: int, zone: str, nieuwe_woningen: dict) -> None:
-        """Simulate house stock changes."""
-        bijkomende_woningen = sum(nieuwe_woningen.values())
-        huidige_niet_geisoleerd = self.stock_manager.get_aantal("niet_geisoleerde_woningen", jaar, zone)
-        huidige_geisoleerd = self.stock_manager.get_aantal("geisoleerde_woningen", jaar, zone)
-        
-        # Bijkomende woningen vermijden
-        opsplitsing_niet = self._flow("woonverdichtingsverbod_woningen", zone, huidige_niet_geisoleerd)
-        opsplitsing_geisoleerd = self._flow("woonverdichtingsverbod_woningen", zone, huidige_geisoleerd)
-        onteigingen_niet = self._flow("onteigening_woningen", zone, huidige_niet_geisoleerd)
-        onteigingen_geisoleerd = self._flow("onteigening_woningen", zone, huidige_geisoleerd)
+        stocks = [
+            "bewoonde_geïsoleerde_woning",
+            "bewoonde_niet_geïsoleerde_woning",
+            "niet_bewoonde_geïsoleerde_woning",
+            "niet_bewoonde_niet_geïsoleerde_woning",
+            "nieuwe_woning",
+            "onbebouwde_bebouwbare_percelen",
+            "onbebouwde_onbebouwbare_percelen",
+            "perceel_eigendom_overheid",
+            "woning_eigendom_overheid",
+        ]
+        for stock in stocks:
+            current_stock_value = self.stock_manager.get_aantal(stock, jaar, zone)
+            future_stock_value = current_stock_value
+            self.stock_manager.set_aantal(stock, jaar + 1, zone, future_stock_value)
 
-        overheid_niet = (
-            self._flow("aankoopbeleid_woningen", zone, huidige_niet_geisoleerd) +
-            self._flow("voorkooprecht_woningen", zone, huidige_niet_geisoleerd)
-        )
-        overheid_geisoleerd = (
-            self._flow("aankoopbeleid_woningen", zone, huidige_geisoleerd) +
-            self._flow("voorkooprecht_woningen", zone, huidige_geisoleerd)
-        )
-        
-        # Huidige woningen isoleren
-        isolatie = (
-            self._flow("verplicht_isoleren_renovatie", zone, huidige_niet_geisoleerd) +
-            self._flow("gesubsidieerd_isolatieprogramma", zone, huidige_niet_geisoleerd) +
-            self._flow("gestuurd_isolatieprogramma", zone, huidige_niet_geisoleerd) +
-            self._flow("aanleg_geluidsbuffers", zone, huidige_niet_geisoleerd)
-        )
-        
-        # Calculate new houses with/without insulation
-        isolatie_ratio = self.flow_manager.get_flow("isolatievoorschriften_nieuwbouw", zone)
-        nieuwe_geisoleerd = bijkomende_woningen * isolatie_ratio
-        nieuwe_niet_geisoleerd = bijkomende_woningen - nieuwe_geisoleerd
-        
-        # Calculate future stocks
-        toekomstige_niet = (
-            huidige_niet_geisoleerd 
-            + nieuwe_niet_geisoleerd 
-            + opsplitsing_niet
-            - isolatie 
-            - overheid_niet 
-            - onteigingen_niet
-        )
-        toekomstige_geisoleerd = (
-            huidige_geisoleerd 
-            + nieuwe_geisoleerd 
-            + opsplitsing_geisoleerd
-            + isolatie 
-            - overheid_geisoleerd 
-            - onteigingen_geisoleerd
-        )
-        leegstaand = overheid_niet + overheid_geisoleerd + onteigingen_niet + onteigingen_geisoleerd
-        
-        # Update stocks
-        self.stock_manager.set_aantal("niet_geisoleerde_woningen", jaar + 1, zone, toekomstige_niet)
-        self.stock_manager.set_aantal("geisoleerde_woningen", jaar + 1, zone, toekomstige_geisoleerd)
-        self.stock_manager.set_aantal("leegstaande_woningen", jaar + 1, zone, leegstaand)
-    
-    def _calculate_derived_metrics(self, jaar: int, zone: str) -> None:
-        """Calculate derived metrics (persons, hinder points) for a year and zone."""
-        niet_geisoleerd = self.stock_manager.get_aantal("niet_geisoleerde_woningen", jaar, zone)
-        geisoleerd = self.stock_manager.get_aantal("geisoleerde_woningen", jaar, zone)
-        
-        personen_zonder = niet_geisoleerd * PERSONEN_PER_WOONUNIT
-        personen_met = geisoleerd * PERSONEN_PER_WOONUNIT
-        
-        # Calculate and store metrics
-        metrics = {
-            "gehinderde_personen_zonder_isolatie": personen_zonder,
-            "gehinderde_personen_met_isolatie": personen_met,
-            "totaal_gehinderde_personen": personen_zonder + personen_met,
-            "hinderpunten": int(get_hinder_punten(personen_zonder, personen_met, zone)),
-            "hinderpunten_isolatie": get_hinder_punten_zonder_isolatie(personen_zonder, zone),
-            "hinderpunten_zonder_isolatie": get_hinder_punten_met_isolatie(personen_met, zone),
-        }
-        
-        for metric_name, value in metrics.items():
-            self.stock_manager.set_aantal(metric_name, jaar, zone, value)
+        for row in self.flow_manager.get_flows(zone):
+            name_measure = row.get_name_measure()
+            inflow_stock_name = row.get_inflow_stock_name()
+            outflow_stock_name = row.get_outflow_stock_name()
+
+            current_inflow_stock_value = self.stock_manager.get_aantal(
+                inflow_stock_name, jaar, zone
+            )
+            current_outflow_stock_value = self.stock_manager.get_aantal(
+                outflow_stock_name, jaar, zone
+            )
+            future_inflow_stock_value = self.stock_manager.get_aantal(
+                inflow_stock_name, jaar + 1, zone
+            )
+            future_outflow_stock_value = self.stock_manager.get_aantal(
+                outflow_stock_name, jaar + 1, zone
+            )
+
+            inflow_relative, outflow_relative = row.get_flow()
+            inflow_absolute = current_inflow_stock_value * inflow_relative
+            outflow_absolute = current_inflow_stock_value * outflow_relative
+
+            orig_future_inflow = future_inflow_stock_value
+            orig_future_outflow = future_outflow_stock_value
+
+            future_inflow_stock_value = future_inflow_stock_value - inflow_absolute
+            if future_inflow_stock_value < 0:
+                raise ValueError(
+                    f"Future inflow stock value is negative for {inflow_stock_name} in {zone} in {jaar}, using {name_measure}."
+                )
+            future_outflow_stock_value = future_outflow_stock_value + outflow_absolute
+
+            # Log regel toevoegen
+            self._flow_log_rows.append(
+                {
+                    "zone": zone,
+                    "jaar": jaar,
+                    "naam_flow": name_measure,
+                    "maatregel_toegepast": row.is_applied(),
+                    "inflow_relative": inflow_relative,
+                    "outflow_relative": outflow_relative,
+                    "inflow_stock_name": inflow_stock_name,
+                    "orig_future_inflow_stock_value": orig_future_inflow,
+                    "new_future_inflow_stock_value": future_inflow_stock_value,
+                    "outflow_stock_name": outflow_stock_name,
+                    "orig_future_outflow_stock_value": orig_future_outflow,
+                    "new_future_outflow_stock_value": future_outflow_stock_value,
+                }
+            )
+
+            self.stock_manager.set_aantal(
+                inflow_stock_name, jaar + 1, zone, future_inflow_stock_value
+            )
+            self.stock_manager.set_aantal(
+                outflow_stock_name, jaar + 1, zone, future_outflow_stock_value
+            )
+
+    def _calculate_derived_metrics(self, beginjaar: int, eindjaar: int) -> None:
+        """
+        Calculate derived metrics (persons, hinder points) for a year and zone.
+        The following metrics are calculated per zone:
+        - gehinderde_personen_zonder_isolatie
+        - gehinderde_personen_met_isolatie
+        - totaal_gehinderde_personen
+        - hinderpunten
+        - hinderpunten_isolatie
+        - hinderpunten_zonder_isolatie
+        """
+        for j in range(beginjaar, eindjaar + 1):
+            for zone in self.zones:
+                niet_geisoleerde_woningen = self.stock_manager.get_aantal(
+                    "bewoonde_niet_geïsoleerde_woning", j, zone
+                )
+                geisoleerde_woningen = self.stock_manager.get_aantal(
+                    "bewoonde_geïsoleerde_woning", j, zone
+                )
+
+                personen_zonder_isolatie = (
+                    niet_geisoleerde_woningen * PERSONEN_PER_WOONUNIT
+                )
+                personen_met_isolatie = geisoleerde_woningen * PERSONEN_PER_WOONUNIT
+
+                totaal_gehinderde_personen = (
+                    personen_zonder_isolatie + personen_met_isolatie
+                )
+
+                hinderpunten = get_hinder_punten(
+                    personen_zonder_isolatie, personen_met_isolatie, zone
+                )
+                hinderpunten_isolatie = get_hinder_punten_zonder_isolatie(
+                    personen_zonder_isolatie, zone
+                )
+                hinderpunten_zonder_isolatie = get_hinder_punten_met_isolatie(
+                    personen_met_isolatie, zone
+                )
+
+                self.stock_manager.set_aantal(
+                    "gehinderde_personen_zonder_isolatie",
+                    j,
+                    zone,
+                    personen_zonder_isolatie,
+                )
+                self.stock_manager.set_aantal(
+                    "gehinderde_personen_met_isolatie", j, zone, personen_met_isolatie
+                )
+                self.stock_manager.set_aantal(
+                    "totaal_gehinderde_personen", j, zone, totaal_gehinderde_personen
+                )
+                self.stock_manager.set_aantal("hinderpunten", j, zone, hinderpunten)
+                self.stock_manager.set_aantal(
+                    "hinderpunten_isolatie", j, zone, hinderpunten_isolatie
+                )
+                self.stock_manager.set_aantal(
+                    "hinderpunten_zonder_isolatie",
+                    j,
+                    zone,
+                    hinderpunten_zonder_isolatie,
+                )
+
+    def _calculate_totals(self, beginjaar: int, eindjaar: int) -> None:
+        metrics = [
+            "gehinderde_personen_met_isolatie",
+            "gehinderde_personen_zonder_isolatie",
+            "hinderpunten",
+            "hinderpunten_isolatie",
+            "hinderpunten_zonder_isolatie",
+            "totaal_gehinderde_personen",
+            "bewoonde_geïsoleerde_woning",
+            "bewoonde_niet_geïsoleerde_woning",
+            "niet_bewoonde_geïsoleerde_woning",
+            "niet_bewoonde_niet_geïsoleerde_woning",
+            "nieuwe_woning",
+            "onbebouwde_bebouwbare_percelen",
+            "onbebouwde_onbebouwbare_percelen",
+            "perceel_eigendom_overheid",
+            "woning_eigendom_overheid",
+        ]
+
+        for j in range(beginjaar, eindjaar + 1):
+            for metric in metrics:
+                try:
+                    total = sum(
+                        self.stock_manager.get_aantal(metric, j, z) for z in self.zones
+                    )
+                except KeyError:
+                    total = 0
+
+                self.stock_manager.set_aantal(metric, j, "Totaal", total)

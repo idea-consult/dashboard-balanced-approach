@@ -1,5 +1,5 @@
 def get_hinder_punten(
-    gehinderde_personen_zonder_isolatie, gehinderde_personen_met_isolatie, z
+    gehinderde_personen_zonder_isolatie: float, gehinderde_personen_met_isolatie: float, z
 ):
     match z:
         case "A":
@@ -24,7 +24,7 @@ def get_hinder_punten(
             )
         case "E":
             return 0
-
+        
 
 def get_hinder_punten_zonder_isolatie(gehinderde_personen_zonder_isolatie, z):
     match z:
