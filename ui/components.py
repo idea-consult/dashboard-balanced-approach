@@ -266,6 +266,8 @@ def render_flow_log_zone_table(flow_log_zone_file: str) -> None:
         "jaar",
         "naam_flow",
         "maatregel_toegepast",
+        "flow_mode",
+        "flow_rate",
         "inflow_stock_name",
         "outflow_stock_name",
         "delta_inflow",

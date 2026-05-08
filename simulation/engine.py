@@ -102,32 +102,36 @@ class SimulationEngine:
                     outflow_idx = state.stock_to_idx[rule.outflow_stock]
                     inflow_stock_value = state.sim_state[next_year_idx, zone_idx, inflow_idx]
                     outflow_stock_value = state.sim_state[next_year_idx, zone_idx, outflow_idx]
-                    inflow_relative = (
-                        rule.inflow_rate_active if rule.active else rule.inflow_rate_baseline
+                    flow_rate = (
+                        rule.flow_rate_active if rule.active else rule.flow_rate_baseline
                     )
-                    outflow_relative = (
-                        rule.outflow_rate_active if rule.active else rule.outflow_rate_baseline
-                    )
-                    inflow_absolute = inflow_stock_value * inflow_relative
-                    outflow_absolute = inflow_stock_value * outflow_relative
+                    flow_absolute = inflow_stock_value * flow_rate
+                    if rule.flow_mode == "growth":
+                        new_inflow = inflow_stock_value + flow_absolute
+                        new_outflow = (
+                            new_inflow if outflow_idx == inflow_idx else outflow_stock_value
+                        )
+                        outflow_absolute = flow_absolute
+                    else:
+                        new_inflow = inflow_stock_value - flow_absolute
+                        if new_inflow < 0:
+                            raise ValueError(
+                                f"Future inflow stock value is negative for {rule.inflow_stock} in {zone} in {jaar}, using {rule.measure_id}."
+                            )
+                        new_outflow = outflow_stock_value + flow_absolute
+                        outflow_absolute = flow_absolute
                     if rule.active:
                         row_cost = self._calculate_row_cost(zone, rule.cost_stock, outflow_absolute)
                         state.totale_kost_overheid += row_cost * rule.rel_cost_overheid
                         state.totale_kost_prive += row_cost * rule.rel_cost_prive
-                    new_inflow = inflow_stock_value - inflow_absolute
-                    if new_inflow < 0:
-                        raise ValueError(
-                            f"Future inflow stock value is negative for {rule.inflow_stock} in {zone} in {jaar}, using {rule.measure_id}."
-                        )
-                    new_outflow = outflow_stock_value + outflow_absolute
                     state.flow_log_rows.append(
                         {
                             "zone": zone,
                             "jaar": jaar,
                             "naam_flow": rule.measure_id,
                             "maatregel_toegepast": rule.active,
-                            "inflow_relative": inflow_relative,
-                            "outflow_relative": outflow_relative,
+                            "flow_rate": flow_rate,
+                            "flow_mode": rule.flow_mode,
                             "inflow_stock_name": rule.inflow_stock,
                             "orig_future_inflow_stock_value": inflow_stock_value,
                             "new_future_inflow_stock_value": new_inflow,
@@ -139,7 +143,8 @@ class SimulationEngine:
                         }
                     )
                     state.sim_state[next_year_idx, zone_idx, inflow_idx] = new_inflow
-                    state.sim_state[next_year_idx, zone_idx, outflow_idx] = new_outflow
+                    if outflow_idx != inflow_idx:
+                        state.sim_state[next_year_idx, zone_idx, outflow_idx] = new_outflow
         return state
 
     def build_outputs(self, state: SimulationState) -> SimulationOutputs:
@@ -176,8 +181,8 @@ class SimulationEngine:
             "jaar",
             "naam_flow",
             "maatregel_toegepast",
-            "inflow_relative",
-            "outflow_relative",
+            "flow_rate",
+            "flow_mode",
             "inflow_stock_name",
             "orig_future_inflow_stock_value",
             "new_future_inflow_stock_value",
@@ -280,8 +285,8 @@ class SimulationEngine:
                         "jaar": row["jaar"],
                         "naam_flow": row["naam_flow"],
                         "maatregel_toegepast": row["maatregel_toegepast"],
-                        "inflow_relative": float(row["inflow_relative"]),
-                        "outflow_relative": float(row["outflow_relative"]),
+                        "flow_rate": float(row["flow_rate"]),
+                        "flow_mode": row["flow_mode"],
                         "inflow_stock_name": row["inflow_stock_name"],
                         "orig_future_inflow_stock_value": 0.0,
                         "new_future_inflow_stock_value": 0.0,

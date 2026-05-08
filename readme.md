@@ -19,27 +19,26 @@ De kernlogica van de simulatie werkt in 2 fasen voor elke combinatie van `jaar` 
 2. **Sequentieel toepassen van alle flows voor die zone**
    - Voor elke `FlowRule`:
      - lees `inflow_stock_name`, `outflow_stock_name`
-     - lees de relatieve factoren `(inflow_relative, outflow_relative)` via `row.get_flow()`
+     - lees `flow_rate` (baseline of active) en `flow_mode` (`transfer` of `growth`)
      - lees de **huidige werkwaarden** in `jaar+1`:
        - `future_inflow_stock_value`
        - `future_outflow_stock_value`
 
 #### Waarom de absolute flow op `future_inflow_stock_value` wordt berekend
 
-Absolute hoeveelheden worden berekend op basis van de reeds opgebouwde waarde in `jaar+1`:
+Absolute hoeveelheid wordt berekend op basis van de reeds opgebouwde waarde in `jaar+1`:
 
-- `inflow_absolute = future_inflow_stock_value * inflow_relative`
-- `outflow_absolute = future_inflow_stock_value * outflow_relative`
+- `flow_absolute = future_inflow_stock_value * flow_rate`
 
 Dit is belangrijk omdat flows binnen hetzelfde jaar elkaar beïnvloeden.  
 Bijvoorbeeld: `nieuwe_woning` kan eerst toenemen door eerdere flows, en moet later in datzelfde jaar kunnen afnemen door `isolatievoorschriften_nieuwbouw_*`.
 
 #### Updatevergelijkingen per flow-stap
 
-Voor elke flow-stap worden de nieuwe waarden:
+Voor elke flow-stap worden de nieuwe waarden afhankelijk van `flow_mode`:
 
-- `future_inflow_stock_value = future_inflow_stock_value - inflow_absolute`
-- `future_outflow_stock_value = future_outflow_stock_value + outflow_absolute`
+- `transfer`: `inflow -= flow_absolute`, `outflow += flow_absolute`
+- `growth`: `inflow += flow_absolute` (outflow blijft ongewijzigd)
 
 Bescherming:
 - Als `future_inflow_stock_value < 0`, wordt een `ValueError` gegooid.
@@ -50,6 +49,8 @@ Daarna worden beide waarden teruggeschreven in de state-array voor `jaar+1`.
 
 Per flow-stap wordt één logregel toegevoegd met o.a.:
 
+- `flow_rate` = gebruikte rate voor deze regel (baseline of active)
+- `flow_mode` = `transfer` of `growth`
 - `orig_future_inflow_stock_value` = inflow-waarde vóór de stap
 - `new_future_inflow_stock_value` = inflow-waarde na de stap
 - `orig_future_outflow_stock_value` = outflow-waarde vóór de stap
@@ -58,8 +59,8 @@ Per flow-stap wordt één logregel toegevoegd met o.a.:
 - `delta_outflow = new_future_outflow_stock_value - orig_future_outflow_stock_value`
 
 Interpretatie:
-- `delta_inflow` is normaal negatief of 0 (afname van inflow stock)
-- `delta_outflow` is normaal positief of 0 (toename van outflow stock)
+- bij `transfer`: `delta_inflow` meestal negatief, `delta_outflow` meestal positief
+- bij `growth`: `delta_inflow` meestal positief
 
 ### Aggregatie naar `flow_log_zone.csv`
 

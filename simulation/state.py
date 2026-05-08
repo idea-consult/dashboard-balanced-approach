@@ -14,10 +14,9 @@ class FlowRule:
     zone: str
     inflow_stock: str
     outflow_stock: str
-    inflow_rate_baseline: float
-    outflow_rate_baseline: float
-    inflow_rate_active: float
-    outflow_rate_active: float
+    flow_rate_baseline: float
+    flow_rate_active: float
+    flow_mode: str
     active: bool
     cost_stock: str
     rel_cost_overheid: float

@@ -53,10 +53,9 @@ class MeasureSelectionManager:
             "measure_id",
             "inflow_stock",
             "outflow_stock",
-            "inflow_rate_baseline",
-            "outflow_rate_baseline",
-            "inflow_rate_active",
-            "outflow_rate_active",
+            "flow_rate_baseline",
+            "flow_rate_active",
+            "flow_mode",
         }
         required_costs = {
             "measure_id",

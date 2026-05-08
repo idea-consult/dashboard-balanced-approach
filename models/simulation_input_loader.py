@@ -85,10 +85,9 @@ def _load_normalized_rules(
         "measure_id",
         "inflow_stock",
         "outflow_stock",
-        "inflow_rate_baseline",
-        "outflow_rate_baseline",
-        "inflow_rate_active",
-        "outflow_rate_active",
+        "flow_rate_baseline",
+        "flow_rate_active",
+        "flow_mode",
     }
     missing_rules = sorted(required_rules - set(flow_rules_df.columns))
     if missing_rules:
@@ -106,15 +105,21 @@ def _load_normalized_rules(
         .astype(int)
     )
     numeric_columns = [
-        "inflow_rate_baseline",
-        "outflow_rate_baseline",
-        "inflow_rate_active",
-        "outflow_rate_active",
+        "flow_rate_baseline",
+        "flow_rate_active",
         "rel_cost_overheid",
         "rel_cost_prive",
     ]
     for col in numeric_columns:
         merged[col] = pd.to_numeric(merged[col], errors="raise")
+    merged["flow_mode"] = merged["flow_mode"].astype(str).str.strip().str.lower()
+    valid_flow_modes = {"transfer", "growth"}
+    unknown_modes = sorted(set(merged["flow_mode"]) - valid_flow_modes)
+    if unknown_modes:
+        raise ValueError(
+            "flow_rules.csv bevat ongeldige flow_mode waarden: "
+            + ", ".join(unknown_modes)
+        )
 
     by_zone: Dict[str, list[FlowRule]] = {zone: [] for zone in zones}
     for zone in zones:
@@ -128,10 +133,9 @@ def _load_normalized_rules(
                     zone=zone,
                     inflow_stock=str(row["inflow_stock"]),
                     outflow_stock=str(row["outflow_stock"]),
-                    inflow_rate_baseline=float(row["inflow_rate_baseline"]),
-                    outflow_rate_baseline=float(row["outflow_rate_baseline"]),
-                    inflow_rate_active=float(row["inflow_rate_active"]),
-                    outflow_rate_active=float(row["outflow_rate_active"]),
+                    flow_rate_baseline=float(row["flow_rate_baseline"]),
+                    flow_rate_active=float(row["flow_rate_active"]),
+                    flow_mode=str(row["flow_mode"]),
                     active=active,
                     cost_stock=str(row.get("kost_stock", "")).strip(),
                     rel_cost_overheid=float(row["rel_cost_overheid"]),
