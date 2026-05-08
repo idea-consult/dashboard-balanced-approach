@@ -14,6 +14,16 @@ def _parse_percentage(value) -> float:
     return float(s) / 100.0
 
 
+def _parse_decimal(value) -> float:
+    """'1,05' -> 1.05."""
+    if isinstance(value, (int, float)):
+        return float(value)
+    s = str(value).strip().replace(",", ".")
+    if not s or s == "-":
+        return 0.0
+    return float(s)
+
+
 class FlowRow:
     """Kleine helperklasse die één flow-rij representeert."""
 
@@ -76,6 +86,15 @@ class FlowRow:
 
         return float(self._row[inflow_col]), float(self._row[outflow_col])
 
+    def get_relative_cost_overheid(self) -> float:
+        return float(self._row["relatieve_kost_overheid"])
+
+    def get_relative_cost_prive(self) -> float:
+        return float(self._row["relatieve_kost_privé"])
+
+    def get_kost_stock(self) -> str:
+        return str(self._row["kost_stock"]).strip()
+
 
 class FlowManager:
     """Manages flow data and measure applications voor het nieuwe flow-formaat."""
@@ -90,6 +109,9 @@ class FlowManager:
             "outflow_met_maatregel",
         ]:
             df_flow[col] = df_flow[col].map(_parse_percentage)
+        for col in ["maatregel_kost", "relatieve_kost_overheid", "relatieve_kost_privé"]:
+            if col in df_flow.columns:
+                df_flow[col] = df_flow[col].map(_parse_decimal)
         df_flow["maatregel_toepassen"] = (
             df_flow["maatregel_toepassen"].astype(str).str.upper() == "TRUE"
         )
@@ -99,17 +121,38 @@ class FlowManager:
         self.df_beschrijving_maatregelen = pd.read_csv(beschrijving_file).set_index(
             ["naam"], verify_integrity=True
         )
+        self._validate_measure_definitions()
+
+    def _validate_measure_definitions(self) -> None:
+        """
+        Validate that measure names in flows and descriptions are identical.
+
+        Raises:
+            ValueError: when one of both files contains missing/extra names.
+        """
+        flow_names = set(self.df_flow["naam"].astype(str).unique().tolist())
+        description_names = set(
+            self.df_beschrijving_maatregelen.index.astype(str).tolist()
+        )
+
+        missing_in_descriptions = sorted(flow_names - description_names)
+        missing_in_flows = sorted(description_names - flow_names)
+
+        if missing_in_descriptions or missing_in_flows:
+            parts = []
+            if missing_in_descriptions:
+                parts.append(
+                    "Ontbreekt in beschrijving_maatregelen.csv: "
+                    + ", ".join(missing_in_descriptions)
+                )
+            if missing_in_flows:
+                parts.append(
+                    "Ontbreekt in flows.csv: " + ", ".join(missing_in_flows)
+                )
+            raise ValueError("Maatregel-definities inconsistent. " + " | ".join(parts))
 
     def _mask_for_measure(self, maatregel_naam: str) -> pd.Series:
-        """
-        Bepaal welke flow-rijen bij één logische maatregel horen.
-
-        Voor isolatievoorschriften_nieuwbouw zijn er twee rijen met namen
-        die beginnen met 'isolatievoorschriften_nieuwbouw_', maar in de UI
-        en beschrijving is dat één maatregel.
-        """
-        if maatregel_naam == "isolatievoorschriften_nieuwbouw":
-            return self.df_flow["naam"].str.startswith("isolatievoorschriften_nieuwbouw")
+        """Exacte matching van één maatregel op flow-rijen."""
         return self.df_flow["naam"] == maatregel_naam
 
     # ---- API voor SimulationEngine ----
@@ -129,15 +172,6 @@ class FlowManager:
         subset = self.df_flow[mask]
         if subset.empty:
             raise KeyError(f"Geen flow gevonden voor maatregel {naam} in zone {zone}")
-
-        if naam == "isolatievoorschriften_nieuwbouw":
-            if subset["maatregel_toepassen"].any():
-                # 100% van de nieuwbouw gaat naar geïsoleerde woningen
-                return (1.0, 1.0)
-            return (
-                float(subset["inflow_zonder_maatregel"].sum()),
-                float(subset["outflow_zonder_maatregel"].sum()),
-            )
 
         if naam == "renovatie_zonder_maatregel":
             # Gebruik dezelfde logica als FlowRow.get_flow voor deze rij.

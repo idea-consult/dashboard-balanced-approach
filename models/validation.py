@@ -2,25 +2,28 @@
 
 from typing import List, Tuple
 from models.flow_manager import FlowManager
-from config import ZONES
 
 
 # Definieer incompatibele maatregel combinaties
 # Elke tuple bevat maatregelen die niet samen op dezelfde zone mogen worden toegepast
 INCOMPATIBLE_MEASURES = [
     # Aankoopbeleid en voorkooprecht kunnen niet samen
-    ("aankoopbeleid_woningen", "voorkooprecht_woningen"),
+    ("aankoopbeleid_niet_geïsoleerde_woningen", "voorkooprecht_niet_geïsoleerde_woningen"),
+    ("aankoopbeleid_geïsoleerde_woningen", "voorkooprecht_geïsoleerde_woningen"),
     ("aankoopbeleid_percelen", "voorkooprecht_percelen"),
     # Nieuw: drie percelenmaatregelen mogen nooit gecombineerd worden
     ("aankoopbeleid_percelen", "onteigening_percelen"),
     ("voorkooprecht_percelen", "onteigening_percelen"),
     ("aankoopbeleid_percelen", "voorkooprecht_percelen"),
     # Isolatievoorschriften en verbod op kleinschalige woningen zijn incompatibel
-    ("isolatievoorschriften_nieuwbouw", "verbod_kleine_woning"),
+    ("isolatievoorschriften_nieuwbouw_naar_niet_geïsoleerde_woning", "verbod_kleine_woning"),
+    ("isolatievoorschriften_nieuwbouw_naar_geïsoleerde_woning", "verbod_kleine_woning"),
 ]
 
 
-def validate_measure_combinations(flow_manager: FlowManager) -> List[Tuple[str, str, str]]:
+def validate_measure_combinations(
+    flow_manager: FlowManager, zones: Tuple[str, ...]
+) -> List[Tuple[str, str, str]]:
     """
     Valideer of er incompatibele maatregel combinaties zijn per zone.
     
@@ -32,7 +35,7 @@ def validate_measure_combinations(flow_manager: FlowManager) -> List[Tuple[str, 
     """
     conflicts = []
     
-    for zone in ZONES:
+    for zone in zones:
         # Check elke incompatibele combinatie
         for measure1, measure2 in INCOMPATIBLE_MEASURES:
             if (
