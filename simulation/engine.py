@@ -3,11 +3,18 @@
 from typing import Dict, List, Tuple
 import csv
 import os
-from time import perf_counter
 import numpy as np
 from models.stock_manager import StockManager
-from models.flow_manager import FlowManager
-from config import OUTPUT_DIR, ZONES_FILE
+from models.measure_selection_manager import MeasureSelectionManager
+from models.simulation_input_loader import load_simulation_inputs
+from simulation.state import SimulationOutputs, SimulationState
+from config import (
+    OUTPUT_DIR,
+    ZONES_FILE,
+    MEASURES_FILE,
+    FLOW_RULES_FILE,
+    MEASURE_COSTS_FILE,
+)
 
 
 class SimulationEngine:
@@ -16,26 +23,31 @@ class SimulationEngine:
     def __init__(
         self,
         stock_manager: StockManager,
-        flow_manager: FlowManager,
+        measure_selection_manager: MeasureSelectionManager,
         zones: Tuple[str, ...],
         zones_file: str = ZONES_FILE,
+        measures_file: str = MEASURES_FILE,
+        flow_rules_file: str = FLOW_RULES_FILE,
+        measure_costs_file: str = MEASURE_COSTS_FILE,
     ):
         """
         Initialize the simulation engine.
 
         Args:
             stock_manager: StockManager instance
-            flow_manager: FlowManager instance
+            measure_selection_manager: MeasureSelectionManager instance
             zones: Tuple of zone identifiers
         """
         self.stock_manager = stock_manager
-        self.flow_manager = flow_manager
+        self.measure_selection_manager = measure_selection_manager
         self.zones = zones
         self.zones_file = zones_file
+        self.measures_file = measures_file
+        self.flow_rules_file = flow_rules_file
+        self.measure_costs_file = measure_costs_file
         self._flow_log_rows = []
         self._totale_kost_overheid = 0.0
         self._totale_kost_prive = 0.0
-        self._timings: Dict[str, float] = {}
         self._price_column_by_stock = {
             "onbebouwde_bebouwbare_percelen": "prijs_onbebouwde_bebouwbare_percelen",
             "onbebouwde_onbebouwbare_percelen": "prijs_onbebouwde_onbebouwbare_percelen",
@@ -44,138 +56,124 @@ class SimulationEngine:
         }
 
     def run_simulation(self, beginjaar: int, eindjaar: int) -> None:
-        """
-        Run the simulation from beginjaar to eindjaar.
-
-        Args:
-            beginjaar: Starting year
-            eindjaar: Ending year (exclusive)
-        """
-        total_start = perf_counter()
-        self._timings = {}
-        self._flow_log_rows = []
-        self._totale_kost_overheid = 0.0
-        self._totale_kost_prive = 0.0
-
-        stock_names = [
-            "bewoonde_geïsoleerde_woning",
-            "bewoonde_niet_geïsoleerde_woning",
-            "niet_bewoonde_geïsoleerde_woning",
-            "niet_bewoonde_niet_geïsoleerde_woning",
-            "nieuwe_woning",
-            "onbebouwde_bebouwbare_percelen",
-            "onbebouwde_onbebouwbare_percelen",
-            "perceel_eigendom_overheid",
-            "woning_eigendom_overheid",
+        selected_zones = [
+            (name, self.measure_selection_manager.get_selected_zones(str(name)))
+            for name in self.measure_selection_manager.get_measure_descriptions().index
         ]
-        stock_to_idx = {stock: idx for idx, stock in enumerate(stock_names)}
-        zone_to_idx = {zone: idx for idx, zone in enumerate(self.zones)}
-        n_years = (eindjaar - beginjaar) + 1
-        sim_state = np.zeros((n_years, len(self.zones), len(stock_names)), dtype=float)
+        state = self.load_inputs(beginjaar, eindjaar, selected_zones)
+        state = self.run_simulation_state(state)
+        outputs = self.build_outputs(state)
+        self.persist_outputs(outputs)
 
-        init_state_start = perf_counter()
-        for stock_idx, stock_name in enumerate(stock_names):
-            for zone_idx, zone in enumerate(self.zones):
-                sim_state[0, zone_idx, stock_idx] = self.stock_manager.get_aantal(
-                    stock_name, beginjaar, zone
-                )
-        self._timings["simulation.init_state"] = perf_counter() - init_state_start
-
-        precompute_flows_start = perf_counter()
-        zone_flows = self._build_zone_flow_records(stock_to_idx)
-        self._timings["simulation.precompute_flows"] = (
-            perf_counter() - precompute_flows_start
+    def load_inputs(
+        self,
+        beginjaar: int,
+        eindjaar: int,
+        selected_zones: List[tuple[str, Tuple[str, ...]]] | None = None,
+    ) -> SimulationState:
+        """Load validated inputs into a single SimulationState."""
+        return load_simulation_inputs(
+            stock_manager=self.stock_manager,
+            beginjaar=beginjaar,
+            eindjaar=eindjaar,
+            zones=self.zones,
+            flow_rules_file=self.flow_rules_file,
+            measure_costs_file=self.measure_costs_file,
+            selected_zones=selected_zones,
         )
 
-        # Run year-by-year simulation using NumPy state.
-        sim_loop_start = perf_counter()
-        for year_offset, jaar in enumerate(range(beginjaar, eindjaar)):
-            next_year_offset = year_offset + 1
-            for zone in self.zones:
-                zone_idx = zone_to_idx[zone]
-                sim_state[next_year_offset, zone_idx, :] = sim_state[
-                    year_offset, zone_idx, :
+    def run_simulation_state(self, state: SimulationState) -> SimulationState:
+        """Mutate simulation state only (no file writes / UI side effects)."""
+        for jaar in range(state.beginjaar, state.eindjaar):
+            year_idx = state.year_to_idx[jaar]
+            next_year_idx = state.year_to_idx[jaar + 1]
+            for zone in state.zones:
+                zone_idx = state.zone_to_idx[zone]
+                state.sim_state[next_year_idx, zone_idx, :] = state.sim_state[
+                    year_idx, zone_idx, :
                 ]
-                for flow in zone_flows[zone]:
-                    inflow_stock_value = sim_state[
-                        next_year_offset, zone_idx, flow["inflow_idx"]
-                    ]
-                    outflow_stock_value = sim_state[
-                        next_year_offset, zone_idx, flow["outflow_idx"]
-                    ]
-
-                    inflow_relative = flow["inflow_relative"]
-                    outflow_relative = flow["outflow_relative"]
+                for rule in state.flow_rules_by_zone[zone]:
+                    if (
+                        rule.inflow_stock not in state.stock_to_idx
+                        or rule.outflow_stock not in state.stock_to_idx
+                    ):
+                        continue
+                    inflow_idx = state.stock_to_idx[rule.inflow_stock]
+                    outflow_idx = state.stock_to_idx[rule.outflow_stock]
+                    inflow_stock_value = state.sim_state[next_year_idx, zone_idx, inflow_idx]
+                    outflow_stock_value = state.sim_state[next_year_idx, zone_idx, outflow_idx]
+                    inflow_relative = (
+                        rule.inflow_rate_active if rule.active else rule.inflow_rate_baseline
+                    )
+                    outflow_relative = (
+                        rule.outflow_rate_active if rule.active else rule.outflow_rate_baseline
+                    )
                     inflow_absolute = inflow_stock_value * inflow_relative
                     outflow_absolute = inflow_stock_value * outflow_relative
-
-                    if flow["applied"]:
-                        row_cost = self._calculate_row_cost(
-                            zone, flow["kost_stock"], outflow_absolute
-                        )
-                        self._totale_kost_overheid += (
-                            row_cost * flow["rel_cost_overheid"]
-                        )
-                        self._totale_kost_prive += row_cost * flow["rel_cost_prive"]
-
-                    new_inflow_stock_value = inflow_stock_value - inflow_absolute
-                    if new_inflow_stock_value < 0:
+                    if rule.active:
+                        row_cost = self._calculate_row_cost(zone, rule.cost_stock, outflow_absolute)
+                        state.totale_kost_overheid += row_cost * rule.rel_cost_overheid
+                        state.totale_kost_prive += row_cost * rule.rel_cost_prive
+                    new_inflow = inflow_stock_value - inflow_absolute
+                    if new_inflow < 0:
                         raise ValueError(
-                            f"Future inflow stock value is negative for {flow['inflow_stock_name']} in {zone} in {jaar}, using {flow['name']}."
+                            f"Future inflow stock value is negative for {rule.inflow_stock} in {zone} in {jaar}, using {rule.measure_id}."
                         )
-                    new_outflow_stock_value = outflow_stock_value + outflow_absolute
-
-                    self._flow_log_rows.append(
+                    new_outflow = outflow_stock_value + outflow_absolute
+                    state.flow_log_rows.append(
                         {
                             "zone": zone,
                             "jaar": jaar,
-                            "naam_flow": flow["name"],
-                            "maatregel_toegepast": flow["applied"],
+                            "naam_flow": rule.measure_id,
+                            "maatregel_toegepast": rule.active,
                             "inflow_relative": inflow_relative,
                             "outflow_relative": outflow_relative,
-                            "inflow_stock_name": flow["inflow_stock_name"],
+                            "inflow_stock_name": rule.inflow_stock,
                             "orig_future_inflow_stock_value": inflow_stock_value,
-                            "new_future_inflow_stock_value": new_inflow_stock_value,
-                            "delta_inflow": new_inflow_stock_value - inflow_stock_value,
-                            "outflow_stock_name": flow["outflow_stock_name"],
+                            "new_future_inflow_stock_value": new_inflow,
+                            "delta_inflow": new_inflow - inflow_stock_value,
+                            "outflow_stock_name": rule.outflow_stock,
                             "orig_future_outflow_stock_value": outflow_stock_value,
-                            "new_future_outflow_stock_value": new_outflow_stock_value,
-                            "delta_outflow": new_outflow_stock_value
-                            - outflow_stock_value,
+                            "new_future_outflow_stock_value": new_outflow,
+                            "delta_outflow": new_outflow - outflow_stock_value,
                         }
                     )
+                    state.sim_state[next_year_idx, zone_idx, inflow_idx] = new_inflow
+                    state.sim_state[next_year_idx, zone_idx, outflow_idx] = new_outflow
+        return state
 
-                    sim_state[next_year_offset, zone_idx, flow["inflow_idx"]] = (
-                        new_inflow_stock_value
-                    )
-                    sim_state[next_year_offset, zone_idx, flow["outflow_idx"]] = (
-                        new_outflow_stock_value
-                    )
-        self._timings["simulation.loop"] = perf_counter() - sim_loop_start
-
-        flush_start = perf_counter()
-        self._flush_sim_state_to_stock_manager(
-            sim_state=sim_state,
-            stock_names=stock_names,
-            beginjaar=beginjaar,
-            eindjaar=eindjaar,
+    def build_outputs(self, state: SimulationState) -> SimulationOutputs:
+        """Build output bundle from simulation state."""
+        return SimulationOutputs(
+            flow_log_rows=state.flow_log_rows,
+            kost_overheid=state.totale_kost_overheid,
+            kost_prive=state.totale_kost_prive,
+            sim_state=state.sim_state,
+            zones=state.zones,
+            stock_names=state.stock_names,
+            beginjaar=state.beginjaar,
+            eindjaar=state.eindjaar,
         )
-        self._timings["simulation.flush_state"] = perf_counter() - flush_start
 
-        derived_start = perf_counter()
-        self._calculate_derived_metrics(beginjaar, eindjaar)
-        self._timings["simulation.derived_metrics"] = perf_counter() - derived_start
+    def persist_outputs(self, outputs: SimulationOutputs) -> None:
+        """Persist output bundle into stock manager and CSV files."""
+        self._flush_sim_state_to_stock_manager(
+            sim_state=outputs.sim_state,
+            stock_names=list(outputs.stock_names),
+            beginjaar=outputs.beginjaar,
+            eindjaar=outputs.eindjaar,
+        )
+        self._flow_log_rows = list(outputs.flow_log_rows)
+        self._totale_kost_overheid = outputs.kost_overheid
+        self._totale_kost_prive = outputs.kost_prive
 
-        totals_start = perf_counter()
-        self._calculate_totals(beginjaar, eindjaar)
-        self._timings["simulation.totals"] = perf_counter() - totals_start
+        self._calculate_derived_metrics(outputs.beginjaar, outputs.eindjaar)
+        self._calculate_totals(outputs.beginjaar, outputs.eindjaar)
 
-        # Schrijf flow-log naar CSV
-        write_flow_log_start = perf_counter()
         log_path = os.path.join(OUTPUT_DIR, "flow_log.csv")
         fieldnames = [
             "zone",
-            "jaar", 
+            "jaar",
             "naam_flow",
             "maatregel_toegepast",
             "inflow_relative",
@@ -193,46 +191,8 @@ class SimulationEngine:
             writer = csv.DictWriter(f, fieldnames=fieldnames, delimiter=";")
             writer.writeheader()
             writer.writerows(self._flow_log_rows)
-        self._timings["simulation.write_flow_log"] = perf_counter() - write_flow_log_start
 
-        write_zone_log_start = perf_counter()
         self._write_flow_log_zone(log_path, fieldnames)
-        self._timings["simulation.write_flow_log_zone"] = (
-            perf_counter() - write_zone_log_start
-        )
-        self._timings["simulation.total"] = perf_counter() - total_start
-
-    def _build_zone_flow_records(
-        self, stock_to_idx: Dict[str, int]
-    ) -> Dict[str, List[Dict[str, object]]]:
-        """Precompute flow records per zone for faster core-loop execution."""
-        records: Dict[str, List[Dict[str, object]]] = {zone: [] for zone in self.zones}
-        for zone in self.zones:
-            for row in self.flow_manager.get_flows(zone):
-                inflow_stock_name = row.get_inflow_stock_name()
-                outflow_stock_name = row.get_outflow_stock_name()
-                if (
-                    inflow_stock_name not in stock_to_idx
-                    or outflow_stock_name not in stock_to_idx
-                ):
-                    continue
-                inflow_relative, outflow_relative = row.get_flow()
-                records[zone].append(
-                    {
-                        "name": row.get_name_measure(),
-                        "applied": row.is_applied(),
-                        "inflow_stock_name": inflow_stock_name,
-                        "outflow_stock_name": outflow_stock_name,
-                        "inflow_idx": stock_to_idx[inflow_stock_name],
-                        "outflow_idx": stock_to_idx[outflow_stock_name],
-                        "inflow_relative": inflow_relative,
-                        "outflow_relative": outflow_relative,
-                        "rel_cost_overheid": row.get_relative_cost_overheid(),
-                        "rel_cost_prive": row.get_relative_cost_prive(),
-                        "kost_stock": row.get_kost_stock(),
-                    }
-                )
-        return records
 
     def _flush_sim_state_to_stock_manager(
         self,
@@ -352,84 +312,6 @@ class SimulationEngine:
             writer.writeheader()
             writer.writerows(sorted_rows)
 
-    def _simulate_year_zone(self, jaar: int, zone: str) -> None:
-        """Simulate one year for one zone."""
-        stocks = [
-            "bewoonde_geïsoleerde_woning",
-            "bewoonde_niet_geïsoleerde_woning",
-            "niet_bewoonde_geïsoleerde_woning",
-            "niet_bewoonde_niet_geïsoleerde_woning",
-            "nieuwe_woning",
-            "onbebouwde_bebouwbare_percelen",
-            "onbebouwde_onbebouwbare_percelen",
-            "perceel_eigendom_overheid",
-            "woning_eigendom_overheid",
-        ]
-        for stock in stocks:
-            current_stock_value = self.stock_manager.get_aantal(stock, jaar, zone)
-            future_stock_value = current_stock_value
-            self.stock_manager.set_aantal(stock, jaar + 1, zone, future_stock_value)
-
-        for row in self.flow_manager.get_flows(zone):
-            name_measure = row.get_name_measure()
-            inflow_stock_name = row.get_inflow_stock_name()
-            outflow_stock_name = row.get_outflow_stock_name()
-
-            future_inflow_stock_value = self.stock_manager.get_aantal(
-                inflow_stock_name, jaar + 1, zone
-            )
-            future_outflow_stock_value = self.stock_manager.get_aantal(
-                outflow_stock_name, jaar + 1, zone
-            )
-
-            inflow_relative, outflow_relative = row.get_flow()
-            # Gebruik de future-waarde als basis zodat eerdere flows binnen hetzelfde jaar
-            # (bv. opbouw van nieuwe_woning) effectief kunnen worden afgebouwd later in dat jaar.
-            inflow_absolute = future_inflow_stock_value * inflow_relative
-            outflow_absolute = future_inflow_stock_value * outflow_relative
-
-            if row.is_applied():
-                row_cost = self._calculate_row_cost(zone, row.get_kost_stock(), outflow_absolute)
-                self._totale_kost_overheid += row_cost * row.get_relative_cost_overheid()
-                self._totale_kost_prive += row_cost * row.get_relative_cost_prive()
-
-            orig_inflow_before_flow = future_inflow_stock_value
-            orig_outflow_before_flow = future_outflow_stock_value
-
-            future_inflow_stock_value = future_inflow_stock_value - inflow_absolute
-            if future_inflow_stock_value < 0:
-                raise ValueError(
-                    f"Future inflow stock value is negative for {inflow_stock_name} in {zone} in {jaar}, using {name_measure}."
-                )
-            future_outflow_stock_value = future_outflow_stock_value + outflow_absolute
-
-            # Log regel toevoegen
-            self._flow_log_rows.append(
-                {
-                    "zone": zone,
-                    "jaar": jaar,
-                    "naam_flow": name_measure,
-                    "maatregel_toegepast": row.is_applied(),
-                    "inflow_relative": inflow_relative,
-                    "outflow_relative": outflow_relative,
-                    "inflow_stock_name": inflow_stock_name,
-                    "orig_future_inflow_stock_value": orig_inflow_before_flow,
-                    "new_future_inflow_stock_value": future_inflow_stock_value,
-                    "delta_inflow": future_inflow_stock_value - orig_inflow_before_flow,
-                    "outflow_stock_name": outflow_stock_name,
-                    "orig_future_outflow_stock_value": orig_outflow_before_flow,
-                    "new_future_outflow_stock_value": future_outflow_stock_value,
-                    "delta_outflow": future_outflow_stock_value - orig_outflow_before_flow,
-                }
-            )
-
-            self.stock_manager.set_aantal(
-                inflow_stock_name, jaar + 1, zone, future_inflow_stock_value
-            )
-            self.stock_manager.set_aantal(
-                outflow_stock_name, jaar + 1, zone, future_outflow_stock_value
-            )
-
     def _calculate_row_cost(self, zone: str, kost_stock: str, outflow_absolute: float) -> float:
         if kost_stock == "-" or not kost_stock:
             return 0.0
@@ -455,8 +337,8 @@ class SimulationEngine:
         return self._totale_kost_overheid, self._totale_kost_prive
 
     def get_timing_stats(self) -> Dict[str, float]:
-        """Return simulation timing stats in seconds."""
-        return dict(self._timings)
+        """Retained for compatibility; timing stats removed."""
+        return {}
 
     def _calculate_derived_metrics(self, beginjaar: int, eindjaar: int) -> None:
         """

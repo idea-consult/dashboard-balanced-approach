@@ -1,0 +1,28 @@
+rule_id,measure_id,inflow_stock,outflow_stock,inflow_rate_baseline,outflow_rate_baseline,inflow_rate_active,outflow_rate_active,comments,priority
+rule_verkavelingsverbod,verkavelingsverbod,onbebouwde_bebouwbare_percelen,onbebouwde_bebouwbare_percelen,0.0,0.02,0.0,0.0,,1
+rule_woongebiedverbod,woongebiedverbod,onbebouwde_onbebouwbare_percelen,onbebouwde_bebouwbare_percelen,0.02,0.02,0.0,0.0,,2
+rule_aankoopbeleid_percelen,aankoopbeleid_percelen,onbebouwde_bebouwbare_percelen,perceel_eigendom_overheid,0.0,0.0,0.01,0.01,,3
+rule_voorkooprecht_percelen,voorkooprecht_percelen,onbebouwde_bebouwbare_percelen,perceel_eigendom_overheid,0.0,0.0,0.02,0.02,,4
+rule_onteigening_percelen,onteigening_percelen,onbebouwde_bebouwbare_percelen,perceel_eigendom_overheid,0.0,0.0,0.05,0.05,,5
+rule_verbod_kleine_woning,verbod_kleine_woning,onbebouwde_bebouwbare_percelen,nieuwe_woning,0.02,0.02,0.0,0.0,,6
+rule_verbod_grote_woning,verbod_grote_woning,onbebouwde_bebouwbare_percelen,nieuwe_woning,0.01,0.01,0.0,0.0,,7
+rule_verbod_kwetsbare_groep,verbod_kwetsbare_groep,onbebouwde_bebouwbare_percelen,nieuwe_woning,0.005,0.005,0.0,0.0,,8
+rule_woonverdichtingsverbod_niet_geïsoleerde_woningen,woonverdichtingsverbod_niet_geïsoleerde_woningen,bewoonde_niet_geïsoleerde_woning,bewoonde_niet_geïsoleerde_woning,0.0,0.01,0.0,0.0,,9
+rule_woonverdichtingsverbod_geïsoleerde_woningen,woonverdichtingsverbod_geïsoleerde_woningen,bewoonde_geïsoleerde_woning,bewoonde_geïsoleerde_woning,0.0,0.01,0.0,0.0,,10
+rule_aankoopbeleid_niet_geïsoleerde_woningen,aankoopbeleid_niet_geïsoleerde_woningen,bewoonde_niet_geïsoleerde_woning,woning_eigendom_overheid,0.0,0.0,0.01,0.01,,11
+rule_aankoopbeleid_geïsoleerde_woningen,aankoopbeleid_geïsoleerde_woningen,bewoonde_geïsoleerde_woning,woning_eigendom_overheid,0.0,0.0,0.01,0.01,,12
+rule_voorkooprecht_niet_geïsoleerde_woningen,voorkooprecht_niet_geïsoleerde_woningen,bewoonde_niet_geïsoleerde_woning,woning_eigendom_overheid,0.0,0.0,0.02,0.02,,13
+rule_voorkooprecht_geïsoleerde_woningen,voorkooprecht_geïsoleerde_woningen,bewoonde_geïsoleerde_woning,woning_eigendom_overheid,0.0,0.0,0.02,0.02,,14
+rule_onteigening_niet_geïsoleerde_woningen,onteigening_niet_geïsoleerde_woningen,bewoonde_niet_geïsoleerde_woning,woning_eigendom_overheid,0.0,0.0,0.05,0.05,,15
+rule_onteigening_geïsoleerde_woningen,onteigening_geïsoleerde_woningen,bewoonde_geïsoleerde_woning,woning_eigendom_overheid,0.0,0.0,0.05,0.05,,16
+rule_isolatievoorschriften_nieuwbouw_naar_niet_geïsoleerde_woning,isolatievoorschriften_nieuwbouw_naar_niet_geïsoleerde_woning,nieuwe_woning,bewoonde_niet_geïsoleerde_woning,0.5,0.5,0.0,0.0,,17
+rule_isolatievoorschriften_nieuwbouw_naar_geïsoleerde_woning,isolatievoorschriften_nieuwbouw_naar_geïsoleerde_woning,nieuwe_woning,bewoonde_geïsoleerde_woning,1.0,1.0,1.0,1.0,"uitzondering! Als de flow niet naar geisoleerde woningen gaat, dan gaat het naar niet-geisoleerde woningen",18
+rule_renovatie_zonder_maatregel,renovatie_zonder_maatregel,bewoonde_niet_geïsoleerde_woning,bewoonde_geïsoleerde_woning,0.0,0.0,0.005,0.005,"uitzondering! Dit is het normaal jaarlijks aantal renovaties zonder maatregelen. Als er een maatregel wordt geactiveerd die inspeelt op de renovatie van huidige niet_geïsoleerde_woningen, dan moet deze maatregel uit staan.",19
+rule_verplicht_isoleren_renovatie,verplicht_isoleren_renovatie,bewoonde_niet_geïsoleerde_woning,bewoonde_geïsoleerde_woning,0.0,0.0,0.01,0.01,,20
+rule_gesubsidieerd_isolatieprogramma,gesubsidieerd_isolatieprogramma,bewoonde_niet_geïsoleerde_woning,bewoonde_geïsoleerde_woning,0.0,0.0,0.02,0.02,,21
+rule_gestuurd_isolatieprogramma,gestuurd_isolatieprogramma,bewoonde_niet_geïsoleerde_woning,bewoonde_geïsoleerde_woning,0.0,0.0,0.04,0.04,,22
+rule_aanleg_geluidsbuffers,aanleg_geluidsbuffers,bewoonde_niet_geïsoleerde_woning,bewoonde_geïsoleerde_woning,0.0,0.0,0.005,0.005,,23
+rule_compensatie_buitenzone,compensatie_buitenzone,bewoonde_niet_geïsoleerde_woning,bewoonde_niet_geïsoleerde_woning,0.0,0.0,0.0,0.0,,24
+rule_compensatie_verhuis,compensatie_verhuis,bewoonde_niet_geïsoleerde_woning,bewoonde_niet_geïsoleerde_woning,0.0,0.0,0.0,0.0,,25
+rule_versterken_sociale_cohesie,versterken_sociale_cohesie,bewoonde_niet_geïsoleerde_woning,bewoonde_niet_geïsoleerde_woning,0.0,0.0,0.0,0.0,,26
+rule_vergroenen_leefomgeving,vergroenen_leefomgeving,bewoonde_niet_geïsoleerde_woning,bewoonde_niet_geïsoleerde_woning,0.0,0.0,0.0,0.0,,27

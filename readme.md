@@ -7,9 +7,9 @@
 
 ## Berekening
 
-### Simulatie per jaar en per zone (`_simulate_year_zone`)
+### Simulatie per jaar en per zone (`run_simulation_state`)
 
-De kernlogica van de simulatie werkt in 2 fasen voor elke combinatie van `jaar` en `zone`.
+De kernlogica van de simulatie werkt in 2 fasen voor elke combinatie van `jaar` en `zone`, op de in-memory `SimulationState`.
 
 1. **Initialisatie van jaar+1 met de huidige toestand (carry-over)**
    - Voor elke stock in de lijst (`bewoonde_*`, `niet_bewoonde_*`, `nieuwe_woning`, `onbebouwde_*`, `*_eigendom_overheid`) wordt eerst:
@@ -17,7 +17,7 @@ De kernlogica van de simulatie werkt in 2 fasen voor elke combinatie van `jaar` 
    - Hierdoor start `jaar+1` als kopie van de huidige toestand.
 
 2. **Sequentieel toepassen van alle flows voor die zone**
-   - Voor elke flow-rij uit `flows.csv`:
+   - Voor elke `FlowRule`:
      - lees `inflow_stock_name`, `outflow_stock_name`
      - lees de relatieve factoren `(inflow_relative, outflow_relative)` via `row.get_flow()`
      - lees de **huidige werkwaarden** in `jaar+1`:
@@ -44,7 +44,7 @@ Voor elke flow-stap worden de nieuwe waarden:
 Bescherming:
 - Als `future_inflow_stock_value < 0`, wordt een `ValueError` gegooid.
 
-Daarna worden beide waarden teruggeschreven naar de stocktabel voor `jaar+1`.
+Daarna worden beide waarden teruggeschreven in de state-array voor `jaar+1`.
 
 ### Logging in `flow_log.csv`
 
@@ -65,7 +65,7 @@ Interpretatie:
 
 Na het wegschrijven van `flow_log.csv` wordt `flow_log_zone.csv` gemaakt:
 
-- Mapping gebeurt via `input/zones.csv` (5 dB-zones).
+- Mapping gebeurt via het gekozen zones-bestand (`input/lden_zones.csv` of `input/lnight_zones.csv`).
 - Groepering gebeurt op:
   - `zone`, `jaar`, `naam_flow`, `inflow_stock_name`, `outflow_stock_name`
 - Numerieke velden (`orig/new/delta`) worden gesommeerd.

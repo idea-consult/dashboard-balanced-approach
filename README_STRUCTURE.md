@@ -17,12 +17,11 @@ The application has been restructured into a modular architecture with clear sep
 .
 ├── app.py                      # Main Streamlit application entry point
 ├── config.py                   # Configuration constants
-├── calculations.py            # Original file (kept for reference)
-│
 ├── models/                    # Data models
 │   ├── __init__.py
-│   ├── stock_manager.py       # Manages stock data operations
-│   └── flow_manager.py        # Manages flow data and measures
+│   ├── stock_manager.py                  # Manages stock data operations
+│   ├── measure_selection_manager.py      # UI measure metadata + selections
+│   └── simulation_input_loader.py        # Builds validated SimulationState inputs
 │
 ├── simulation/                # Simulation logic
 │   ├── __init__.py
@@ -55,21 +54,21 @@ Centralized configuration for:
 - `save(output_file)`: Save stock data to CSV
 - `get_dataframe()`: Get underlying DataFrame
 
-### `models/flow_manager.py`
-`FlowManager` class for managing flow data and measures:
-- `get_flow(naam, zone)`: Get flow value (considers if measure is applied)
+### `models/measure_selection_manager.py`
+`MeasureSelectionManager` class for UI measure metadata and selections:
 - `get_selected_zones(maatregel_naam)`: Get zones where measure is applied
 - `set_selected_zones(maatregel_naam, selected_zones)`: Set measure zones
-- `get_total_cost()`: Get total cost of applied measures
 - `is_measure_applied(naam, zone)`: Check if measure is applied
+
+### `models/simulation_input_loader.py`
+Loads and validates simulation CSV inputs and builds `SimulationState` with `FlowRule` entries.
 
 ### `simulation/engine.py`
 `SimulationEngine` class for running simulations:
-- `run_simulation(beginjaar, eindjaar)`: Main simulation loop
-- `_simulate_year_zone(jaar, zone)`: Simulate one year for one zone
-- `_simulate_parcels(jaar, zone)`: Calculate parcel stock changes
-- `_simulate_houses(jaar, zone)`: Calculate house stock changes
-- `_calculate_derived_metrics(jaar, zone)`: Calculate derived metrics
+- `load_inputs(beginjaar, eindjaar)`: Build simulation state from inputs
+- `run_simulation_state(state)`: Main in-memory simulation loop
+- `build_outputs(state)`: Build simulation outputs bundle
+- `persist_outputs(outputs)`: Persist outputs to stock/log CSVs
 
 ### `simulation/calculators.py`
 Helper functions for calculations:
@@ -124,4 +123,4 @@ Main application entry point that:
 
 ## Migration Notes
 
-The original `calculations.py` file is kept for reference. The new `app.py` replaces it and provides the same functionality with improved structure.
+The refactor now uses explicit managers for UI selections and simulation input loading.

@@ -5,74 +5,75 @@ import altair as alt
 import pandas as pd
 import os
 from models.stock_manager import StockManager
-from models.flow_manager import FlowManager
+from models.measure_selection_manager import MeasureSelectionManager
 from models.validation import validate_measure_combinations
 from config import BEGINJAAR, EINDJAAR
 
-HIDDEN_MEASURES_IN_UI = {"renovatie_zonder_maatregel"}
-ISOLATIE_NIEUWBOUW_MEASURES = (
-    "isolatievoorschriften_nieuwbouw_naar_niet_geïsoleerde_woning",
-    "isolatievoorschriften_nieuwbouw_naar_geïsoleerde_woning",
-)
 
-
-def render_sidebar_controls(flow_manager: FlowManager, zones):
+def render_sidebar_controls(measure_selection_manager: MeasureSelectionManager, zones):
     """
     Render sidebar controls for measure selection.
 
     Args:
-        flow_manager: FlowManager instance
+        measure_selection_manager: MeasureSelectionManager instance
     """
-    df_beschrijving_maatregelen = flow_manager.get_measure_descriptions()
+    df_beschrijving_maatregelen = measure_selection_manager.get_measure_descriptions()
+    hidden_measures = measure_selection_manager.get_hidden_measures()
+    grouped_measures = measure_selection_manager.get_measure_groups()
+    grouped_measure_names = {
+        measure for measures in grouped_measures.values() for measure in measures
+    }
 
     with st.sidebar:
-        # Gecombineerde UI-control voor nieuwbouw-isolatie (2 flow-rijen, 1 knop).
-        if all(
-            measure in df_beschrijving_maatregelen.index
-            for measure in ISOLATIE_NIEUWBOUW_MEASURES
-        ):
+        for group_id, measure_names in grouped_measures.items():
+            if any(measure in hidden_measures for measure in measure_names):
+                continue
+            if not all(
+                measure in df_beschrijving_maatregelen.index for measure in measure_names
+            ):
+                continue
             combined_selected = tuple(
                 sorted(
-                    set(flow_manager.get_selected_zones(ISOLATIE_NIEUWBOUW_MEASURES[0]))
-                    | set(
-                        flow_manager.get_selected_zones(ISOLATIE_NIEUWBOUW_MEASURES[1])
+                    set().union(
+                        *(set(measure_selection_manager.get_selected_zones(measure)) for measure in measure_names)
                     )
                 )
             )
-            combined_help = (
-                f"{df_beschrijving_maatregelen.at[ISOLATIE_NIEUWBOUW_MEASURES[0], 'help']}\n\n"
-                f"{df_beschrijving_maatregelen.at[ISOLATIE_NIEUWBOUW_MEASURES[1], 'help']}"
+            combined_help = "\n\n".join(
+                str(df_beschrijving_maatregelen.at[measure, "help"])
+                for measure in measure_names
             )
-            selected_newbouw_isolatie = st.segmented_control(
-                label="Isolatievoorschriften nieuwbouw",
+            group_label = group_id.replace("_", " ").capitalize()
+            selected_group = st.segmented_control(
+                label=group_label,
                 options=zones,
                 help=combined_help,
                 selection_mode="multi",
                 default=combined_selected,
-                key="seg_isolatievoorschriften_nieuwbouw",
+                key=f"seg_group_{group_id}",
                 width="stretch",
             )
-            for measure in ISOLATIE_NIEUWBOUW_MEASURES:
-                flow_manager.set_selected_zones(measure, selected_newbouw_isolatie)
+            for measure in measure_names:
+                measure_selection_manager.set_selected_zones(measure, selected_group)
 
         for maatregel in df_beschrijving_maatregelen.index.get_level_values("naam"):
-            if maatregel in HIDDEN_MEASURES_IN_UI:
+            if maatregel in hidden_measures:
                 continue
-            if maatregel in ISOLATIE_NIEUWBOUW_MEASURES:
+            if maatregel in grouped_measure_names:
                 continue
             selected = st.segmented_control(
                 label=df_beschrijving_maatregelen.at[maatregel, "naam_mooi"],
                 options=zones,
                 help=df_beschrijving_maatregelen.at[maatregel, "help"],
                 selection_mode="multi",
-                default=flow_manager.get_selected_zones(maatregel),
+                default=measure_selection_manager.get_selected_zones(maatregel),
                 key=f"seg_{maatregel}",
                 width="stretch",
             )
-            flow_manager.set_selected_zones(maatregel, selected)
+            measure_selection_manager.set_selected_zones(maatregel, selected)
 
     # Valideer maatregel combinaties na alle selecties (buiten de sidebar)
-    conflicts = validate_measure_combinations(flow_manager, tuple(zones))
+    conflicts = validate_measure_combinations(measure_selection_manager, tuple(zones))
     return conflicts
 
 

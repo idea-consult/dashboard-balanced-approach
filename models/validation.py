@@ -1,7 +1,7 @@
 """Validation rules for incompatible measure combinations."""
 
 from typing import List, Tuple
-from models.flow_manager import FlowManager
+from models.measure_selection_manager import MeasureSelectionManager
 
 
 # Definieer incompatibele maatregel combinaties
@@ -22,13 +22,13 @@ INCOMPATIBLE_MEASURES = [
 
 
 def validate_measure_combinations(
-    flow_manager: FlowManager, zones: Tuple[str, ...]
+    measure_selection_manager: MeasureSelectionManager, zones: Tuple[str, ...]
 ) -> List[Tuple[str, str, str]]:
     """
     Valideer of er incompatibele maatregel combinaties zijn per zone.
     
     Args:
-        flow_manager: FlowManager instance om te controleren welke maatregelen actief zijn
+        measure_selection_manager: manager om te controleren welke maatregelen actief zijn
         
     Returns:
         List van tuples (zone, maatregel1, maatregel2) voor elke gevonden conflict
@@ -39,8 +39,8 @@ def validate_measure_combinations(
         # Check elke incompatibele combinatie
         for measure1, measure2 in INCOMPATIBLE_MEASURES:
             if (
-                flow_manager.is_measure_applied(measure1, zone) and
-                flow_manager.is_measure_applied(measure2, zone)
+                measure_selection_manager.is_measure_applied(measure1, zone) and
+                measure_selection_manager.is_measure_applied(measure2, zone)
             ):
                 conflicts.append((zone, measure1, measure2))
     
@@ -48,7 +48,10 @@ def validate_measure_combinations(
 
 
 def get_conflict_message(
-    zone: str, measure1: str, measure2: str, flow_manager: FlowManager
+    zone: str,
+    measure1: str,
+    measure2: str,
+    measure_selection_manager: MeasureSelectionManager,
 ) -> str:
     """
     Genereer een gebruiksvriendelijke error message voor een conflict.
@@ -57,15 +60,15 @@ def get_conflict_message(
         zone: Zone identifier
         measure1: Eerste maatregel naam
         measure2: Tweede maatregel naam
-        flow_manager: FlowManager om mooie namen op te halen
+        measure_selection_manager: manager om mooie namen op te halen
         
     Returns:
         Error message string
     """
     # Haal mooie namen op uit beschrijvingen
     try:
-        name1 = flow_manager.get_measure_descriptions().at[measure1, "naam_mooi"]
-        name2 = flow_manager.get_measure_descriptions().at[measure2, "naam_mooi"]
+        name1 = measure_selection_manager.get_measure_descriptions().at[measure1, "naam_mooi"]
+        name2 = measure_selection_manager.get_measure_descriptions().at[measure2, "naam_mooi"]
     except KeyError:
         # Fallback naar technische naam als beschrijving niet gevonden
         name1 = measure1.replace("_", " ").title()
