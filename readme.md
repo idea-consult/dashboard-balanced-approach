@@ -5,6 +5,26 @@
 
 `uv run streamlit run app.py`
 
+## Kunstmatige vertraging (demo)
+
+Standaard staat een korte pauze tussen stappen aan (~3,8 s extra per pagina-refresh), met een `st.spinner` per stap (data laden, simulatie, …).
+
+| Omgevingsvariabele | Default | Stap |
+|--------------------|---------|------|
+| `ARTIFICIAL_DELAY_ENABLED` | `true` | Alles aan/uit |
+| `ARTIFICIAL_DELAY_INIT_S` | `0.6` | Data laden |
+| `ARTIFICIAL_DELAY_SIMULATION_S` | `2.0` | Simulatie |
+| `ARTIFICIAL_DELAY_LEEFBAARHEIDSPUNTEN_S` | `0.4` | Leefbaarheidspunten |
+| `ARTIFICIAL_DELAY_RENDER_S` | `0.5` | KPI's en grafieken |
+| `ARTIFICIAL_DELAY_SAVE_S` | `0.3` | Opslaan CSV |
+
+Snelle modus voor de klant:
+
+```powershell
+$env:ARTIFICIAL_DELAY_ENABLED="false"
+uv run streamlit run app.py
+```
+
 ## Berekening
 
 ### Simulatie per jaar en per zone (`run_simulation_state`)

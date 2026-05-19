@@ -29,3 +29,25 @@ LNIGHT_ZONES_FILE = f"{INPUT_DIR}/lnight_zones.csv"
 ZONES_FILE = LDEN_ZONES_FILE
 OUTPUT_STOCK_FILE = f"{OUTPUT_DIR}/stock.csv"
 OUTPUT_FLOW_LOG_ZONE_FILE = f"{OUTPUT_DIR}/flow_log_zone.csv"
+
+# Kunstmatige vertraging (demo): zet ARTIFICIAL_DELAY_ENABLED=false voor snelle modus
+ARTIFICIAL_DELAY_ENABLED = (
+    os.getenv("ARTIFICIAL_DELAY_ENABLED", "true").strip().lower() == "true"
+)
+
+
+def _delay_seconds(env_name: str, default: float) -> float:
+    raw = os.getenv(env_name, str(default)).strip()
+    try:
+        return max(0.0, float(raw))
+    except ValueError:
+        return max(0.0, default)
+
+
+ARTIFICIAL_DELAY_STAGES = {
+    "init": _delay_seconds("ARTIFICIAL_DELAY_INIT_S", 0.6),
+    "simulation": _delay_seconds("ARTIFICIAL_DELAY_SIMULATION_S", 2.0),
+    "leefbaarheidspunten": _delay_seconds("ARTIFICIAL_DELAY_LEEFBAARHEIDSPUNTEN_S", 0.4),
+    "render": _delay_seconds("ARTIFICIAL_DELAY_RENDER_S", 0.5),
+    "save": _delay_seconds("ARTIFICIAL_DELAY_SAVE_S", 0.3),
+}

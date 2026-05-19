@@ -42,6 +42,7 @@ from ui.components import (
     render_leefbaarheidspunten_weight_controls,
     render_flow_log_zone_table,
 )
+from ui.throttle import spinner_step
 
 
 def maybe_print_total_duration(total_seconds: float) -> None:
@@ -76,15 +77,15 @@ else:
     selected_contour_file = LDEN_CONTOUR_FILE
     selected_zones_file = LDEN_ZONES_FILE
 
-# Initialize managers
-stock_manager = StockManager(selected_contour_file, selected_zones_file, BEGINJAAR)
-measure_selection_manager = MeasureSelectionManager(
-    zones_file=selected_zones_file,
-    measures_file=MEASURES_FILE,
-    flow_rules_file=FLOW_RULES_FILE,
-    measure_costs_file=MEASURE_COSTS_FILE,
-)
-zones = stock_manager.get_zones()
+with spinner_step("init"):
+    stock_manager = StockManager(selected_contour_file, selected_zones_file, BEGINJAAR)
+    measure_selection_manager = MeasureSelectionManager(
+        zones_file=selected_zones_file,
+        measures_file=MEASURES_FILE,
+        flow_rules_file=FLOW_RULES_FILE,
+        measure_costs_file=MEASURE_COSTS_FILE,
+    )
+    zones = stock_manager.get_zones()
 
 # Render sidebar controls en toon eventuele conflicten centraal
 conflicts = render_sidebar_controls(measure_selection_manager, zones)
@@ -94,40 +95,42 @@ if conflicts:
         st.error(get_conflict_message(zone, measure1, measure2, measure_selection_manager))
     st.stop()
 
-# Run simulation
-simulation_engine = SimulationEngine(
-    stock_manager,
-    measure_selection_manager,
-    zones,
-    zones_file=selected_zones_file,
-    measures_file=MEASURES_FILE,
-    flow_rules_file=FLOW_RULES_FILE,
-    measure_costs_file=MEASURE_COSTS_FILE,
-)
-selected_zones = [
-    (name, measure_selection_manager.get_selected_zones(str(name)))
-    for name in measure_selection_manager.get_measure_descriptions().index
-]
-sim_state = simulation_engine.load_inputs(BEGINJAAR, EINDJAAR, selected_zones)
-sim_state = simulation_engine.run_simulation_state(sim_state)
-sim_outputs = simulation_engine.build_outputs(sim_state)
-simulation_engine.persist_outputs(sim_outputs)
-kost_overheid, kost_prive = simulation_engine.get_total_costs()
-
-# Leefbaarheidspunten (gewichten → berekening vóór KPI's)
-with st.expander("Instelling leefbaarheidspunten per zone", expanded=False):
-    leefbaarheidspunten_weights = render_leefbaarheidspunten_weight_controls(
-        stock_manager, contour_type
+with spinner_step("simulation"):
+    simulation_engine = SimulationEngine(
+        stock_manager,
+        measure_selection_manager,
+        zones,
+        zones_file=selected_zones_file,
+        measures_file=MEASURES_FILE,
+        flow_rules_file=FLOW_RULES_FILE,
+        measure_costs_file=MEASURE_COSTS_FILE,
     )
-simulation_engine.calculate_leefbaarheidspunten(BEGINJAAR, EINDJAAR, leefbaarheidspunten_weights)
+    selected_zones = [
+        (name, measure_selection_manager.get_selected_zones(str(name)))
+        for name in measure_selection_manager.get_measure_descriptions().index
+    ]
+    sim_state = simulation_engine.load_inputs(BEGINJAAR, EINDJAAR, selected_zones)
+    sim_state = simulation_engine.run_simulation_state(sim_state)
+    sim_outputs = simulation_engine.build_outputs(sim_state)
+    simulation_engine.persist_outputs(sim_outputs)
+    kost_overheid, kost_prive = simulation_engine.get_total_costs()
 
-# Render UI
-render_metrics(stock_manager, kost_overheid, kost_prive)
-render_charts(stock_manager)
+with spinner_step("leefbaarheidspunten"):
+    with st.expander("Instelling leefbaarheidspunten per zone", expanded=False):
+        leefbaarheidspunten_weights = render_leefbaarheidspunten_weight_controls(
+            stock_manager, contour_type
+        )
+    simulation_engine.calculate_leefbaarheidspunten(
+        BEGINJAAR, EINDJAAR, leefbaarheidspunten_weights
+    )
 
-# Save results (inclusief leefbaarheidspunten na UI-instellingen)
-stock_manager.save(OUTPUT_STOCK_FILE)
-render_flow_log_zone_table(OUTPUT_FLOW_LOG_ZONE_FILE)
+with spinner_step("render"):
+    render_metrics(stock_manager, kost_overheid, kost_prive)
+    render_charts(stock_manager)
+
+with spinner_step("save"):
+    stock_manager.save(OUTPUT_STOCK_FILE)
+    render_flow_log_zone_table(OUTPUT_FLOW_LOG_ZONE_FILE)
 
 app_total_duration = perf_counter() - app_total_start
 maybe_print_total_duration(app_total_duration)
