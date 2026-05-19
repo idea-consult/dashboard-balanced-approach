@@ -45,9 +45,9 @@ def _delay_seconds(env_name: str, default: float) -> float:
 
 
 ARTIFICIAL_DELAY_STAGES = {
-    "init": _delay_seconds("ARTIFICIAL_DELAY_INIT_S", 0.6),
-    "simulation": _delay_seconds("ARTIFICIAL_DELAY_SIMULATION_S", 2.0),
-    "leefbaarheidspunten": _delay_seconds("ARTIFICIAL_DELAY_LEEFBAARHEIDSPUNTEN_S", 0.4),
-    "render": _delay_seconds("ARTIFICIAL_DELAY_RENDER_S", 0.5),
+    "init": _delay_seconds("ARTIFICIAL_DELAY_INIT_S", 0.69),
+    "simulation": _delay_seconds("ARTIFICIAL_DELAY_SIMULATION_S", 6.3),
+    "leefbaarheidspunten": _delay_seconds("ARTIFICIAL_DELAY_LEEFBAARHEIDSPUNTEN_S", 0.9),
+    "render": _delay_seconds("ARTIFICIAL_DELAY_RENDER_S", 1.6),
     "save": _delay_seconds("ARTIFICIAL_DELAY_SAVE_S", 0.3),
 }
