@@ -8,6 +8,7 @@ from models.stock_manager import StockManager
 from models.measure_selection_manager import MeasureSelectionManager
 from models.simulation_input_loader import load_simulation_inputs
 from simulation.state import SimulationOutputs, SimulationState
+from simulation.helpers import calculate_leefbaarheidspunten_for_contour
 from config import (
     OUTPUT_DIR,
     ZONES_FILE,
@@ -347,14 +348,14 @@ class SimulationEngine:
 
     def _calculate_derived_metrics(self, beginjaar: int, eindjaar: int) -> None:
         """
-        Calculate derived metrics (persons, hinder points) for a year and zone.
+        Calculate derived metrics (persons, ernstig gehinderden) for a year and zone.
         The following metrics are calculated per zone:
         - gehinderde_personen_zonder_isolatie
         - gehinderde_personen_met_isolatie
         - totaal_gehinderde_personen
-        - hinderpunten
-        - hinderpunten_isolatie
-        - hinderpunten_zonder_isolatie
+        - aantal_ernstig_gehinderden
+        - aantal_ernstig_gehinderden_met_isolatie
+        - aantal_ernstig_gehinderden_zonder_isolatie
         """
         for j in range(beginjaar, eindjaar + 1):
             for zone in self.zones:
@@ -362,8 +363,8 @@ class SimulationEngine:
                 if contour_df.empty:
                     personen_zonder_isolatie = 0.0
                     personen_met_isolatie = 0.0
-                    hinderpunten_zonder_isolatie = 0.0
-                    hinderpunten_isolatie = 0.0
+                    ernstig_zonder_isolatie = 0.0
+                    ernstig_met_isolatie = 0.0
                 else:
                     inwoners_per_huis = contour_df["gemiddeld_aantal_inwoners_per_huis"]
                     dosis_effect_relatie = contour_df["dosis_effect_relatie"]
@@ -379,14 +380,14 @@ class SimulationEngine:
                         ).sum()
                     )
 
-                    hinderpunten_zonder_isolatie = float(
+                    ernstig_zonder_isolatie = float(
                         (
                             contour_df["bewoonde_niet_geïsoleerde_woning"]
                             * inwoners_per_huis
                             * dosis_effect_relatie
                         ).sum()
                     )
-                    hinderpunten_isolatie = float(
+                    ernstig_met_isolatie = float(
                         (
                             contour_df["bewoonde_geïsoleerde_woning"]
                             * inwoners_per_huis
@@ -395,7 +396,7 @@ class SimulationEngine:
                     )
 
                 totaal_gehinderde_personen = personen_zonder_isolatie + personen_met_isolatie
-                hinderpunten = hinderpunten_zonder_isolatie + hinderpunten_isolatie
+                aantal_ernstig_gehinderden = ernstig_zonder_isolatie + ernstig_met_isolatie
 
                 self.stock_manager.set_aantal(
                     "gehinderde_personen_zonder_isolatie",
@@ -409,24 +410,88 @@ class SimulationEngine:
                 self.stock_manager.set_aantal(
                     "totaal_gehinderde_personen", j, zone, totaal_gehinderde_personen
                 )
-                self.stock_manager.set_aantal("hinderpunten", j, zone, hinderpunten)
                 self.stock_manager.set_aantal(
-                    "hinderpunten_isolatie", j, zone, hinderpunten_isolatie
+                    "aantal_ernstig_gehinderden", j, zone, aantal_ernstig_gehinderden
                 )
                 self.stock_manager.set_aantal(
-                    "hinderpunten_zonder_isolatie",
+                    "aantal_ernstig_gehinderden_met_isolatie",
                     j,
                     zone,
-                    hinderpunten_zonder_isolatie,
+                    ernstig_met_isolatie,
                 )
+                self.stock_manager.set_aantal(
+                    "aantal_ernstig_gehinderden_zonder_isolatie",
+                    j,
+                    zone,
+                    ernstig_zonder_isolatie,
+                )
+
+    def calculate_leefbaarheidspunten(
+        self,
+        beginjaar: int,
+        eindjaar: int,
+        weights_by_zone: Dict[str, Dict[str, float]],
+    ) -> None:
+        """Bereken leefbaarheidspunten per zone/jaar op basis van instelbare punten per inwoner."""
+        default_weights = {"niet_geïsoleerd": 0.0, "geïsoleerd": 0.0}
+        for jaar in range(beginjaar, eindjaar + 1):
+            for zone in self.zones:
+                zone_weights = weights_by_zone.get(zone, default_weights)
+                contour_df = self.stock_manager.get_zone_contour_frame(zone, jaar)
+                leefbaarheidspunten_zonder, leefbaarheidspunten_met, leefbaarheidspunten_totaal = (
+                    calculate_leefbaarheidspunten_for_contour(
+                        contour_df,
+                        float(zone_weights.get("niet_geïsoleerd", 0.0)),
+                        float(zone_weights.get("geïsoleerd", 0.0)),
+                    )
+                )
+                self.stock_manager.set_aantal(
+                    "leefbaarheidspunten_zonder_isolatie",
+                    jaar,
+                    zone,
+                    leefbaarheidspunten_zonder,
+                )
+                self.stock_manager.set_aantal(
+                    "leefbaarheidspunten_met_isolatie", jaar, zone, leefbaarheidspunten_met
+                )
+                self.stock_manager.set_aantal(
+                    "leefbaarheidspunten", jaar, zone, leefbaarheidspunten_totaal
+                )
+
+        self._update_metric_totals(
+            beginjaar,
+            eindjaar,
+            [
+                "leefbaarheidspunten",
+                "leefbaarheidspunten_met_isolatie",
+                "leefbaarheidspunten_zonder_isolatie",
+            ],
+        )
+
+    def _update_metric_totals(
+        self, beginjaar: int, eindjaar: int, metrics: List[str]
+    ) -> None:
+        for jaar in range(beginjaar, eindjaar + 1):
+            for metric in metrics:
+                try:
+                    total = sum(
+                        self.stock_manager.get_aantal(metric, jaar, zone)
+                        for zone in self.zones
+                    )
+                except KeyError:
+                    total = 0.0
+                self.stock_manager.set_aantal(metric, jaar, "Totaal", total)
 
     def _calculate_totals(self, beginjaar: int, eindjaar: int) -> None:
         metrics = [
             "gehinderde_personen_met_isolatie",
             "gehinderde_personen_zonder_isolatie",
-            "hinderpunten",
-            "hinderpunten_isolatie",
-            "hinderpunten_zonder_isolatie",
+            "aantal_ernstig_gehinderden",
+            "aantal_ernstig_gehinderden_met_isolatie",
+            "aantal_ernstig_gehinderden_zonder_isolatie",
+            "leefbaarheidspunten",
+            "leefbaarheidspunten_met_isolatie",
+            "leefbaarheidspunten_zonder_isolatie",
             "totaal_gehinderde_personen",
             "bewoonde_geïsoleerde_woning",
             "bewoonde_niet_geïsoleerde_woning",

@@ -39,6 +39,7 @@ from ui.components import (
     render_sidebar_controls,
     render_metrics,
     render_charts,
+    render_leefbaarheidspunten_weight_controls,
     render_flow_log_zone_table,
 )
 
@@ -113,12 +114,19 @@ sim_outputs = simulation_engine.build_outputs(sim_state)
 simulation_engine.persist_outputs(sim_outputs)
 kost_overheid, kost_prive = simulation_engine.get_total_costs()
 
-# Save results
-stock_manager.save(OUTPUT_STOCK_FILE)
+# Leefbaarheidspunten (gewichten → berekening vóór KPI's)
+with st.expander("Instelling leefbaarheidspunten per zone", expanded=False):
+    leefbaarheidspunten_weights = render_leefbaarheidspunten_weight_controls(
+        stock_manager, contour_type
+    )
+simulation_engine.calculate_leefbaarheidspunten(BEGINJAAR, EINDJAAR, leefbaarheidspunten_weights)
 
 # Render UI
 render_metrics(stock_manager, kost_overheid, kost_prive)
 render_charts(stock_manager)
+
+# Save results (inclusief leefbaarheidspunten na UI-instellingen)
+stock_manager.save(OUTPUT_STOCK_FILE)
 render_flow_log_zone_table(OUTPUT_FLOW_LOG_ZONE_FILE)
 
 app_total_duration = perf_counter() - app_total_start

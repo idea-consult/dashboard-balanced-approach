@@ -39,6 +39,7 @@ class StockManager:
         """
         self.beginjaar = beginjaar
         self.df_zones = pd.read_csv(zones_file)
+        self.df_zones = self.df_zones.dropna(subset=["zone"]).reset_index(drop=True)
         self.df_zones = self.df_zones.sort_values("min dBel", ascending=False).reset_index(drop=True)
 
         self.df_contour = pd.read_csv(contour_file)
@@ -114,6 +115,23 @@ class StockManager:
 
     def get_zones(self) -> Tuple[str, ...]:
         return tuple(self.df_zones["zone"].astype(str).tolist())
+
+    def get_default_leefbaarheidspunten_weights(self) -> Dict[str, Dict[str, float]]:
+        """Default leefbaarheidspunten per inwoner per zone uit zones-CSV."""
+        required = {"leefbaarheidspunten_geïsoleerd", "leefbaarheidspunten_niet_geïsoleerd"}
+        missing = sorted(required - set(self.df_zones.columns))
+        if missing:
+            raise ValueError(
+                "Zones-bestand mist kolommen voor leefbaarheidspunten: " + ", ".join(missing)
+            )
+        weights: Dict[str, Dict[str, float]] = {}
+        for _, row in self.df_zones.iterrows():
+            zone = str(row["zone"])
+            weights[zone] = {
+                "niet_geïsoleerd": float(row["leefbaarheidspunten_niet_geïsoleerd"]),
+                "geïsoleerd": float(row["leefbaarheidspunten_geïsoleerd"]),
+            }
+        return weights
 
     def get_zone_contour_frame(self, zone: str, jaar: int) -> pd.DataFrame:
         """Return contour-level values for a zone and year."""

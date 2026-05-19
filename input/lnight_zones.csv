@@ -1,7 +1,7 @@
-zone,min dBel,max dBel
-A,65,70
-B,60,65
-C,55,60
-D,50,55
-E,45,50
-F,40,45
+zone,min dBel,max dBel,leefbaarheidspunten_geïsoleerd,leefbaarheidspunten_niet_geïsoleerd
+A,65,70,32,64
+B,60,65,16,32
+C,55,60,8,16
+D,50,55,4,8
+E,45,50,2,4
+F,40,45,1,2

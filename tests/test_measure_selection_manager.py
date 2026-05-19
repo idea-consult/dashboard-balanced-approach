@@ -50,6 +50,20 @@ class TestMeasureSelectionManagerConnection(unittest.TestCase):
         )
         self.assertEqual(flow_names, description_names)
 
+    def test_ui_sidebar_follows_measures_csv_priority(self):
+        """Sidebar order follows priority column in measures.csv."""
+        entries = self.selection_manager.get_ui_sidebar_entries()
+        keys = [key for _, key in entries]
+        self.assertEqual(keys[0], "verkavelingsverbod")
+        self.assertEqual(keys[1], "woongebiedverbod")
+        self.assertIn(("group", "aankoopbeleid_woningen"), entries)
+        aankoop_idx = keys.index("aankoopbeleid_woningen")
+        voorkoop_idx = keys.index("voorkooprecht_woningen")
+        onteigening_idx = keys.index("onteigenen_woningen")
+        self.assertLess(aankoop_idx, voorkoop_idx)
+        self.assertLess(voorkoop_idx, onteigening_idx)
+        self.assertNotIn("renovatie_zonder_maatregel", keys)
+
     def tearDown(self):
         """Reset maatregel_toepassen na elke test."""
         for measure_name in self.selection_manager.get_measure_descriptions().index:

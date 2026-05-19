@@ -1,8 +1,10 @@
 """UI-focused measure selection manager."""
 
-from typing import Tuple
+from typing import Literal, Tuple
 import os
 import pandas as pd
+
+SidebarEntry = tuple[Literal["group", "measure"], str]
 
 
 class MeasureSelectionManager:
@@ -26,6 +28,10 @@ class MeasureSelectionManager:
             costs_df=costs_df,
         )
 
+        if "priority" in measures_df.columns:
+            measures_df["priority"] = pd.to_numeric(measures_df["priority"], errors="coerce")
+            measures_df = measures_df.sort_values("priority", kind="stable")
+
         self.df_measures = measures_df.rename(columns={"measure_id": "naam"})
         if "help" not in self.df_measures.columns:
             self.df_measures["help"] = ""
@@ -47,7 +53,7 @@ class MeasureSelectionManager:
         flow_rules_df: pd.DataFrame,
         costs_df: pd.DataFrame,
     ) -> None:
-        required_measures = {"measure_id", "naam_mooi", "help"}
+        required_measures = {"measure_id", "naam_mooi", "help", "priority"}
         required_rules = {
             "rule_id",
             "measure_id",
@@ -98,7 +104,8 @@ class MeasureSelectionManager:
             raise ValueError(
                 f"Kon zones niet lezen uit {zones_file}. Verwacht kolom 'zone'."
             ) from exc
-        zones = sorted(df_zones["zone"].astype(str).unique().tolist())
+        zone_series = df_zones["zone"].dropna().astype(str).str.strip()
+        zones = sorted(zone_series[zone_series != ""].unique().tolist())
         if not zones:
             raise ValueError(f"Zones-bestand {zones_file} bevat geen zones.")
         return tuple(zones)
@@ -150,7 +157,31 @@ class MeasureSelectionManager:
                 continue
             groups.setdefault(group_id, []).append(str(measure_name))
         return {
-            group_id: tuple(sorted(measures))
+            group_id: tuple(measures)
             for group_id, measures in groups.items()
             if len(measures) > 1
         }
+
+    def get_ui_sidebar_entries(self) -> list[SidebarEntry]:
+        """Sidebar-volgorde = rijvolgorde in measures.csv (kolom priority)."""
+        hidden = self.get_hidden_measures()
+        measure_to_group = {
+            measure: group_id
+            for group_id, members in self.get_measure_groups().items()
+            for measure in members
+        }
+        seen_groups: set[str] = set()
+        entries: list[SidebarEntry] = []
+
+        for measure_id in self.df_measures.index.astype(str):
+            if measure_id in hidden:
+                continue
+            group_id = measure_to_group.get(measure_id)
+            if group_id is not None:
+                if group_id not in seen_groups:
+                    seen_groups.add(group_id)
+                    entries.append(("group", group_id))
+                continue
+            entries.append(("measure", measure_id))
+
+        return entries

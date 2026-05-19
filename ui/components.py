@@ -4,9 +4,12 @@ import streamlit as st
 import altair as alt
 import pandas as pd
 import os
+from typing import Dict
+
 from models.stock_manager import StockManager
 from models.measure_selection_manager import MeasureSelectionManager
 from models.validation import validate_measure_combinations
+from simulation.engine import SimulationEngine
 from config import BEGINJAAR, EINDJAAR
 
 
@@ -20,46 +23,48 @@ def render_sidebar_controls(measure_selection_manager: MeasureSelectionManager, 
     df_beschrijving_maatregelen = measure_selection_manager.get_measure_descriptions()
     hidden_measures = measure_selection_manager.get_hidden_measures()
     grouped_measures = measure_selection_manager.get_measure_groups()
-    grouped_measure_names = {
-        measure for measures in grouped_measures.values() for measure in measures
-    }
 
     with st.sidebar:
-        for group_id, measure_names in grouped_measures.items():
-            if any(measure in hidden_measures for measure in measure_names):
-                continue
-            if not all(
-                measure in df_beschrijving_maatregelen.index for measure in measure_names
-            ):
-                continue
-            combined_selected = tuple(
-                sorted(
-                    set().union(
-                        *(set(measure_selection_manager.get_selected_zones(measure)) for measure in measure_names)
+        for entry_kind, entry_key in measure_selection_manager.get_ui_sidebar_entries():
+            if entry_kind == "group":
+                group_id = entry_key
+                measure_names = grouped_measures[group_id]
+                if any(measure in hidden_measures for measure in measure_names):
+                    continue
+                if not all(
+                    measure in df_beschrijving_maatregelen.index for measure in measure_names
+                ):
+                    continue
+                combined_selected = tuple(
+                    sorted(
+                        set().union(
+                            *(
+                                set(measure_selection_manager.get_selected_zones(measure))
+                                for measure in measure_names
+                            )
+                        )
                     )
                 )
-            )
-            combined_help = "\n\n".join(
-                str(df_beschrijving_maatregelen.at[measure, "help"])
-                for measure in measure_names
-            )
-            group_label = group_id.replace("_", " ").capitalize()
-            selected_group = st.segmented_control(
-                label=group_label,
-                options=zones,
-                help=combined_help,
-                selection_mode="multi",
-                default=combined_selected,
-                key=f"seg_group_{group_id}",
-                width="stretch",
-            )
-            for measure in measure_names:
-                measure_selection_manager.set_selected_zones(measure, selected_group)
-
-        for maatregel in df_beschrijving_maatregelen.index.get_level_values("naam"):
-            if maatregel in hidden_measures:
+                combined_help = "\n\n".join(
+                    str(df_beschrijving_maatregelen.at[measure, "help"])
+                    for measure in measure_names
+                )
+                group_label = group_id.replace("_", " ").capitalize()
+                selected_group = st.segmented_control(
+                    label=group_label,
+                    options=zones,
+                    help=combined_help,
+                    selection_mode="multi",
+                    default=combined_selected,
+                    key=f"seg_group_{group_id}",
+                    width="stretch",
+                )
+                for measure in measure_names:
+                    measure_selection_manager.set_selected_zones(measure, selected_group)
                 continue
-            if maatregel in grouped_measure_names:
+
+            maatregel = entry_key
+            if maatregel in hidden_measures:
                 continue
             selected = st.segmented_control(
                 label=df_beschrijving_maatregelen.at[maatregel, "naam_mooi"],
@@ -77,6 +82,19 @@ def render_sidebar_controls(measure_selection_manager: MeasureSelectionManager, 
     return conflicts
 
 
+def _delta_pct(begin: float, eind: float) -> int:
+    if begin == 0:
+        return 0
+    return int(100 * (eind - begin) / begin)
+
+
+def _render_traject_metric(stock_manager: StockManager, metric_name: str, label: str) -> None:
+    begin = stock_manager.get_aantal(metric_name, BEGINJAAR, "Totaal")
+    eind = stock_manager.get_aantal(metric_name, EINDJAAR, "Totaal")
+    delta_pct = _delta_pct(begin, eind)
+    st.metric(label, f"{int(eind)}", f"{delta_pct} %", delta_color="inverse")
+
+
 def render_metrics(
     stock_manager: StockManager,
     kost_overheid: float,
@@ -90,21 +108,29 @@ def render_metrics(
     """
     col_hinder, col_overheid, col_prive = st.columns(3)
 
-    begin = stock_manager.get_aantal("totaal_gehinderde_personen", BEGINJAAR, "Totaal")
-    eind = stock_manager.get_aantal("totaal_gehinderde_personen", EINDJAAR, "Totaal")
-    delta_pct = 0 if begin == 0 else int(100 * (eind - begin) / begin)
     with col_hinder:
-        st.metric(
-            "Totaal aantal gehinderde personen",
-            f"{int(eind)}",
-            f"{delta_pct} %",
-            delta_color="inverse",
+        _render_traject_metric(
+            stock_manager, "totaal_gehinderde_personen", "Totaal aantal gehinderde personen"
         )
 
     with col_overheid:
         st.metric("Totale kost overheid", f"{kost_overheid:,.0f} euro")
     with col_prive:
         st.metric("Totale kost privé", f"{kost_prive:,.0f} euro")
+
+    col_hp_totaal, col_hp_iso, col_hp_niet = st.columns(3)
+    with col_hp_totaal:
+        _render_traject_metric(stock_manager, "leefbaarheidspunten", "Totaal aantal leefbaarheidspunten")
+    with col_hp_iso:
+        _render_traject_metric(
+            stock_manager, "leefbaarheidspunten_met_isolatie", "Leefbaarheidspunten geïsoleerd"
+        )
+    with col_hp_niet:
+        _render_traject_metric(
+            stock_manager,
+            "leefbaarheidspunten_zonder_isolatie",
+            "Leefbaarheidspunten niet-geïsoleerd",
+        )
 
 
 def plot_metric(
@@ -137,20 +163,16 @@ def plot_metric(
 
 
 def render_charts(stock_manager: StockManager) -> None:
-    """
-    Render grouped bar chart for ernstig gehinderden (begin vs einde) per zone.
-
-    Args:
-        stock_manager: StockManager instance
-    """
+    """Render charts for ernstig gehinderden, leefbaarheidspunten, and stock line charts."""
     df_stock = stock_manager.get_dataframe().reset_index()
     render_ernstig_gehinderden_chart(df_stock)
+    render_leefbaarheidspunten_section(stock_manager)
     render_compact_line_charts(df_stock)
 
 
 def render_ernstig_gehinderden_chart(df_stock: pd.DataFrame) -> None:
     """Render grouped bar chart with begin and end year values per zone."""
-    metric_name = "hinderpunten"
+    metric_name = "aantal_ernstig_gehinderden"
     df_plot = df_stock[
         (df_stock["naam"] == metric_name)
         & (df_stock["zone"] != "Totaal")
@@ -176,6 +198,102 @@ def render_ernstig_gehinderden_chart(df_stock: pd.DataFrame) -> None:
         )
         .properties(
             title="Aantal ernstig gehinderden per zone (begin vs einde traject)",
+            height=560,
+        )
+    )
+    st.altair_chart(chart, width="stretch")
+
+
+def render_leefbaarheidspunten_weight_controls(
+    stock_manager: StockManager, contour_type: str
+) -> Dict[str, Dict[str, float]]:
+    """Number inputs per zone voor leefbaarheidspunten-gewichten (defaults uit zones-CSV)."""
+    st.caption(
+        "Punten per inwoner per zone. Leefbaarheidspunten = inwoners zonder isolatie × punten "
+        "niet-geïsoleerd + inwoners met isolatie × punten geïsoleerd."
+    )
+    return _collect_leefbaarheidspunten_weights(stock_manager, contour_type)
+
+
+def _collect_leefbaarheidspunten_weights(
+    stock_manager: StockManager, contour_type: str
+) -> Dict[str, Dict[str, float]]:
+    defaults = stock_manager.get_default_leefbaarheidspunten_weights()
+    weights: Dict[str, Dict[str, float]] = {}
+    zones = stock_manager.get_zones()
+    columns = st.columns(len(zones))
+    for column, zone in zip(columns, zones):
+        zone_defaults = defaults[zone]
+        with column:
+            st.caption(f"Zone {zone}")
+            weights[zone] = {
+                "niet_geïsoleerd": st.number_input(
+                    "Niet-geïsoleerd",
+                    min_value=0.0,
+                    value=float(zone_defaults["niet_geïsoleerd"]),
+                    step=1.0,
+                    key=f"leefbaarheidspunten_niet_{contour_type}_{zone}",
+                ),
+                "geïsoleerd": st.number_input(
+                    "Geïsoleerd",
+                    min_value=0.0,
+                    value=float(zone_defaults["geïsoleerd"]),
+                    step=1.0,
+                    key=f"leefbaarheidspunten_iso_{contour_type}_{zone}",
+                ),
+            }
+    return weights
+
+
+def render_leefbaarheidspunten_section(stock_manager: StockManager) -> None:
+    """Render grouped bar chart for leefbaarheidspunten (weights/KPI's staan hoger op de pagina)."""
+    st.subheader("Leefbaarheidspunten per zone")
+    render_leefbaarheidspunten_chart(stock_manager.get_dataframe().reset_index())
+
+
+def render_leefbaarheidspunten_chart(df_stock: pd.DataFrame) -> None:
+    """Grouped bar chart: leefbaarheidspunten met/zonder isolatie, begin vs einde per zone."""
+    year_label = {BEGINJAAR: "Begin traject", EINDJAAR: "Einde traject"}
+    metric_labels = {
+        "leefbaarheidspunten_zonder_isolatie": "Zonder isolatie",
+        "leefbaarheidspunten_met_isolatie": "Met isolatie",
+    }
+    rows = []
+    for metric_name, isolatie_label in metric_labels.items():
+        subset = df_stock[
+            (df_stock["naam"] == metric_name)
+            & (df_stock["zone"] != "Totaal")
+            & (df_stock["jaar"].isin([BEGINJAAR, EINDJAAR]))
+        ]
+        for _, row in subset.iterrows():
+            moment = year_label[int(row["jaar"])]
+            rows.append(
+                {
+                    "zone": row["zone"],
+                    "moment": moment,
+                    "isolatie": isolatie_label,
+                    "categorie": f"{moment} – {isolatie_label}",
+                    "leefbaarheidspunten": float(row["aantal"]),
+                }
+            )
+
+    df_plot = pd.DataFrame(rows)
+    if df_plot.empty:
+        st.warning("Geen data beschikbaar voor leefbaarheidspunten.")
+        return
+
+    chart = (
+        alt.Chart(df_plot)
+        .mark_bar()
+        .encode(
+            x=alt.X("zone:N", title="Zone", axis=alt.Axis(labelAngle=0)),
+            xOffset=alt.XOffset("categorie:N"),
+            y=alt.Y("leefbaarheidspunten:Q", title="Leefbaarheidspunten"),
+            color=alt.Color("isolatie:N", title="Isolatie"),
+            tooltip=["zone", "moment", "isolatie", "leefbaarheidspunten"],
+        )
+        .properties(
+            title="Leefbaarheidspunten per zone (begin vs einde traject)",
             height=560,
         )
     )
