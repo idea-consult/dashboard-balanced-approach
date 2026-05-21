@@ -12,9 +12,14 @@ class StockManager:
         "aantal_bewoonde_geïsoleerde_huizen": "bewoonde_geïsoleerde_woning",
         "aantal_bewoonde_niet_geïsoleerde_huizen": "bewoonde_niet_geïsoleerde_woning",
         "aantal_onbebouwde_bebouwbare_percelen": "onbebouwde_bebouwbare_percelen",
+        "aantal_onbebouwde_onbebouwbare_percelen": "onbebouwde_onbebouwbare_percelen",
         "aantal_perceel_eigendom_overheid": "perceel_eigendom_overheid",
+        "aantal_woning_eigendom_overheid": "woning_eigendom_overheid",
         "woning_eigendom_overheid": "woning_eigendom_overheid",
     }
+
+    # Regionale opsplitsing op het contour (alleen informatief); simulatie gebruikt *_totaal_{jaar}.
+    REGIO_DETAIL_INFIXES = ("_vlaanderen_", "_brussel_")
 
     REQUIRED_STOCKS = (
         "bewoonde_geïsoleerde_woning",
@@ -48,7 +53,8 @@ class StockManager:
         if "" in self.df_contour.columns:
             self.df_contour = self.df_contour.drop(columns=[""])
 
-        self.df_contour["zone"] = self.df_contour["midden"].map(self._map_midden_to_zone)
+        midden_col = "db_midden" if "db_midden" in self.df_contour.columns else "midden"
+        self.df_contour["zone"] = self.df_contour[midden_col].map(self._map_midden_to_zone)
         self.stock_columns: Dict[str, Dict[int, str]] = {}
         self._register_initial_stock_columns()
         self.df_stock = self._build_aggregated_stock_table()
@@ -59,22 +65,24 @@ class StockManager:
                 return str(zone_row["zone"])
         return "Onbekend"
 
+    def _contour_stock_base_name(self, raw_column: str) -> str | None:
+        """Map een contourkolom naar de interne stocknaam, of None als niet gebruikt."""
+        if not raw_column.endswith(f"_{self.beginjaar}"):
+            return None
+        if any(infix in raw_column for infix in self.REGIO_DETAIL_INFIXES):
+            return None
+        base_name = raw_column[: -(len(str(self.beginjaar)) + 1)]
+        if base_name.endswith("_totaal"):
+            base_name = base_name[: -len("_totaal")]
+        return self.STOCK_COLUMN_MAP.get(base_name, base_name)
+
     def _register_initial_stock_columns(self) -> None:
         for raw_column in self.df_contour.columns:
-            if not raw_column.endswith(f"_{self.beginjaar}"):
+            stock_name = self._contour_stock_base_name(raw_column)
+            if stock_name is None:
                 continue
-            base_name = raw_column[: -(len(str(self.beginjaar)) + 1)]
-            stock_name = self.STOCK_COLUMN_MAP.get(base_name, base_name)
-            # Stockkolommen moeten float ondersteunen voor fracties tijdens simulatie.
             self.df_contour[raw_column] = self.df_contour[raw_column].astype(float)
             self.stock_columns.setdefault(stock_name, {})[self.beginjaar] = raw_column
-
-        # Kolom zonder jaarsuffix
-        if "woning_eigendom_overheid" in self.df_contour.columns:
-            self.df_contour["woning_eigendom_overheid"] = self.df_contour[
-                "woning_eigendom_overheid"
-            ].astype(float)
-            self.stock_columns.setdefault("woning_eigendom_overheid", {})[self.beginjaar] = "woning_eigendom_overheid"
 
         for stock_name in self.REQUIRED_STOCKS:
             if stock_name not in self.stock_columns:

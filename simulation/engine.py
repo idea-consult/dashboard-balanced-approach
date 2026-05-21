@@ -327,15 +327,18 @@ class SimulationEngine:
             return 0.0
 
         zone_mask = self.stock_manager.df_contour["zone"] == zone
-        zone_df = self.stock_manager.df_contour.loc[zone_mask, [price_col, "huizen"]].dropna()
+        woningen_col = (
+            "aantal_woningen" if "aantal_woningen" in self.stock_manager.df_contour.columns else "huizen"
+        )
+        zone_df = self.stock_manager.df_contour.loc[zone_mask, [price_col, woningen_col]].dropna()
         if zone_df.empty:
             return 0.0
 
-        huizen_sum = float(zone_df["huizen"].sum())
-        if huizen_sum <= 0:
+        woningen_sum = float(zone_df[woningen_col].sum())
+        if woningen_sum <= 0:
             return 0.0
 
-        weighted_price = float((zone_df[price_col] * zone_df["huizen"]).sum() / huizen_sum)
+        weighted_price = float((zone_df[price_col] * zone_df[woningen_col]).sum() / woningen_sum)
         return float(outflow_absolute) * weighted_price
 
     def get_total_costs(self) -> Tuple[float, float]:

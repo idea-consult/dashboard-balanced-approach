@@ -11,6 +11,13 @@ from models.measure_selection_manager import MeasureSelectionManager
 from models.validation import validate_measure_combinations
 from simulation.engine import SimulationEngine
 from config import BEGINJAAR, EINDJAAR
+from ui.formatting import (
+    ALTAIR_INTEGER_FORMAT,
+    format_euro,
+    format_integer,
+    format_number,
+    format_percent,
+)
 
 
 def render_sidebar_controls(measure_selection_manager: MeasureSelectionManager, zones):
@@ -88,11 +95,24 @@ def _delta_pct(begin: float, eind: float) -> int:
     return int(100 * (eind - begin) / begin)
 
 
+def _integer_axis(title: str) -> alt.Axis:
+    return alt.Axis(title=title, format=ALTAIR_INTEGER_FORMAT)
+
+
+def _integer_tooltip(field: str, title: str) -> alt.Tooltip:
+    return alt.Tooltip(field, title=title, format=ALTAIR_INTEGER_FORMAT)
+
+
 def _render_traject_metric(stock_manager: StockManager, metric_name: str, label: str) -> None:
     begin = stock_manager.get_aantal(metric_name, BEGINJAAR, "Totaal")
     eind = stock_manager.get_aantal(metric_name, EINDJAAR, "Totaal")
     delta_pct = _delta_pct(begin, eind)
-    st.metric(label, f"{int(eind)}", f"{delta_pct} %", delta_color="inverse")
+    st.metric(
+        label,
+        format_integer(eind),
+        format_percent(delta_pct),
+        delta_color="inverse",
+    )
 
 
 def render_metrics(
@@ -114,9 +134,9 @@ def render_metrics(
         )
 
     with col_overheid:
-        st.metric("Totale kost overheid", f"{kost_overheid:,.0f} euro")
+        st.metric("Totale kost overheid", format_euro(kost_overheid))
     with col_prive:
-        st.metric("Totale kost privé", f"{kost_prive:,.0f} euro")
+        st.metric("Totale kost privé", format_euro(kost_prive))
 
     col_hp_totaal, col_hp_iso, col_hp_niet = st.columns(3)
     with col_hp_totaal:
@@ -153,9 +173,13 @@ def plot_metric(
         .mark_line(point=True)
         .encode(
             x=alt.X("jaar:O", title="Jaar"),
-            y=alt.Y("aantal:Q", title=y_label),
+            y=alt.Y("aantal:Q", title=y_label, axis=_integer_axis(y_label)),
             color=alt.Color("zone:N", title="Zone"),
-            tooltip=["zone", "jaar", "aantal"],
+            tooltip=[
+                "zone",
+                "jaar",
+                _integer_tooltip("aantal:Q", y_label),
+            ],
         )
         .properties(title=title, width=500, height=300)
     )
@@ -192,9 +216,17 @@ def render_ernstig_gehinderden_chart(df_stock: pd.DataFrame) -> None:
         .encode(
             x=alt.X("zone:N", title="Zone", axis=alt.Axis(labelAngle=0)),
             xOffset=alt.XOffset("moment:N"),
-            y=alt.Y("aantal_ernstig_gehinderden:Q", title="Aantal ernstig gehinderden"),
+            y=alt.Y(
+                "aantal_ernstig_gehinderden:Q",
+                title="Aantal ernstig gehinderden",
+                axis=_integer_axis("Aantal ernstig gehinderden"),
+            ),
             color=alt.Color("moment:N", title="Moment"),
-            tooltip=["zone", "moment", "aantal_ernstig_gehinderden"],
+            tooltip=[
+                "zone",
+                "moment",
+                _integer_tooltip("aantal_ernstig_gehinderden:Q", "Aantal ernstig gehinderden"),
+            ],
         )
         .properties(
             title="Aantal ernstig gehinderden per zone (begin vs einde traject)",
@@ -288,9 +320,18 @@ def render_leefbaarheidspunten_chart(df_stock: pd.DataFrame) -> None:
         .encode(
             x=alt.X("zone:N", title="Zone", axis=alt.Axis(labelAngle=0)),
             xOffset=alt.XOffset("categorie:N"),
-            y=alt.Y("leefbaarheidspunten:Q", title="Leefbaarheidspunten"),
+            y=alt.Y(
+                "leefbaarheidspunten:Q",
+                title="Leefbaarheidspunten",
+                axis=_integer_axis("Leefbaarheidspunten"),
+            ),
             color=alt.Color("isolatie:N", title="Isolatie"),
-            tooltip=["zone", "moment", "isolatie", "leefbaarheidspunten"],
+            tooltip=[
+                "zone",
+                "moment",
+                "isolatie",
+                _integer_tooltip("leefbaarheidspunten:Q", "Leefbaarheidspunten"),
+            ],
         )
         .properties(
             title="Leefbaarheidspunten per zone (begin vs einde traject)",
@@ -319,9 +360,13 @@ def plot_metric_compact(
         .mark_line(point=True)
         .encode(
             x=alt.X("jaar:O", title="Jaar"),
-            y=alt.Y("aantal:Q", title=y_label),
+            y=alt.Y("aantal:Q", title=y_label, axis=_integer_axis(y_label)),
             color=alt.Color("zone:N", title="Zone"),
-            tooltip=["zone", "jaar", "aantal"],
+            tooltip=[
+                "zone",
+                "jaar",
+                _integer_tooltip("aantal:Q", y_label),
+            ],
         )
         .properties(title=title, height=350)
     )
@@ -397,4 +442,14 @@ def render_flow_log_zone_table(flow_log_zone_file: str) -> None:
         return
 
     st.subheader("Flow log per zone")
-    st.dataframe(df[selected_columns], width="stretch")
+    df_display = df[selected_columns].copy()
+    if "flow_rate" in df_display.columns:
+        df_display["flow_rate"] = df_display["flow_rate"].map(
+            lambda v: format_number(v) if pd.notna(v) else ""
+        )
+    for col in ("delta_inflow", "delta_outflow"):
+        if col in df_display.columns:
+            df_display[col] = df_display[col].map(
+                lambda v: format_integer(v) if pd.notna(v) else ""
+            )
+    st.dataframe(df_display, width="stretch")

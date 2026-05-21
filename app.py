@@ -17,6 +17,8 @@ if os.getenv("RUN_STARTUP_TESTS", "false").strip().lower() == "true":
 
 import streamlit as st
 
+import idea_consult_altair_theme  # noqa: F401 — Idea Consult-thema + NL getalnotatie
+
 from config import (
     MEASURES_FILE,
     FLOW_RULES_FILE,
