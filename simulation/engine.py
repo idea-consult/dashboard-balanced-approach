@@ -6,7 +6,10 @@ import os
 import numpy as np
 from models.stock_manager import StockManager
 from models.measure_selection_manager import MeasureSelectionManager
-from models.simulation_input_loader import load_simulation_inputs
+from models.simulation_input_loader import (
+    load_simulation_inputs,
+    resolve_regional_flow_targets,
+)
 from simulation.state import SimulationOutputs, SimulationState
 from simulation.helpers import calculate_leefbaarheidspunten_for_contour
 from config import (
@@ -94,35 +97,64 @@ class SimulationEngine:
                     year_idx, zone_idx, :
                 ]
                 for rule in state.flow_rules_by_zone[zone]:
-                    if (
-                        rule.inflow_stock not in state.stock_to_idx
-                        or rule.outflow_stock not in state.stock_to_idx
-                    ):
+                    inflow_targets = resolve_regional_flow_targets(
+                        rule.inflow_stock, state.stock_to_idx
+                    )
+                    outflow_targets = resolve_regional_flow_targets(
+                        rule.outflow_stock, state.stock_to_idx
+                    )
+                    if not inflow_targets or not outflow_targets:
                         continue
-                    inflow_idx = state.stock_to_idx[rule.inflow_stock]
-                    outflow_idx = state.stock_to_idx[rule.outflow_stock]
-                    inflow_stock_value = state.sim_state[next_year_idx, zone_idx, inflow_idx]
-                    outflow_stock_value = state.sim_state[next_year_idx, zone_idx, outflow_idx]
                     flow_rate = (
                         rule.flow_rate_active if rule.active else rule.flow_rate_baseline
                     )
-                    flow_absolute = inflow_stock_value * flow_rate
-                    if rule.flow_mode == "growth":
-                        new_inflow = inflow_stock_value + flow_absolute
-                        new_outflow = (
-                            new_inflow if outflow_idx == inflow_idx else outflow_stock_value
-                        )
-                        outflow_absolute = flow_absolute
-                    else:
-                        new_inflow = inflow_stock_value - flow_absolute
-                        if new_inflow < 0:
-                            raise ValueError(
-                                f"Future inflow stock value is negative for {rule.inflow_stock} in {zone} in {jaar}, using {rule.measure_id}."
+                    total_outflow_absolute = 0.0
+                    log_inflow_orig = 0.0
+                    log_inflow_new = 0.0
+                    log_outflow_orig = 0.0
+                    log_outflow_new = 0.0
+
+                    for inflow_name, outflow_name in zip(inflow_targets, outflow_targets):
+                        inflow_idx = state.stock_to_idx[inflow_name]
+                        outflow_idx = state.stock_to_idx[outflow_name]
+                        inflow_stock_value = state.sim_state[
+                            next_year_idx, zone_idx, inflow_idx
+                        ]
+                        outflow_stock_value = state.sim_state[
+                            next_year_idx, zone_idx, outflow_idx
+                        ]
+                        flow_absolute = inflow_stock_value * flow_rate
+                        if rule.flow_mode == "growth":
+                            new_inflow = inflow_stock_value + flow_absolute
+                            new_outflow = (
+                                new_inflow
+                                if outflow_idx == inflow_idx
+                                else outflow_stock_value
                             )
-                        new_outflow = outflow_stock_value + flow_absolute
-                        outflow_absolute = flow_absolute
+                            outflow_absolute = flow_absolute
+                        else:
+                            new_inflow = inflow_stock_value - flow_absolute
+                            if new_inflow < 0:
+                                raise ValueError(
+                                    f"Future inflow stock value is negative for {inflow_name} in {zone} in {jaar}, using {rule.measure_id}."
+                                )
+                            new_outflow = outflow_stock_value + flow_absolute
+                            outflow_absolute = flow_absolute
+
+                        total_outflow_absolute += outflow_absolute
+                        log_inflow_orig += inflow_stock_value
+                        log_inflow_new += new_inflow
+                        log_outflow_orig += outflow_stock_value
+                        log_outflow_new += new_outflow
+
+                        state.sim_state[next_year_idx, zone_idx, inflow_idx] = new_inflow
+                        if outflow_idx != inflow_idx:
+                            state.sim_state[next_year_idx, zone_idx, outflow_idx] = new_outflow
+
                     if rule.active:
-                        row_cost = self._calculate_row_cost(zone, rule.cost_stock, outflow_absolute)
+                        row_cost = self._calculate_row_cost(
+                            zone, rule.cost_stock, total_outflow_absolute
+                        )
                         state.totale_kost_overheid += row_cost * rule.rel_cost_overheid
                         state.totale_kost_prive += row_cost * rule.rel_cost_prive
                     state.flow_log_rows.append(
@@ -134,18 +166,15 @@ class SimulationEngine:
                             "flow_rate": flow_rate,
                             "flow_mode": rule.flow_mode,
                             "inflow_stock_name": rule.inflow_stock,
-                            "orig_future_inflow_stock_value": inflow_stock_value,
-                            "new_future_inflow_stock_value": new_inflow,
-                            "delta_inflow": new_inflow - inflow_stock_value,
+                            "orig_future_inflow_stock_value": log_inflow_orig,
+                            "new_future_inflow_stock_value": log_inflow_new,
+                            "delta_inflow": log_inflow_new - log_inflow_orig,
                             "outflow_stock_name": rule.outflow_stock,
-                            "orig_future_outflow_stock_value": outflow_stock_value,
-                            "new_future_outflow_stock_value": new_outflow,
-                            "delta_outflow": new_outflow - outflow_stock_value,
+                            "orig_future_outflow_stock_value": log_outflow_orig,
+                            "new_future_outflow_stock_value": log_outflow_new,
+                            "delta_outflow": log_outflow_new - log_outflow_orig,
                         }
                     )
-                    state.sim_state[next_year_idx, zone_idx, inflow_idx] = new_inflow
-                    if outflow_idx != inflow_idx:
-                        state.sim_state[next_year_idx, zone_idx, outflow_idx] = new_outflow
         return state
 
     def build_outputs(self, state: SimulationState) -> SimulationOutputs:
@@ -327,9 +356,12 @@ class SimulationEngine:
             return 0.0
 
         zone_mask = self.stock_manager.df_contour["zone"] == zone
-        woningen_col = (
-            "aantal_woningen" if "aantal_woningen" in self.stock_manager.df_contour.columns else "huizen"
-        )
+        if "aantal_woningen_totaal" in self.stock_manager.df_contour.columns:
+            woningen_col = "aantal_woningen_totaal"
+        elif "aantal_woningen" in self.stock_manager.df_contour.columns:
+            woningen_col = "aantal_woningen"
+        else:
+            woningen_col = "huizen"
         zone_df = self.stock_manager.df_contour.loc[zone_mask, [price_col, woningen_col]].dropna()
         if zone_df.empty:
             return 0.0
@@ -355,8 +387,8 @@ class SimulationEngine:
         The following metrics are calculated per zone:
         - gehinderde_personen_zonder_isolatie
         - gehinderde_personen_met_isolatie
-        - totaal_gehinderde_personen
-        - aantal_ernstig_gehinderden
+        - totaal_gehinderde_personen / _vlaanderen / _brussel
+        - aantal_ernstig_gehinderden / _vlaanderen / _brussel
         - aantal_ernstig_gehinderden_met_isolatie
         - aantal_ernstig_gehinderden_zonder_isolatie
         """
@@ -368,6 +400,10 @@ class SimulationEngine:
                     personen_met_isolatie = 0.0
                     ernstig_zonder_isolatie = 0.0
                     ernstig_met_isolatie = 0.0
+                    ernstig_vlaanderen = 0.0
+                    ernstig_brussel = 0.0
+                    personen_vlaanderen = 0.0
+                    personen_brussel = 0.0
                 else:
                     inwoners_per_huis = contour_df["gemiddeld_aantal_inwoners_per_huis"]
                     dosis_effect_relatie = contour_df["dosis_effect_relatie"]
@@ -398,8 +434,47 @@ class SimulationEngine:
                         ).sum()
                     )
 
+                    ernstig_vlaanderen = float(
+                        (
+                            (
+                                contour_df["bewoonde_niet_geïsoleerde_woning_vlaanderen"]
+                                + contour_df["bewoonde_geïsoleerde_woning_vlaanderen"]
+                            )
+                            * inwoners_per_huis
+                            * dosis_effect_relatie
+                        ).sum()
+                    )
+                    ernstig_brussel = float(
+                        (
+                            (
+                                contour_df["bewoonde_niet_geïsoleerde_woning_brussel"]
+                                + contour_df["bewoonde_geïsoleerde_woning_brussel"]
+                            )
+                            * inwoners_per_huis
+                            * dosis_effect_relatie
+                        ).sum()
+                    )
+                    personen_vlaanderen = float(
+                        (
+                            (
+                                contour_df["bewoonde_niet_geïsoleerde_woning_vlaanderen"]
+                                + contour_df["bewoonde_geïsoleerde_woning_vlaanderen"]
+                            )
+                            * inwoners_per_huis
+                        ).sum()
+                    )
+                    personen_brussel = float(
+                        (
+                            (
+                                contour_df["bewoonde_niet_geïsoleerde_woning_brussel"]
+                                + contour_df["bewoonde_geïsoleerde_woning_brussel"]
+                            )
+                            * inwoners_per_huis
+                        ).sum()
+                    )
+
                 totaal_gehinderde_personen = personen_zonder_isolatie + personen_met_isolatie
-                aantal_ernstig_gehinderden = ernstig_zonder_isolatie + ernstig_met_isolatie
+                aantal_ernstig_gehinderden = ernstig_vlaanderen + ernstig_brussel
 
                 self.stock_manager.set_aantal(
                     "gehinderde_personen_zonder_isolatie",
@@ -412,6 +487,18 @@ class SimulationEngine:
                 )
                 self.stock_manager.set_aantal(
                     "totaal_gehinderde_personen", j, zone, totaal_gehinderde_personen
+                )
+                self.stock_manager.set_aantal(
+                    "totaal_gehinderde_personen_vlaanderen", j, zone, personen_vlaanderen
+                )
+                self.stock_manager.set_aantal(
+                    "totaal_gehinderde_personen_brussel", j, zone, personen_brussel
+                )
+                self.stock_manager.set_aantal(
+                    "aantal_ernstig_gehinderden_vlaanderen", j, zone, ernstig_vlaanderen
+                )
+                self.stock_manager.set_aantal(
+                    "aantal_ernstig_gehinderden_brussel", j, zone, ernstig_brussel
                 )
                 self.stock_manager.set_aantal(
                     "aantal_ernstig_gehinderden", j, zone, aantal_ernstig_gehinderden
@@ -490,21 +577,17 @@ class SimulationEngine:
             "gehinderde_personen_met_isolatie",
             "gehinderde_personen_zonder_isolatie",
             "aantal_ernstig_gehinderden",
+            "aantal_ernstig_gehinderden_vlaanderen",
+            "aantal_ernstig_gehinderden_brussel",
             "aantal_ernstig_gehinderden_met_isolatie",
             "aantal_ernstig_gehinderden_zonder_isolatie",
             "leefbaarheidspunten",
             "leefbaarheidspunten_met_isolatie",
             "leefbaarheidspunten_zonder_isolatie",
             "totaal_gehinderde_personen",
-            "bewoonde_geïsoleerde_woning",
-            "bewoonde_niet_geïsoleerde_woning",
-            "niet_bewoonde_geïsoleerde_woning",
-            "niet_bewoonde_niet_geïsoleerde_woning",
-            "nieuwe_woning",
-            "onbebouwde_bebouwbare_percelen",
-            "onbebouwde_onbebouwbare_percelen",
-            "perceel_eigendom_overheid",
-            "woning_eigendom_overheid",
+            "totaal_gehinderde_personen_vlaanderen",
+            "totaal_gehinderde_personen_brussel",
+            *StockManager.regional_stock_names(),
         ]
 
         for j in range(beginjaar, eindjaar + 1):

@@ -54,6 +54,8 @@ In the dashboard kiest de gebruiker **Lden** of **Lnight** (sidebar). Daarmee wi
 
 `BEGINJAAR` in `config.py` (standaard 2026) bepaalt het jaartal in stock-kolomnamen op het contour (`*_2026`).
 
+**Regionale stocks:** contourkolommen `*_vlaanderen_{jaar}` en `*_brussel_{jaar}` worden apart door de simulatie geëvolueerd; `*_totaal_{jaar}` blijft op het contour als controle/export. De simulatie gebruikt 16 regionale stocks (`{stock}_vlaanderen`, `{stock}_brussel`); `flow_rules.csv` blijft ongewijzigd — elke regel wordt parallel op beide regio’s toegepast.
+
 ---
 
 ### `lden_contour.csv` en `lnight_contour.csv`
@@ -77,8 +79,9 @@ In the dashboard kiest de gebruiker **Lden** of **Lnight** (sidebar). Daarmee wi
 | `prijs_bewoonde_geïsoleerde_woning` | Eenheidsprijs voor `bewoonde_geïsoleerde_woning` |
 | `dosis_effect_relatie` | Dosis-effectfactor per contour; vermenigvuldiger voor **ernstig gehinderden** (met/zonder isolatie) |
 | `gemiddeld_aantal_inwoners_per_huis` | Gemiddeld aantal inwoners per woning; gebruikt voor **gehinderde personen** en ernstig gehinderden |
-| `aantal_ernstig_gehinderden_{jaar}` | Referentiewaarde in de brondata (`inwoners × dosis_effect_relatie` in notebook); tijdens de run opnieuw berekend uit stocks |
-| `aantal_bewoonde_geïsoleerde_huizen_{jaar}` | Startvoorraad; wordt intern `bewoonde_geïsoleerde_woning` |
+| `aantal_ernstig_gehinderden_vlaanderen_{jaar}` / `_brussel_{jaar}` | Ernstig gehinderden per regio; na simulatie herberekend uit regionale woningstocks |
+| `aantal_ernstig_gehinderden_totaal_{jaar}` | Som op contour (notebook); in dashboard als `aantal_ernstig_gehinderden` = Vlaanderen + Brussel |
+| `aantal_bewoonde_geïsoleerde_huizen_vlaanderen_{jaar}` (en `_brussel_`, `_totaal_`) | Startvoorraad; simulatie op `_vlaanderen` / `_brussel` → intern `bewoonde_geïsoleerde_woning_vlaanderen` enz. |
 | `aantal_bewoonde_niet_geïsoleerde_huizen_{jaar}` | Startvoorraad; wordt intern `bewoonde_niet_geïsoleerde_woning` |
 | `aantal_onbebouwde_bebouwbare_percelen_{jaar}` | Startvoorraad; wordt intern `onbebouwde_bebouwbare_percelen` |
 | `aantal_perceel_eigendom_overheid_{jaar}` | Startvoorraad; wordt intern `perceel_eigendom_overheid` |
@@ -204,6 +207,7 @@ UI rendering functions:
 - `render_sidebar_controls()`: Measure selection sidebar
 - `render_metrics()`: Key metrics (gehinderde personen, kosten)
 - `render_charts()`: Visualization charts
+- `render_ernstig_gehinderden_chart()`: Staafgrafiek zone × begin/einde traject × regio (Vlaanderen / Brussel) op basis van `aantal_ernstig_gehinderden_vlaanderen` en `_brussel`
 - `render_flow_log_zone_table()`: Table from `output/flow_log_zone.csv`
 
 ### `app.py`

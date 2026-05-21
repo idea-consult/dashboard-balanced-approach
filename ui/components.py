@@ -120,27 +120,38 @@ def render_metrics(
     kost_overheid: float,
     kost_prive: float,
 ) -> None:
-    """
-    Render key metrics in columns.
+    """KPI's bovenaan: gehinderden (totaal/Vlaanderen/Brussel) en kosten."""
+    col_totaal, col_vl, col_br, col_overheid, col_prive = st.columns(5)
 
-    Args:
-        stock_manager: StockManager instance
-    """
-    col_hinder, col_overheid, col_prive = st.columns(3)
-
-    with col_hinder:
+    with col_totaal:
         _render_traject_metric(
             stock_manager, "totaal_gehinderde_personen", "Totaal aantal gehinderde personen"
         )
-
+    with col_vl:
+        _render_traject_metric(
+            stock_manager,
+            "totaal_gehinderde_personen_vlaanderen",
+            "Totaal aantal gehinderde Vlamingen",
+        )
+    with col_br:
+        _render_traject_metric(
+            stock_manager,
+            "totaal_gehinderde_personen_brussel",
+            "Totaal aantal gehinderde Brusselaars",
+        )
     with col_overheid:
         st.metric("Totale kost overheid", format_euro(kost_overheid))
     with col_prive:
         st.metric("Totale kost privé", format_euro(kost_prive))
 
+
+def render_leefbaarheidspunten_metrics(stock_manager: StockManager) -> None:
+    """Leefbaarheidspunten-KPI's (einde traject) binnen de instellingen-expander."""
     col_hp_totaal, col_hp_iso, col_hp_niet = st.columns(3)
     with col_hp_totaal:
-        _render_traject_metric(stock_manager, "leefbaarheidspunten", "Totaal aantal leefbaarheidspunten")
+        _render_traject_metric(
+            stock_manager, "leefbaarheidspunten", "Totaal aantal leefbaarheidspunten"
+        )
     with col_hp_iso:
         _render_traject_metric(
             stock_manager, "leefbaarheidspunten_met_isolatie", "Leefbaarheidspunten geïsoleerd"
@@ -151,6 +162,40 @@ def render_metrics(
             "leefbaarheidspunten_zonder_isolatie",
             "Leefbaarheidspunten niet-geïsoleerd",
         )
+
+
+def render_leefbaarheidspunten_panel(
+    stock_manager: StockManager,
+    contour_type: str,
+    simulation_engine: SimulationEngine,
+) -> None:
+    """Expander: gewichten per zone, berekening en leefbaarheidspunten-KPI's."""
+    with st.expander("Instelling leefbaarheidspunten per zone", expanded=False):
+        leefbaarheidspunten_weights = render_leefbaarheidspunten_weight_controls(
+            stock_manager, contour_type
+        )
+        simulation_engine.calculate_leefbaarheidspunten(
+            BEGINJAAR, EINDJAAR, leefbaarheidspunten_weights
+        )
+        st.divider()
+        render_leefbaarheidspunten_metrics(stock_manager)
+
+
+def _stock_plot_frame(df_stock: pd.DataFrame, base_stock_name: str) -> pd.DataFrame:
+    """Plotdata: totaal per zone/jaar (Vlaanderen + Brussel samen)."""
+    zone_mask = df_stock["zone"] != "Totaal"
+    direct = df_stock[(df_stock["naam"] == base_stock_name) & zone_mask]
+    if not direct.empty:
+        return direct.copy()
+
+    regional_names = [f"{base_stock_name}_{regio}" for regio in StockManager.REGIONS]
+    regional = df_stock[df_stock["naam"].isin(regional_names) & zone_mask]
+    if regional.empty:
+        return pd.DataFrame()
+
+    aggregated = regional.groupby(["jaar", "zone"], as_index=False)["aantal"].sum()
+    aggregated["naam"] = base_stock_name
+    return aggregated
 
 
 def plot_metric(
@@ -165,9 +210,7 @@ def plot_metric(
         title: Chart title
         y_label: Y-axis label
     """
-    df_plot = df_stock[
-        (df_stock["naam"] == stock_name) & (df_stock["zone"] != "Totaal")
-    ]
+    df_plot = _stock_plot_frame(df_stock, stock_name)
     chart = (
         alt.Chart(df_plot)
         .mark_line(point=True)
@@ -195,45 +238,94 @@ def render_charts(stock_manager: StockManager) -> None:
 
 
 def render_ernstig_gehinderden_chart(df_stock: pd.DataFrame) -> None:
-    """Render grouped bar chart with begin and end year values per zone."""
-    metric_name = "aantal_ernstig_gehinderden"
+    """Staafgrafiek per zone: begin/einde traject, opgesplitst Vlaanderen vs Brussel."""
+    regional_metrics = {
+        "aantal_ernstig_gehinderden_vlaanderen": "Vlaanderen",
+        "aantal_ernstig_gehinderden_brussel": "Brussel",
+    }
     df_plot = df_stock[
-        (df_stock["naam"] == metric_name)
+        (df_stock["naam"].isin(regional_metrics.keys()))
         & (df_stock["zone"] != "Totaal")
         & (df_stock["jaar"].isin([BEGINJAAR, EINDJAAR]))
     ].copy()
     if df_plot.empty:
-        st.warning("Geen data beschikbaar voor aantal ernstig gehinderden.")
+        st.warning("Geen data beschikbaar voor aantal ernstig gehinderden (Vlaanderen/Brussel).")
         return
 
-    year_label = {BEGINJAAR: "Begin traject", EINDJAAR: "Einde traject"}
+    moment_begin = "Begin traject"
+    moment_einde = "Einde traject"
+    year_label = {BEGINJAAR: moment_begin, EINDJAAR: moment_einde}
     df_plot["moment"] = df_plot["jaar"].map(year_label)
+    df_plot["regio"] = df_plot["naam"].map(regional_metrics)
     df_plot["aantal_ernstig_gehinderden"] = df_plot["aantal"]
+
+    regio_kleuren = {
+        "Vlaanderen": {"normaal": "#4E2567", "licht": "#A68BB8"},
+        "Brussel": {"normaal": "#DD5B61", "licht": "#F0A8AC"},
+    }
+    moment_kort = {moment_begin: "begin", moment_einde: "einde"}
+    df_plot["moment"] = pd.Categorical(
+        df_plot["moment"],
+        categories=[moment_begin, moment_einde],
+        ordered=True,
+    )
+    df_plot["regio_volgorde"] = df_plot["regio"].map({"Vlaanderen": 0, "Brussel": 1})
+    df_plot["legenda"] = (
+        df_plot["regio"]
+        + " ("
+        + df_plot["moment"].astype(str).map(moment_kort)
+        + ")"
+    )
+    legenda_domain = [
+        "Vlaanderen (begin)",
+        "Brussel (begin)",
+        "Vlaanderen (einde)",
+        "Brussel (einde)",
+    ]
+    legenda_range = [
+        regio_kleuren["Vlaanderen"]["licht"],
+        regio_kleuren["Brussel"]["licht"],
+        regio_kleuren["Vlaanderen"]["normaal"],
+        regio_kleuren["Brussel"]["normaal"],
+    ]
 
     chart = (
         alt.Chart(df_plot)
         .mark_bar()
         .encode(
             x=alt.X("zone:N", title="Zone", axis=alt.Axis(labelAngle=0)),
-            xOffset=alt.XOffset("moment:N"),
+            xOffset=alt.XOffset("moment:N", sort="ascending"),
             y=alt.Y(
                 "aantal_ernstig_gehinderden:Q",
                 title="Aantal ernstig gehinderden",
                 axis=_integer_axis("Aantal ernstig gehinderden"),
             ),
-            color=alt.Color("moment:N", title="Moment"),
+            color=alt.Color(
+                "legenda:N",
+                scale=alt.Scale(domain=legenda_domain, range=legenda_range),
+                legend=alt.Legend(
+                    orient="right",
+                    title=None,
+                    symbolStrokeWidth=0,
+                    labelFontSize=12,
+                ),
+            ),
+            order=alt.Order("regio_volgorde:O", sort="ascending"),
             tooltip=[
                 "zone",
                 "moment",
+                "regio",
                 _integer_tooltip("aantal_ernstig_gehinderden:Q", "Aantal ernstig gehinderden"),
             ],
         )
         .properties(
-            title="Aantal ernstig gehinderden per zone (begin vs einde traject)",
+            title="Ernstig gehinderden per zone — Vlaanderen en Brussel (begin vs einde traject)",
             height=560,
         )
+        .configure_view(stroke=None)
     )
-    st.altair_chart(chart, width="stretch")
+    st.altair_chart(chart, use_container_width=True)
+    st.caption("Per zone: links begin traject, rechts einde traject.")
 
 
 def render_leefbaarheidspunten_weight_controls(
@@ -347,10 +439,8 @@ def plot_metric_compact(
     title: str,
     y_label: str,
 ) -> None:
-    """Create and display a compact line chart for a specific stock metric."""
-    df_plot = df_stock[
-        (df_stock["naam"] == stock_name) & (df_stock["zone"] != "Totaal")
-    ]
+    """Compact line chart: totaal stock (Vlaanderen + Brussel) per zone."""
+    df_plot = _stock_plot_frame(df_stock, stock_name)
     if df_plot.empty:
         st.info(f"Geen data voor: {title}")
         return

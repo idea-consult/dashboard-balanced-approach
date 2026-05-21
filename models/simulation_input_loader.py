@@ -16,6 +16,22 @@ def _selected_map_from_iterable(
     return {name: set(zones) for name, zones in selected_zones}
 
 
+def resolve_regional_flow_targets(
+    stock_name: str, stock_to_idx: Dict[str, int]
+) -> list[str]:
+    """
+    Map een flow-regel stock (basisnaam) naar regionale sim-stocks.
+
+    flow_rules.csv blijft ongewijzigd; elke regel wordt op vlaanderen én brussel toegepast.
+    """
+    regional = [f"{stock_name}_{regio}" for regio in StockManager.REGIONS]
+    if all(name in stock_to_idx for name in regional):
+        return regional
+    if stock_name in stock_to_idx:
+        return [stock_name]
+    return []
+
+
 def load_simulation_inputs(
     *,
     stock_manager: StockManager,
@@ -29,17 +45,7 @@ def load_simulation_inputs(
     """Load and validate all simulation inputs into a SimulationState."""
     selected_map = _selected_map_from_iterable(selected_zones)
 
-    stock_names = (
-        "bewoonde_geïsoleerde_woning",
-        "bewoonde_niet_geïsoleerde_woning",
-        "niet_bewoonde_geïsoleerde_woning",
-        "niet_bewoonde_niet_geïsoleerde_woning",
-        "nieuwe_woning",
-        "onbebouwde_bebouwbare_percelen",
-        "onbebouwde_onbebouwbare_percelen",
-        "perceel_eigendom_overheid",
-        "woning_eigendom_overheid",
-    )
+    stock_names = StockManager.regional_stock_names()
     stock_to_idx = {stock: idx for idx, stock in enumerate(stock_names)}
     zone_to_idx = {zone: idx for idx, zone in enumerate(zones)}
     year_to_idx = {year: idx for idx, year in enumerate(range(beginjaar, eindjaar + 1))}
@@ -117,8 +123,7 @@ def _load_normalized_rules(
     unknown_modes = sorted(set(merged["flow_mode"]) - valid_flow_modes)
     if unknown_modes:
         raise ValueError(
-            "flow_rules.csv bevat ongeldige flow_mode waarden: "
-            + ", ".join(unknown_modes)
+            "flow_rules.csv bevat ongeldige flow_mode waarden: " + ", ".join(unknown_modes)
         )
 
     by_zone: Dict[str, list[FlowRule]] = {zone: [] for zone in zones}

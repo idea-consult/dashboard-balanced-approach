@@ -41,7 +41,7 @@ from ui.components import (
     render_sidebar_controls,
     render_metrics,
     render_charts,
-    render_leefbaarheidspunten_weight_controls,
+    render_leefbaarheidspunten_panel,
     render_flow_log_zone_table,
 )
 from ui.throttle import spinner_step
@@ -117,17 +117,13 @@ with spinner_step("simulation"):
     simulation_engine.persist_outputs(sim_outputs)
     kost_overheid, kost_prive = simulation_engine.get_total_costs()
 
-with spinner_step("leefbaarheidspunten"):
-    with st.expander("Instelling leefbaarheidspunten per zone", expanded=False):
-        leefbaarheidspunten_weights = render_leefbaarheidspunten_weight_controls(
-            stock_manager, contour_type
-        )
-    simulation_engine.calculate_leefbaarheidspunten(
-        BEGINJAAR, EINDJAAR, leefbaarheidspunten_weights
-    )
-
 with spinner_step("render"):
     render_metrics(stock_manager, kost_overheid, kost_prive)
+
+with spinner_step("leefbaarheidspunten"):
+    render_leefbaarheidspunten_panel(stock_manager, contour_type, simulation_engine)
+
+with spinner_step("charts"):
     render_charts(stock_manager)
 
 with spinner_step("save"):

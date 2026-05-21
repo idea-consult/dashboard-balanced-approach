@@ -120,3 +120,53 @@ class TestEngineRegression(unittest.TestCase):
         result = float(new_state.sim_state[new_state.year_to_idx[2027], 0, 0])
         self.assertAlmostEqual(result, 110.0, places=9)
 
+    def test_regional_ernstig_gehinderden_sum_matches_total(self):
+        engine, selection_manager = self._build_engine()
+        selected = [
+            (name, selection_manager.get_selected_zones(str(name)))
+            for name in selection_manager.get_measure_descriptions().index
+        ]
+        state = engine.load_inputs(BEGINJAAR, EINDJAAR, selected)
+        state = engine.run_simulation_state(state)
+        engine.persist_outputs(engine.build_outputs(state))
+
+        stock_manager = engine.stock_manager
+        for jaar in (BEGINJAAR, EINDJAAR):
+            sum_vlaanderen = 0.0
+            sum_brussel = 0.0
+            for zone in engine.zones:
+                vlaanderen = stock_manager.get_aantal(
+                    "aantal_ernstig_gehinderden_vlaanderen", jaar, zone
+                )
+                brussel = stock_manager.get_aantal(
+                    "aantal_ernstig_gehinderden_brussel", jaar, zone
+                )
+                totaal = stock_manager.get_aantal("aantal_ernstig_gehinderden", jaar, zone)
+                self.assertAlmostEqual(totaal, vlaanderen + brussel, places=3)
+                sum_vlaanderen += vlaanderen
+                sum_brussel += brussel
+            self.assertGreater(sum_vlaanderen, 0.0)
+            self.assertGreater(sum_brussel, 0.0)
+
+    def test_regional_gehinderde_personen_sum_matches_total(self):
+        engine, selection_manager = self._build_engine()
+        selected = [
+            (name, selection_manager.get_selected_zones(str(name)))
+            for name in selection_manager.get_measure_descriptions().index
+        ]
+        state = engine.load_inputs(BEGINJAAR, EINDJAAR, selected)
+        state = engine.run_simulation_state(state)
+        engine.persist_outputs(engine.build_outputs(state))
+
+        stock_manager = engine.stock_manager
+        for jaar in (BEGINJAAR, EINDJAAR):
+            for zone in engine.zones:
+                vlaanderen = stock_manager.get_aantal(
+                    "totaal_gehinderde_personen_vlaanderen", jaar, zone
+                )
+                brussel = stock_manager.get_aantal(
+                    "totaal_gehinderde_personen_brussel", jaar, zone
+                )
+                totaal = stock_manager.get_aantal("totaal_gehinderde_personen", jaar, zone)
+                self.assertAlmostEqual(totaal, vlaanderen + brussel, places=3)
+
