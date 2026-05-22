@@ -88,6 +88,7 @@ class SimulationEngine:
 
     def run_simulation_state(self, state: SimulationState) -> SimulationState:
         """Mutate simulation state only (no file writes / UI side effects)."""
+        self.stock_manager.preload_contour_year_columns(state.eindjaar)
         for jaar in range(state.beginjaar, state.eindjaar):
             year_idx = state.year_to_idx[jaar]
             next_year_idx = state.year_to_idx[jaar + 1]

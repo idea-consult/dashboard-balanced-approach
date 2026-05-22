@@ -18,6 +18,42 @@ from ui.formatting import (
     format_number,
     format_percent,
 )
+from ui.measure_help import combine_measure_help
+
+# Idea Consult-kleuren: paars (serie A) en roze (serie B), licht = beginjaar, normaal = eindjaar
+_CHART_KLEUR_A = {"normaal": "#4E2567", "licht": "#A68BB8"}
+_CHART_KLEUR_B = {"normaal": "#DD5B61", "licht": "#F0A8AC"}
+
+
+def _jaar_categorieen() -> tuple[str, str]:
+    return str(BEGINJAAR), str(EINDJAAR)
+
+
+def _legenda_kleur(serie: str, jaar: int, kleuren: dict[str, dict[str, str]]) -> str:
+    tint = "licht" if jaar == BEGINJAAR else "normaal"
+    return kleuren[serie][tint]
+
+
+def _legenda_labels_en_kleuren(
+    series: tuple[str, str], kleuren: dict[str, dict[str, str]]
+) -> tuple[list[str], list[str]]:
+    """Vier legendaitems: serie A/B × beginjaar/eindjaar."""
+    domain: list[str] = []
+    range_kleuren: list[str] = []
+    for serie in series:
+        for jaar in (BEGINJAAR, EINDJAAR):
+            domain.append(f"{serie} ({jaar})")
+            range_kleuren.append(_legenda_kleur(serie, jaar, kleuren))
+    return domain, range_kleuren
+
+
+def _measure_help(
+    measure_selection_manager: MeasureSelectionManager, measure_id: str
+) -> str:
+    descriptions = measure_selection_manager.get_measure_descriptions()
+    base_help = str(descriptions.at[measure_id, "help"])
+    flow_rules = measure_selection_manager.get_flow_rules_for_measure(measure_id)
+    return combine_measure_help(base_help, flow_rules)
 
 
 def render_sidebar_controls(measure_selection_manager: MeasureSelectionManager, zones):
@@ -52,8 +88,8 @@ def render_sidebar_controls(measure_selection_manager: MeasureSelectionManager, 
                         )
                     )
                 )
-                combined_help = "\n\n".join(
-                    str(df_beschrijving_maatregelen.at[measure, "help"])
+                combined_help = "\n\n---\n\n".join(
+                    _measure_help(measure_selection_manager, measure)
                     for measure in measure_names
                 )
                 group_label = group_id.replace("_", " ").capitalize()
@@ -76,7 +112,7 @@ def render_sidebar_controls(measure_selection_manager: MeasureSelectionManager, 
             selected = st.segmented_control(
                 label=df_beschrijving_maatregelen.at[maatregel, "naam_mooi"],
                 options=zones,
-                help=df_beschrijving_maatregelen.at[maatregel, "help"],
+                help=_measure_help(measure_selection_manager, maatregel),
                 selection_mode="multi",
                 default=measure_selection_manager.get_selected_zones(maatregel),
                 key=f"seg_{maatregel}",
@@ -146,7 +182,7 @@ def render_metrics(
 
 
 def render_leefbaarheidspunten_metrics(stock_manager: StockManager) -> None:
-    """Leefbaarheidspunten-KPI's (einde traject) binnen de instellingen-expander."""
+    """Leefbaarheidspunten-KPI's (eindjaar) binnen de instellingen-expander."""
     col_hp_totaal, col_hp_iso, col_hp_niet = st.columns(3)
     with col_hp_totaal:
         _render_traject_metric(
@@ -226,7 +262,7 @@ def plot_metric(
         )
         .properties(title=title, width=500, height=300)
     )
-    st.altair_chart(chart, use_container_width=True)
+    st.altair_chart(chart, width="stretch")
 
 
 def render_charts(stock_manager: StockManager) -> None:
@@ -238,7 +274,7 @@ def render_charts(stock_manager: StockManager) -> None:
 
 
 def render_ernstig_gehinderden_chart(df_stock: pd.DataFrame) -> None:
-    """Staafgrafiek per zone: begin/einde traject, opgesplitst Vlaanderen vs Brussel."""
+    """Staafgrafiek per zone: beginjaar/eindjaar, gestapeld Vlaanderen vs Brussel."""
     regional_metrics = {
         "aantal_ernstig_gehinderden_vlaanderen": "Vlaanderen",
         "aantal_ernstig_gehinderden_brussel": "Brussel",
@@ -252,49 +288,30 @@ def render_ernstig_gehinderden_chart(df_stock: pd.DataFrame) -> None:
         st.warning("Geen data beschikbaar voor aantal ernstig gehinderden (Vlaanderen/Brussel).")
         return
 
-    moment_begin = "Begin traject"
-    moment_einde = "Einde traject"
-    year_label = {BEGINJAAR: moment_begin, EINDJAAR: moment_einde}
-    df_plot["moment"] = df_plot["jaar"].map(year_label)
+    jaar_begin, jaar_einde = _jaar_categorieen()
+    regio_kleuren = {"Vlaanderen": _CHART_KLEUR_A, "Brussel": _CHART_KLEUR_B}
     df_plot["regio"] = df_plot["naam"].map(regional_metrics)
     df_plot["aantal_ernstig_gehinderden"] = df_plot["aantal"]
-
-    regio_kleuren = {
-        "Vlaanderen": {"normaal": "#4E2567", "licht": "#A68BB8"},
-        "Brussel": {"normaal": "#DD5B61", "licht": "#F0A8AC"},
-    }
-    moment_kort = {moment_begin: "begin", moment_einde: "einde"}
-    df_plot["moment"] = pd.Categorical(
-        df_plot["moment"],
-        categories=[moment_begin, moment_einde],
+    df_plot["jaar_label"] = df_plot["jaar"].astype(int).astype(str)
+    df_plot["jaar_label"] = pd.Categorical(
+        df_plot["jaar_label"],
+        categories=[jaar_begin, jaar_einde],
         ordered=True,
     )
     df_plot["regio_volgorde"] = df_plot["regio"].map({"Vlaanderen": 0, "Brussel": 1})
-    df_plot["legenda"] = (
-        df_plot["regio"]
-        + " ("
-        + df_plot["moment"].astype(str).map(moment_kort)
-        + ")"
+    df_plot["legenda"] = df_plot.apply(
+        lambda row: f"{row['regio']} ({int(row['jaar'])})", axis=1
     )
-    legenda_domain = [
-        "Vlaanderen (begin)",
-        "Brussel (begin)",
-        "Vlaanderen (einde)",
-        "Brussel (einde)",
-    ]
-    legenda_range = [
-        regio_kleuren["Vlaanderen"]["licht"],
-        regio_kleuren["Brussel"]["licht"],
-        regio_kleuren["Vlaanderen"]["normaal"],
-        regio_kleuren["Brussel"]["normaal"],
-    ]
+    legenda_domain, legenda_range = _legenda_labels_en_kleuren(
+        ("Vlaanderen", "Brussel"), regio_kleuren
+    )
 
     chart = (
         alt.Chart(df_plot)
         .mark_bar()
         .encode(
             x=alt.X("zone:N", title="Zone", axis=alt.Axis(labelAngle=0)),
-            xOffset=alt.XOffset("moment:N", sort="ascending"),
+            xOffset=alt.XOffset("jaar_label:N", sort="ascending"),
             y=alt.Y(
                 "aantal_ernstig_gehinderden:Q",
                 title="Aantal ernstig gehinderden",
@@ -313,19 +330,22 @@ def render_ernstig_gehinderden_chart(df_stock: pd.DataFrame) -> None:
             order=alt.Order("regio_volgorde:O", sort="ascending"),
             tooltip=[
                 "zone",
-                "moment",
+                alt.Tooltip("jaar_label:N", title="Jaar"),
                 "regio",
                 _integer_tooltip("aantal_ernstig_gehinderden:Q", "Aantal ernstig gehinderden"),
             ],
         )
         .properties(
-            title="Ernstig gehinderden per zone — Vlaanderen en Brussel (begin vs einde traject)",
+            title=(
+                f"Ernstig gehinderden per zone — Vlaanderen en Brussel "
+                f"({BEGINJAAR} vs {EINDJAAR})"
+            ),
             height=560,
         )
         .configure_view(stroke=None)
     )
-    st.altair_chart(chart, use_container_width=True)
-    st.caption("Per zone: links begin traject, rechts einde traject.")
+    st.altair_chart(chart, width="stretch")
+    st.caption(f"Per zone: links {BEGINJAAR}, rechts {EINDJAAR}.")
 
 
 def render_leefbaarheidspunten_weight_controls(
@@ -371,16 +391,18 @@ def _collect_leefbaarheidspunten_weights(
 
 def render_leefbaarheidspunten_section(stock_manager: StockManager) -> None:
     """Render grouped bar chart for leefbaarheidspunten (weights/KPI's staan hoger op de pagina)."""
-    st.subheader("Leefbaarheidspunten per zone")
     render_leefbaarheidspunten_chart(stock_manager.get_dataframe().reset_index())
 
 
 def render_leefbaarheidspunten_chart(df_stock: pd.DataFrame) -> None:
-    """Grouped bar chart: leefbaarheidspunten met/zonder isolatie, begin vs einde per zone."""
-    year_label = {BEGINJAAR: "Begin traject", EINDJAAR: "Einde traject"}
+    """Staafgrafiek per zone: beginjaar/eindjaar, gestapeld niet-geïsoleerd vs geïsoleerd."""
     metric_labels = {
-        "leefbaarheidspunten_zonder_isolatie": "Zonder isolatie",
-        "leefbaarheidspunten_met_isolatie": "Met isolatie",
+        "leefbaarheidspunten_zonder_isolatie": "Niet-geïsoleerd",
+        "leefbaarheidspunten_met_isolatie": "Geïsoleerd",
+    }
+    isolatie_kleuren = {
+        "Niet-geïsoleerd": _CHART_KLEUR_A,
+        "Geïsoleerd": _CHART_KLEUR_B,
     }
     rows = []
     for metric_name, isolatie_label in metric_labels.items():
@@ -390,13 +412,12 @@ def render_leefbaarheidspunten_chart(df_stock: pd.DataFrame) -> None:
             & (df_stock["jaar"].isin([BEGINJAAR, EINDJAAR]))
         ]
         for _, row in subset.iterrows():
-            moment = year_label[int(row["jaar"])]
+            jaar = int(row["jaar"])
             rows.append(
                 {
                     "zone": row["zone"],
-                    "moment": moment,
+                    "jaar": jaar,
                     "isolatie": isolatie_label,
-                    "categorie": f"{moment} – {isolatie_label}",
                     "leefbaarheidspunten": float(row["aantal"]),
                 }
             )
@@ -406,31 +427,58 @@ def render_leefbaarheidspunten_chart(df_stock: pd.DataFrame) -> None:
         st.warning("Geen data beschikbaar voor leefbaarheidspunten.")
         return
 
+    jaar_begin, jaar_einde = _jaar_categorieen()
+    df_plot["jaar_label"] = df_plot["jaar"].astype(str)
+    df_plot["jaar_label"] = pd.Categorical(
+        df_plot["jaar_label"],
+        categories=[jaar_begin, jaar_einde],
+        ordered=True,
+    )
+    df_plot["isolatie_volgorde"] = df_plot["isolatie"].map({"Niet-geïsoleerd": 0, "Geïsoleerd": 1})
+    df_plot["legenda"] = df_plot.apply(
+        lambda row: f"{row['isolatie']} ({row['jaar']})", axis=1
+    )
+    legenda_domain, legenda_range = _legenda_labels_en_kleuren(
+        ("Niet-geïsoleerd", "Geïsoleerd"), isolatie_kleuren
+    )
+
     chart = (
         alt.Chart(df_plot)
         .mark_bar()
         .encode(
             x=alt.X("zone:N", title="Zone", axis=alt.Axis(labelAngle=0)),
-            xOffset=alt.XOffset("categorie:N"),
+            xOffset=alt.XOffset("jaar_label:N", sort="ascending"),
             y=alt.Y(
                 "leefbaarheidspunten:Q",
                 title="Leefbaarheidspunten",
                 axis=_integer_axis("Leefbaarheidspunten"),
             ),
-            color=alt.Color("isolatie:N", title="Isolatie"),
+            color=alt.Color(
+                "legenda:N",
+                scale=alt.Scale(domain=legenda_domain, range=legenda_range),
+                legend=alt.Legend(
+                    orient="right",
+                    title=None,
+                    symbolStrokeWidth=0,
+                    labelFontSize=12,
+                ),
+            ),
+            order=alt.Order("isolatie_volgorde:O", sort="ascending"),
             tooltip=[
                 "zone",
-                "moment",
+                alt.Tooltip("jaar_label:N", title="Jaar"),
                 "isolatie",
                 _integer_tooltip("leefbaarheidspunten:Q", "Leefbaarheidspunten"),
             ],
         )
         .properties(
-            title="Leefbaarheidspunten per zone (begin vs einde traject)",
+            title=f"Leefbaarheidspunten per zone ({BEGINJAAR} vs {EINDJAAR})",
             height=560,
         )
+        .configure_view(stroke=None)
     )
     st.altair_chart(chart, width="stretch")
+    st.caption(f"Per zone: links {BEGINJAAR}, rechts {EINDJAAR}.")
 
 
 def plot_metric_compact(

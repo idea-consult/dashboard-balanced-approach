@@ -39,6 +39,13 @@ class MeasureSelectionManager:
             self.df_measures["naam_mooi"] = self.df_measures["naam"]
         self.df_measures = self.df_measures.set_index(["naam"], verify_integrity=True)
 
+        flow_rules_df = flow_rules_df.copy()
+        if "priority" in flow_rules_df.columns:
+            flow_rules_df["priority"] = pd.to_numeric(
+                flow_rules_df["priority"], errors="coerce"
+            )
+        self.df_flow_rules = flow_rules_df
+
         self.df_selection = (
             self.df_measures.reset_index()[["naam"]]
             .assign(_k=1)
@@ -128,6 +135,11 @@ class MeasureSelectionManager:
 
     def get_measure_descriptions(self) -> pd.DataFrame:
         return self.df_measures.copy()
+
+    def get_flow_rules_for_measure(self, measure_id: str) -> pd.DataFrame:
+        return self.df_flow_rules[
+            self.df_flow_rules["measure_id"].astype(str) == str(measure_id)
+        ]
 
     def is_measure_applied(self, naam: str, zone: str) -> bool:
         mask = self._mask_for_measure(naam) & (self.df_selection["zone"] == zone)

@@ -207,7 +207,8 @@ UI rendering functions:
 - `render_sidebar_controls()`: Measure selection sidebar
 - `render_metrics()`: Key metrics (gehinderde personen, kosten)
 - `render_charts()`: Visualization charts
-- `render_ernstig_gehinderden_chart()`: Staafgrafiek zone × begin/einde traject × regio (Vlaanderen / Brussel) op basis van `aantal_ernstig_gehinderden_vlaanderen` en `_brussel`
+- `render_ernstig_gehinderden_chart()`: Staafgrafiek zone × beginjaar/eindjaar × regio (Vlaanderen / Brussel)
+- `render_leefbaarheidspunten_chart()`: Zelfde opmaak, gestapeld niet-geïsoleerd / geïsoleerd
 - `render_flow_log_zone_table()`: Table from `output/flow_log_zone.csv`
 
 ### `app.py`

@@ -1,195 +1,409 @@
 measure_id,naam_mooi,help,hidden_in_ui,group_id,priority
-verkavelingsverbod,Verkavelingsverbod,"### Uitleg
+verkavelingsverbod,Verkavelingsverbod,"# Verkavelingsverbod
+
+#### Uitleg
 Bij een verkavelingsverbod is het verboden om percelen op te splitsen in meerdere percelen.
 
-### Beoogd effect
+#### Beoogd effect
 Doordat er minder percelen zijn door het toepassen van deze maatregel wil men verhinderen dat er meer woningen gebouwd worden.
 
-### Type maatregel
-bijkomende gehinderde personen vermijden",False,,1
-woongebiedverbod,Verbod op het aanduiden van woongebied,"### Uitleg
+#### Type maatregel
+bijkomende gehinderde personen vermijden
+
+---
+
+#### Instrument en kosten
+- **Instrument:** Gewestelijk RUP/Decreetswijziging/Stedenbouwkundige verordening
+- **Investeringskost:** planschade
+- **Administratieve kost:** regulier beleid
+- **Te betalen uit stock:** geen aparte stock in het model",False,,1
+woongebiedverbod,Verbod op het aanduiden van woongebied,"# Verbod op het aanduiden van woongebied
+
+#### Uitleg
 Bij een woongebiedverbod kiest de overheid ervoor om geen woongebied meer aan te duiden voor bepaalde zones.
 
-### Beoogd effect
+#### Beoogd effect
 Doordat er geen extra percelen bebouwbaar worden gemaakt, wil men bijkomende woningen voorkomen.
 
-### Type maatregel
-bijkomende gehinderde personen vermijden",False,,2
-aankoopbeleid_percelen,Aankoopbeleid van percelen,"### Uitleg
+#### Type maatregel
+bijkomende gehinderde personen vermijden
+
+---
+
+#### Instrument en kosten
+- **Instrument:** Gewestelijk RUP/Decreetswijziging
+- **Investeringskost:** dit vergt geen investeringskost
+- **Administratieve kost:** regulier beleid
+- **Te betalen uit stock:** geen aparte stock in het model",False,,2
+aankoopbeleid_percelen,Aankoopbeleid van percelen,"# Aankoopbeleid van percelen
+
+#### Uitleg
 Hierbij worden onbebouwde percelen opgekocht wanneer deze publiek beschikbaar zijn op de markt.
 
-### Beoogd effect
+#### Beoogd effect
 Doordat er bebouwbare percelen worden opgekocht, wordt vermeden dat er meer gebouwd wordt.
 
-### Type maatregel
-bijkomende gehinderde personen vermijden",False,,3
-voorkooprecht_percelen,Voorkooprecht op percelen,"### Uitleg
+#### Type maatregel
+bijkomende gehinderde personen vermijden
+
+---
+
+#### Instrument en kosten
+- **Instrument:** VLM Grondenbank
+- **Investeringskost:** kost van het perceel, eventueel terugverdieneffecten
+- **Administratieve kost:** regulier beleid, als het kan
+- **Te betalen uit stock:** `onbebouwde_bebouwbare_percelen`",False,,3
+voorkooprecht_percelen,Voorkooprecht op percelen,"# Voorkooprecht op percelen
+
+#### Uitleg
 Hierbij worden onbebouwde percelen opgekocht via voorkooprecht wanneer deze doorverkocht worden.
 
-### Beoogd effect
+#### Beoogd effect
 Doordat er bebouwbare percelen worden opgekocht, wordt vermeden dat er meer gebouwd wordt.
 
-### Type maatregel
-bijkomende gehinderde personen vermijden",False,,4
-onteigening_percelen,Onteigenen van percelen,"### Uitleg
+#### Type maatregel
+bijkomende gehinderde personen vermijden
+
+---
+
+#### Instrument en kosten
+- **Instrument:** decretaal voorkooprecht
+- **Investeringskost:** kost van het perceel
+- **Administratieve kost:** regulier beleid
+- **Te betalen uit stock:** `onbebouwde_bebouwbare_percelen`",False,,4
+onteigening_percelen,Onteigenen van percelen,"# Onteigenen van percelen
+
+#### Uitleg
 Hierbij worden onbebouwde percelen onteigend.
 
-### Beoogd effect
+#### Beoogd effect
 Doordat er minder percelen zijn door het toepassen van deze maatregel wil men verhinderen dat er meer woningen gebouwd worden.
 
-### Type maatregel
-bijkomende gehinderde personen vermijden",False,,5
-verbod_kleine_woning,Verbod op bijkomende kleinschalige woningen,"### Uitleg
+#### Type maatregel
+bijkomende gehinderde personen vermijden
+
+---
+
+#### Instrument en kosten
+- **Instrument:** decretale basis of opdracht om te onteigenen
+- **Investeringskost:** kost van het perceel
+- **Administratieve kost:** organiseren onteigening
+- **Te betalen uit stock:** `onbebouwde_bebouwbare_percelen`",False,,5
+verbod_kleine_woning,Verbod op bijkomende kleinschalige woningen,"# Verbod op bijkomende kleinschalige woningen
+
+#### Uitleg
 Woningen die niet MER-plichtig zijn mogen niet gebouwd worden.
 
-### Beoogd effect
+#### Beoogd effect
 Doordat er minder woningen gebouwd mogen worden, wil men verhinderen dat er meer inwoners op plaatsen komen wonen waar er veel geluidshinder is.
 
-### Type maatregel
-bijkomende gehinderde personen vermijden",False,,6
-verbod_grote_woning,Verbod op bijkomende grootschalige woningen,"### Uitleg
+#### Type maatregel
+bijkomende gehinderde personen vermijden
+
+---
+
+#### Instrument en kosten
+- **Instrument:** Gewestelijk GRUP, bouwverbod
+- **Investeringskost:** planschade indien bouwverbod
+- **Administratieve kost:** regulier beleid
+- **Te betalen uit stock:** `onbebouwde_bebouwbare_percelen`",False,,6
+verbod_grote_woning,Verbod op bijkomende grootschalige woningen,"# Verbod op bijkomende grootschalige woningen
+
+#### Uitleg
 Woningen die MER-plichtig zijn mogen niet gebouwd worden.
 
-### Beoogd effect
+#### Beoogd effect
 Doordat er minder woningen gebouwd mogen worden, wil men verhinderen dat er meer inwoners op plaatsen komen wonen waar er veel geluidshinder is.
 
-### Type maatregel
-bijkomende gehinderde personen vermijden",False,,7
-verbod_kwetsbare_groep,Verbod op bijkomende kwetsbare groepen,"### Uitleg
+#### Type maatregel
+bijkomende gehinderde personen vermijden
+
+---
+
+#### Instrument en kosten
+- **Instrument:** MER-afwegingskader aanpassen/RUP opmaken
+- **Investeringskost:** dit vergt geen investeringskost
+- **Administratieve kost:** regulier beleid
+- **Te betalen uit stock:** `onbebouwde_bebouwbare_percelen`",False,,7
+verbod_kwetsbare_groep,Verbod op bijkomende kwetsbare groepen,"# Verbod op bijkomende kwetsbare groepen
+
+#### Uitleg
 Gebouwen die voor kwetsbare groepen bedoeld zijn mogen niet meer gebouwd worden (bijv. scholen).
 
-### Beoogd effect
+#### Beoogd effect
 Doordat er minder projecten gebouwd mogen worden, wil men verhinderen dat er meer kwetsbare groepen op plaatsen komen wonen waar er veel geluidshinder is.
 
-### Type maatregel
-bijkomende gehinderde personen vermijden",False,,8
-woonverdichtingsverbod_niet_geïsoleerde_woningen,Woonverdichtingsverbod niet-geïsoleerde woningen,"### Uitleg
+#### Type maatregel
+bijkomende gehinderde personen vermijden
+
+---
+
+#### Instrument en kosten
+- **Instrument:** stedenbouwkundige verordening/exploitatievergunning
+- **Investeringskost:** dit vergt geen investeringskost
+- **Administratieve kost:** regulier beleid
+- **Te betalen uit stock:** `onbebouwde_bebouwbare_percelen`",False,,8
+woonverdichtingsverbod_niet_geïsoleerde_woningen,Woonverdichtingsverbod niet-geïsoleerde woningen,"# Woonverdichtingsverbod niet-geïsoleerde woningen
+
+#### Uitleg
 Het is verboden om woningen op te splitsen in meerdere woningen.
 
-### Beoogd effect
+#### Beoogd effect
 Doordat er minder woonunits worden gecreëerd, wil men verhinderen dat er meer inwoners zich vestigen waar er veel geluidshinder is.
 
-### Type maatregel
-bijkomende gehinderde personen vermijden",False,,9
-woonverdichtingsverbod_geïsoleerde_woningen,Woonverdichtingsverbod geïsoleerde woningen,"### Uitleg
+#### Type maatregel
+bijkomende gehinderde personen vermijden
+
+---
+
+#### Instrument en kosten
+- **Instrument:** RUP
+- **Investeringskost:** dit vergt geen investeringskost
+- **Administratieve kost:** regulier beleid
+- **Te betalen uit stock:** `bewoonde_niet_geïsoleerde_woning`",False,,9
+woonverdichtingsverbod_geïsoleerde_woningen,Woonverdichtingsverbod geïsoleerde woningen,"# Woonverdichtingsverbod geïsoleerde woningen
+
+#### Uitleg
 Het is verboden om woningen op te splitsen in meerdere woningen.
 
-### Beoogd effect
+#### Beoogd effect
 Doordat er minder woonunits worden gecreëerd, wil men verhinderen dat er meer inwoners zich vestigen waar er veel geluidshinder is.
 
-### Type maatregel
-bijkomende gehinderde personen vermijden",False,,10
-aankoopbeleid_niet_geïsoleerde_woningen,Aankoopbeleid niet-geïsoleerde woningen,"### Uitleg
+#### Type maatregel
+bijkomende gehinderde personen vermijden
+
+---
+
+#### Instrument en kosten
+- **Instrument:** RUP
+- **Investeringskost:** dit vergt geen investeringskost
+- **Administratieve kost:** regulier beleid
+- **Te betalen uit stock:** `bewoonde_geïsoleerde_woning`",False,,10
+aankoopbeleid_niet_geïsoleerde_woningen,Aankoopbeleid niet-geïsoleerde woningen,"# Aankoopbeleid niet-geïsoleerde woningen
+
+#### Uitleg
 Hierbij worden woningen opgekocht wanneer deze publiek beschikbaar zijn op de markt.
 
-### Beoogd effect
+#### Beoogd effect
 Doordat er woningen worden opgekocht, wordt er vermeden dat er inwoners zich vestigen op een plaats waar er veel geluidshinder is.
 
-### Type maatregel
-aantal gehinderde personen verminderen",False,aankoopbeleid_woningen,11
-aankoopbeleid_geïsoleerde_woningen,Aankoopbeleid geïsoleerde woningen,"### Uitleg
+#### Type maatregel
+aantal gehinderde personen verminderen
+
+---
+
+#### Instrument en kosten
+- **Instrument:** VLM Grondenbank
+- **Investeringskost:** kost van de woning, eventueel terugverdieneffecten
+- **Administratieve kost:** regulier beleid, als het kan
+- **Te betalen uit stock:** `bewoonde_niet_geïsoleerde_woning`",False,aankoopbeleid_woningen,11
+aankoopbeleid_geïsoleerde_woningen,Aankoopbeleid geïsoleerde woningen,"# Aankoopbeleid geïsoleerde woningen
+
+#### Uitleg
 Hierbij worden woningen opgekocht wanneer deze publiek beschikbaar zijn op de markt.
 
-### Beoogd effect
+#### Beoogd effect
 Doordat er woningen worden opgekocht, wordt er vermeden dat er inwoners zich vestigen op een plaats waar er veel geluidshinder is.
 
-### Type maatregel
-aantal gehinderde personen verminderen",False,aankoopbeleid_woningen,12
-voorkooprecht_niet_geïsoleerde_woningen,Voorkooprecht niet-geïsoleerde woningen,"### Uitleg
+#### Type maatregel
+aantal gehinderde personen verminderen
+
+---
+
+#### Instrument en kosten
+- **Instrument:** VLM Grondenbank
+- **Investeringskost:** kost van de woning, eventueel terugverdieneffecten
+- **Administratieve kost:** regulier beleid, als het kan
+- **Te betalen uit stock:** `bewoonde_geïsoleerde_woning`",False,aankoopbeleid_woningen,12
+voorkooprecht_niet_geïsoleerde_woningen,Voorkooprecht niet-geïsoleerde woningen,"# Voorkooprecht niet-geïsoleerde woningen
+
+#### Uitleg
 Hierbij worden woningen opgekocht via voorkooprecht wanneer deze doorverkocht worden.
 
-### Beoogd effect
+#### Beoogd effect
 Doordat er woningen worden opgekocht, wordt er vermeden dat er inwoners zich vestigen op een plaats waar er veel geluidshinder is.
 
-### Type maatregel
-aantal gehinderde personen verminderen",False,voorkooprecht_woningen,13
-voorkooprecht_geïsoleerde_woningen,Voorkooprecht geïsoleerde woningen,"### Uitleg
+#### Type maatregel
+aantal gehinderde personen verminderen
+
+---
+
+#### Instrument en kosten
+- **Instrument:** decretaal voorkooprecht
+- **Investeringskost:** kost van de woning
+- **Administratieve kost:** regulier beleid
+- **Te betalen uit stock:** `bewoonde_niet_geïsoleerde_woning`",False,voorkooprecht_woningen,13
+voorkooprecht_geïsoleerde_woningen,Voorkooprecht geïsoleerde woningen,"# Voorkooprecht geïsoleerde woningen
+
+#### Uitleg
 Hierbij worden woningen opgekocht via voorkooprecht wanneer deze doorverkocht worden.
 
-### Beoogd effect
+#### Beoogd effect
 Doordat er woningen worden opgekocht, wordt er vermeden dat er inwoners zich vestigen op een plaats waar er veel geluidshinder is.
 
-### Type maatregel
-aantal gehinderde personen verminderen",False,voorkooprecht_woningen,14
-onteigening_niet_geïsoleerde_woningen,Onteigenen niet-geïsoleerde woningen,"### Uitleg
+#### Type maatregel
+aantal gehinderde personen verminderen
+
+---
+
+#### Instrument en kosten
+- **Instrument:** decretaal voorkooprecht
+- **Investeringskost:** kost van de woning
+- **Administratieve kost:** regulier beleid
+- **Te betalen uit stock:** `bewoonde_geïsoleerde_woning`",False,voorkooprecht_woningen,14
+onteigening_niet_geïsoleerde_woningen,Onteigenen niet-geïsoleerde woningen,"# Onteigenen niet-geïsoleerde woningen
+
+#### Uitleg
 Hierbij worden woningen onteigend.
 
-### Beoogd effect
+#### Beoogd effect
 Doordat er woningen worden onteigend, wordt er vermeden dat er bijkomende inwoners zich vestigen op een plaats waar er veel geluidshinder is.
 
-### Type maatregel
-aantal gehinderde personen verminderen",False,onteigenen_woningen,15
-onteigening_geïsoleerde_woningen,Onteigenen geïsoleerde woningen,"### Uitleg
+#### Type maatregel
+aantal gehinderde personen verminderen
+
+---
+
+#### Instrument en kosten
+- **Instrument:** onteigeningsplan
+- **Investeringskost:** kost van de woning
+- **Administratieve kost:** organiseren onteigening
+- **Te betalen uit stock:** `bewoonde_niet_geïsoleerde_woning`",False,onteigenen_woningen,15
+onteigening_geïsoleerde_woningen,Onteigenen geïsoleerde woningen,"# Onteigenen geïsoleerde woningen
+
+#### Uitleg
 Hierbij worden woningen onteigend.
 
-### Beoogd effect
+#### Beoogd effect
 Doordat er woningen worden onteigend, wordt er vermeden dat er bijkomende inwoners zich vestigen op een plaats waar er veel geluidshinder is.
 
-### Type maatregel
-aantal gehinderde personen verminderen",False,onteigenen_woningen,16
-isolatievoorschriften_nieuwbouw_naar_niet_geïsoleerde_woning,Isolatievoorschriften nieuwbouw naar niet-geïsoleerde woning,"### Praktische info
+#### Type maatregel
+aantal gehinderde personen verminderen
+
+---
+
+#### Instrument en kosten
+- **Instrument:** onteigeningsplan
+- **Investeringskost:** kost van de woning
+- **Administratieve kost:** organiseren onteigening
+- **Te betalen uit stock:** `bewoonde_geïsoleerde_woning`",False,onteigenen_woningen,16
+isolatievoorschriften_nieuwbouw_naar_niet_geïsoleerde_woning,Isolatievoorschriften nieuwbouw naar niet-geïsoleerde woning,"# Isolatievoorschriften nieuwbouw naar niet-geïsoleerde woning
+
+#### Praktische informatie
 - **Instrument:** Gewestelijk GRUP/stedenbouwkundige verordening
 - **Investeringskost:** isolatiekosten voor de bouwheer
 - **Administratieve kost:** monitoring via as built
 - **Te betalen uit stock:** -",False,isolatie_nieuwbouw,17
-isolatievoorschriften_nieuwbouw_naar_geïsoleerde_woning,Isolatievoorschriften nieuwbouw naar geïsoleerde woning,"### Uitleg
+isolatievoorschriften_nieuwbouw_naar_geïsoleerde_woning,Isolatievoorschriften nieuwbouw naar geïsoleerde woning,"# Isolatievoorschriften nieuwbouw naar geïsoleerde woning
+
+#### Uitleg
 Bij het bouwen van een nieuwe woning zijn akoestische isolatievoorschriften opgelegd.
 
-### Beoogd effect
+#### Beoogd effect
 Doordat er geïsoleerd wordt, wordt het akoestisch binnencomfort verbeterd.
 
-### Type maatregel
-akoestisch binnencomfort verbeteren",False,isolatie_nieuwbouw,18
-renovatie_zonder_maatregel,Renovatie zonder maatregel,"### Praktische info
+#### Type maatregel
+akoestisch binnencomfort verbeteren
+
+---
+
+#### Instrument en kosten
+- **Instrument:** Gewestelijk GRUP/stedenbouwkundige verordening
+- **Investeringskost:** isolatiekosten voor de bouwheer
+- **Administratieve kost:** monitoring via as built
+- **Te betalen uit stock:** geen aparte stock in het model",False,isolatie_nieuwbouw,18
+renovatie_zonder_maatregel,Renovatie zonder maatregel,"# Renovatie zonder maatregel
+
+#### Praktische informatie
 - **Instrument:** geen bijkomend instrument (referentiescenario)
 - **Investeringskost:** standaard renovatiekost zonder extra maatregel
 - **Administratieve kost:** regulier beleid
 - **Te betalen uit stock:** bewoonde_niet_geïsoleerde_woning",True,,19
-verplicht_isoleren_renovatie,Verplicht isoleren bij serieuze renovatie,"### Uitleg
+verplicht_isoleren_renovatie,Verplicht isoleren bij serieuze renovatie,"# Verplicht isoleren bij serieuze renovatie
+
+#### Uitleg
 Bij een grondige renovatie wordt een akoestische isolatie opgelegd.
 
-### Beoogd effect
+#### Beoogd effect
 Doordat er geïsoleerd wordt, wordt het akoestisch binnencomfort verbeterd.
 
-### Type maatregel
-akoestisch binnencomfort verbeteren",False,,20
-gesubsidieerd_isolatieprogramma,Gesubsidieerd isolatieprogramma,"### Uitleg
+#### Type maatregel
+akoestisch binnencomfort verbeteren
+
+---
+
+#### Instrument en kosten
+- **Instrument:** akoestische stedenbouwkundige verordening
+- **Investeringskost:** isolatiekosten voor de bouwheer
+- **Administratieve kost:** monitoring via as built
+- **Te betalen uit stock:** geen aparte stock in het model",False,,20
+gesubsidieerd_isolatieprogramma,Gesubsidieerd isolatieprogramma,"# Gesubsidieerd isolatieprogramma
+
+#### Uitleg
 Akoestische isolaties worden gesubsidieerd.
 
-### Beoogd effect
+#### Beoogd effect
 Doordat er geïsoleerd wordt, wordt het akoestisch binnencomfort verbeterd.
 
-### Type maatregel
-akoestisch binnencomfort verbeteren",False,,21
-gestuurd_isolatieprogramma,Gestuurd isolatieprogramma,"### Uitleg
+#### Type maatregel
+akoestisch binnencomfort verbeteren
+
+---
+
+#### Instrument en kosten
+- **Instrument:** Gewestelijk isolatieprogramma en subsidieregeling
+- **Investeringskost:** helft van de isolatiekost
+- **Administratieve kost:** 1 werkdag per dossier subsidie voor isolatie
+- **Te betalen uit stock:** `isolatie`",False,,21
+gestuurd_isolatieprogramma,Gestuurd isolatieprogramma,"# Gestuurd isolatieprogramma
+
+#### Uitleg
 Akoestische isolaties worden gesubsidieerd en er wordt een aannemer aangesteld die straat per straat dit aanpakt.
 
-### Beoogd effect
+#### Beoogd effect
 Doordat er geïsoleerd wordt, wordt het akoestisch binnencomfort verbeterd.
 
-### Type maatregel
-akoestisch binnencomfort verbeteren",False,,22
-aanleg_geluidsbuffers,Aanleg van geluidsbuffers,"### Praktische info
+#### Type maatregel
+akoestisch binnencomfort verbeteren
+
+---
+
+#### Instrument en kosten
+- **Instrument:** isolatieprogramma, past dit binnen gelijkheidsbeginsel?
+- **Investeringskost:** kost van isolatiewerken
+- **Administratieve kost:** 3 werkdagen per dossier isolatie
+- **Te betalen uit stock:** `isolatie`",False,,22
+aanleg_geluidsbuffers,Aanleg van geluidsbuffers,"# Aanleg van geluidsbuffers
+
+#### Praktische informatie
 - **Instrument:** geen instrument voor nodig
 - **Investeringskost:** kost van geluidsbuffers
 - **Administratieve kost:** -
 - **Te betalen uit stock:** aanleggeluidsbuffers",False,,23
-compensatie_buitenzone,Compensatie voor de buitenzone,"### Praktische info
+compensatie_buitenzone,Compensatie voor de buitenzone,"# Compensatie voor de buitenzone
+
+#### Praktische informatie
 - **Instrument:** geen instrument voor nodig
 - **Investeringskost:** kost van compensatie
 - **Administratieve kost:** -
 - **Te betalen uit stock:** betalen voor elke woning",False,,24
-compensatie_verhuis,Compensatie voor de verhuis,"### Praktische info
+compensatie_verhuis,Compensatie voor de verhuis,"# Compensatie voor de verhuis
+
+#### Praktische informatie
 - **Instrument:** geen instrument voor nodig
 - **Investeringskost:** kost van compensatie
 - **Administratieve kost:** -
 - **Te betalen uit stock:** betalen voor elke verhuis",False,,25
-versterken_sociale_cohesie,Versterken sociale cohesie,"### Praktische info
+versterken_sociale_cohesie,Versterken sociale cohesie,"# Versterken sociale cohesie
+
+#### Praktische informatie
 - **Instrument:** geen instrument voor nodig
 - **Investeringskost:** kost van versterken sociale cohesie
 - **Administratieve kost:** -
 - **Te betalen uit stock:** betalen voor aanvullende programma's",False,,26
-vergroenen_leefomgeving,Vergroenen en verbeteren leefomgeving,"### Praktische info
+vergroenen_leefomgeving,Vergroenen en verbeteren leefomgeving,"# Vergroenen en verbeteren leefomgeving
+
+#### Praktische informatie
 - **Instrument:** geen instrument voor nodig
 - **Investeringskost:** kost van vergroenen leefomgeving
 - **Administratieve kost:** -

@@ -74,6 +74,7 @@ class StockManager:
         self.df_contour["zone"] = self.df_contour[midden_col].map(self._map_midden_to_zone)
         self.stock_columns: Dict[str, Dict[int, str]] = {}
         self._bases_with_regional_columns: set[str] = set()
+        self._pending_contour_columns: Dict[str, pd.Series] = {}
         self._register_initial_stock_columns()
         self.df_stock = self._build_aggregated_stock_table()
 
@@ -151,9 +152,10 @@ class StockManager:
                     regional_name = f"{stock_name}_{regio}"
                     if regional_name not in self.stock_columns:
                         col = self._contour_column_name(regional_name, self.beginjaar)
-                        if col not in self.df_contour.columns:
-                            self.df_contour[col] = 0.0
-                        self.df_contour[col] = self.df_contour[col].astype(float)
+                        if col not in self.df_contour.columns and col not in self._pending_contour_columns:
+                            self._pending_contour_columns[col] = pd.Series(
+                                0.0, index=self.df_contour.index, dtype=float
+                            )
                         self.stock_columns.setdefault(regional_name, {})[
                             self.beginjaar
                         ] = col
@@ -161,8 +163,57 @@ class StockManager:
         for stock_name in self.regional_stock_names():
             if stock_name not in self.stock_columns:
                 col = self._contour_column_name(stock_name, self.beginjaar)
-                self.df_contour[col] = 0.0
+                if col not in self.df_contour.columns and col not in self._pending_contour_columns:
+                    self._pending_contour_columns[col] = pd.Series(
+                        0.0, index=self.df_contour.index, dtype=float
+                    )
                 self.stock_columns[stock_name] = {self.beginjaar: col}
+
+        self._flush_pending_contour_columns()
+
+    def _flush_pending_contour_columns(self) -> None:
+        """Voeg nieuwe contourkolommen in één keer toe (voorkomt DataFrame-fragmentatie)."""
+        if not self._pending_contour_columns:
+            return
+        new_columns = pd.DataFrame(self._pending_contour_columns, index=self.df_contour.index)
+        self.df_contour = pd.concat([self.df_contour, new_columns], axis=1)
+        self._pending_contour_columns.clear()
+
+    def _contour_column_series(
+        self, col_name: str, pending: Dict[str, pd.Series] | None = None
+    ) -> pd.Series:
+        if pending and col_name in pending:
+            return pending[col_name]
+        return self.df_contour[col_name]
+
+    def preload_contour_year_columns(self, eindjaar: int) -> None:
+        """Maak alle ontbrekende jaarkolommen vooraf aan in één batch."""
+        pending: Dict[str, pd.Series] = {}
+        for stock_name, year_columns in list(self.stock_columns.items()):
+            if not year_columns:
+                continue
+            start_year = min(year_columns.keys())
+            for jaar in range(start_year + 1, eindjaar + 1):
+                if jaar in year_columns:
+                    continue
+                previous_year = jaar - 1
+                if previous_year not in year_columns:
+                    continue
+                new_col = self._contour_column_name(stock_name, jaar)
+                if new_col in self.df_contour.columns or new_col in pending:
+                    year_columns[jaar] = new_col
+                    continue
+                previous_col = year_columns[previous_year]
+                try:
+                    pending[new_col] = self._contour_column_series(previous_col, pending).copy()
+                except KeyError:
+                    continue
+                year_columns[jaar] = new_col
+        if pending:
+            self.df_contour = pd.concat(
+                [self.df_contour, pd.DataFrame(pending, index=self.df_contour.index)],
+                axis=1,
+            )
 
     def _ensure_stock_year_column(self, naam: str, jaar: int) -> str:
         if naam not in self.stock_columns:
@@ -175,7 +226,12 @@ class StockManager:
         previous_year = max(self.stock_columns[naam].keys())
         previous_col = self.stock_columns[naam][previous_year]
         new_col = self._contour_column_name(naam, jaar)
-        self.df_contour[new_col] = self.df_contour[previous_col]
+        if new_col not in self.df_contour.columns:
+            if new_col not in self._pending_contour_columns:
+                self._pending_contour_columns[new_col] = self._contour_column_series(
+                    previous_col, self._pending_contour_columns
+                ).copy()
+            self._flush_pending_contour_columns()
         self.stock_columns[naam][jaar] = new_col
         return new_col
 
@@ -242,6 +298,7 @@ class StockManager:
         col_iso_br = self._ensure_stock_year_column(
             "bewoonde_geïsoleerde_woning_brussel", jaar
         )
+        self._flush_pending_contour_columns()
 
         niet_vl = self.df_contour.loc[zone_mask, col_niet_vl].values
         niet_br = self.df_contour.loc[zone_mask, col_niet_br].values
