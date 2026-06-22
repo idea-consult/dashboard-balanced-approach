@@ -156,24 +156,26 @@ def render_metrics(
     kost_overheid: float,
     kost_prive: float,
 ) -> None:
-    """KPI's bovenaan: gehinderden (totaal/Vlaanderen/Brussel) en kosten."""
+    """KPI's bovenaan: ernstig gehinderden (totaal/Vlaanderen/Brussel) en kosten."""
     col_totaal, col_vl, col_br, col_overheid, col_prive = st.columns(5)
 
     with col_totaal:
         _render_traject_metric(
-            stock_manager, "totaal_gehinderde_personen", "Totaal aantal gehinderde personen"
+            stock_manager,
+            "aantal_ernstig_gehinderden",
+            "# ernstig gehinderde personen",
         )
     with col_vl:
         _render_traject_metric(
             stock_manager,
-            "totaal_gehinderde_personen_vlaanderen",
-            "Totaal aantal gehinderde Vlamingen",
+            "aantal_ernstig_gehinderden_vlaanderen",
+            "# ernstig gehinderde vlamingen",
         )
     with col_br:
         _render_traject_metric(
             stock_manager,
-            "totaal_gehinderde_personen_brussel",
-            "Totaal aantal gehinderde Brusselaars",
+            "aantal_ernstig_gehinderden_brussel",
+            "# ernstig gehinderde brusselaars",
         )
     with col_overheid:
         st.metric("Totale kost overheid", format_euro(kost_overheid))

@@ -1,4 +1,11 @@
 altair
+fastexcel
+marimo
+openpyxl
 pandas
+polars
+pyarrow
+pydeck
+pyproj
 streamlit
 vl-convert-python

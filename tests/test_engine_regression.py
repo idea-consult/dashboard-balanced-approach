@@ -15,6 +15,8 @@ from config import (
     LDEN_ZONES_FILE,
     OUTPUT_FLOW_LOG_ZONE_FILE,
 )
+from contour.export import export_lden_contour, export_lden_contour_regional
+from contour.consolidate import bouw_lden, bouw_lden_regional
 from models.stock_manager import StockManager
 from models.measure_selection_manager import MeasureSelectionManager
 from simulation.engine import SimulationEngine
@@ -23,6 +25,11 @@ from simulation.state import FlowRule, SimulationState
 
 class TestEngineRegression(unittest.TestCase):
     """Ensure split pipeline and wrapper produce stable outputs."""
+
+    @classmethod
+    def setUpClass(cls) -> None:
+        export_lden_contour(bouw_lden())
+        export_lden_contour_regional(bouw_lden_regional())
 
     def _build_engine(self) -> tuple[SimulationEngine, MeasureSelectionManager]:
         stock_manager = StockManager(LDEN_CONTOUR_FILE, LDEN_ZONES_FILE, BEGINJAAR)

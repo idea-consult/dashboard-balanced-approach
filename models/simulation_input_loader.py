@@ -45,7 +45,7 @@ def load_simulation_inputs(
     """Load and validate all simulation inputs into a SimulationState."""
     selected_map = _selected_map_from_iterable(selected_zones)
 
-    stock_names = StockManager.regional_stock_names()
+    stock_names = stock_manager.get_simulation_stock_names()
     stock_to_idx = {stock: idx for idx, stock in enumerate(stock_names)}
     zone_to_idx = {zone: idx for idx, zone in enumerate(zones)}
     year_to_idx = {year: idx for idx, year in enumerate(range(beginjaar, eindjaar + 1))}

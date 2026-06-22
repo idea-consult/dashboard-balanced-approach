@@ -2,8 +2,22 @@
 
 `uv sync`
 
-
 `uv run streamlit run app.py`
+
+## Contour data (marimo)
+
+Traceerbare opbouw van `lden` / `lnight` staat in **`contour_data.py`** (marimo-notebook, geconverteerd uit `contour_data.ipynb`).
+
+```powershell
+uv run marimo edit contour_data.py
+```
+
+Na wijzigingen in het Jupyter-notebook opnieuw converteren:
+
+```powershell
+uv run marimo convert contour_data.ipynb -o contour_data.py
+uv run python scripts/marimo_post_convert.py
+```
 
 ## Kunstmatige vertraging (demo)
 

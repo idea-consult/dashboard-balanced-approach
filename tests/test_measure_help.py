@@ -43,7 +43,7 @@ class TestMeasureHelp(unittest.TestCase):
         self.assertIn("### Uitleg", help_text)
         self.assertIn("zorgt ervoor dat de stock groeit", help_text)
         self.assertIn("niet geselecteerd", help_text)
-        self.assertIn("2,0 %", help_text)
+        self.assertIn("0,0 %", help_text)
 
     def test_combine_without_flow_rules(self):
         result = combine_measure_help("Alleen uitleg", pd.DataFrame())

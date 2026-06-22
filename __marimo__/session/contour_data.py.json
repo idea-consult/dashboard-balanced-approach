@@ -1,0 +1,1228 @@
+{
+  "version": "1",
+  "metadata": {
+    "marimo_version": "0.23.9",
+    "script_metadata_hash": null
+  },
+  "cells": [
+    {
+      "id": "Hbol",
+      "code_hash": "1d0db38904205bec4d6f6f6a1f6cec3e",
+      "outputs": [
+        {
+          "type": "data",
+          "data": {
+            "text/plain": ""
+          }
+        }
+      ],
+      "console": []
+    },
+    {
+      "id": "MJUe",
+      "code_hash": "1e4675d8f19288ea09d1b78b9087dc0b",
+      "outputs": [
+        {
+          "type": "data",
+          "data": {
+            "text/markdown": "<span class=\"markdown prose dark:prose-invert contents\"><h1 id=\"contour-data-laden-en-consolidatie\">Contour data \u2014 laden en consolidatie</h1>\n<span class=\"paragraph\">Dit notebook laadt alle bronnen uit <code>data/</code>, consolideert master-tabellen en schrijft parquet naar <code>output/intermediate/</code>.</span>\n<span class=\"paragraph\">Referentie: <a href=\"../FLOW_BEREKENINGEN.md\">FLOW_BEREKENINGEN.md \u00a72</a>. Logica zit in het package <code>contour/</code>.</span></span>"
+          }
+        }
+      ],
+      "console": []
+    },
+    {
+      "id": "vblA",
+      "code_hash": "2516d472210b4ff5b411bcaaf5800d8d",
+      "outputs": [
+        {
+          "type": "data",
+          "data": {
+            "text/markdown": "<span class=\"markdown prose dark:prose-invert contents\"><h2 id=\"deel-a-data-inventaris-flow-2\">Deel A \u2014 Data-inventaris (FLOW \u00a72)</h2>\n<h4 id=\"kolomoverzicht-df_data_inventory\">Kolomoverzicht (<code>df_data_inventory</code>)</h4>\n<table>\n<thead>\n<tr>\n<th>Kolom</th>\n<th>Beschrijving</th>\n</tr>\n</thead>\n<tbody>\n<tr>\n<td><code>bestand</code></td>\n<td>Bestandsnaam in <code>data/</code></td>\n</tr>\n<tr>\n<td><code>pad</code></td>\n<td>Volledig pad naar bron</td>\n</tr>\n<tr>\n<td><code>beschrijving</code></td>\n<td>Korte inhoud (lden/lnight, vergunningen, ...)</td>\n</tr>\n<tr>\n<td><code>rijen</code></td>\n<td>Aantal rijen (CSV) of <code>None</code> (Excel)</td>\n</tr>\n<tr>\n<td><code>kolommen</code></td>\n<td>Kolomnamen of tabbladen</td>\n</tr>\n<tr>\n<td><code>status</code></td>\n<td><code>ok</code> / <code>deels</code> t.o.v. FLOW \u00a72</td>\n</tr>\n</tbody>\n</table></span>"
+          }
+        }
+      ],
+      "console": []
+    },
+    {
+      "id": "bkHC",
+      "code_hash": "258d06c87c62aa646cea8e8a98814371",
+      "outputs": [
+        {
+          "type": "data",
+          "data": {
+            "text/html": "<marimo-ui-element object-id='bkHC-0' random-id='b4e3793a-d595-ac0b-16a9-f21e160b70e7'><marimo-table data-initial-value='[]' data-label='null' data-data='&quot;[{&#92;&quot;bestand&#92;&quot;:&#92;&quot;contour_vlaanderen_stocks.xlsx&#92;&quot;,&#92;&quot;pad&#92;&quot;:&#92;&quot;C:&#92;&#92;&#92;&#92;Users&#92;&#92;&#92;&#92;AlexanderL&#92;&#92;&#92;&#92;OneDrive - Idea Consult nv&#92;&#92;&#92;&#92;RTD&#92;&#92;&#92;&#92;2. Projects&#92;&#92;&#92;&#92;25 RTD 72  (Financiering van de maatregelen &#92;&#92;u2018RO en beheer&#92;&#92;u2019 als 2e pijler van de Ba)&#92;&#92;&#92;&#92;dashboard-balanced-approach&#92;&#92;&#92;&#92;data&#92;&#92;&#92;&#92;contour_vlaanderen_stocks.xlsx&#92;&quot;,&#92;&quot;beschrijving&#92;&quot;:&#92;&quot;lden/lnight stocks&#92;&quot;,&#92;&quot;rijen&#92;&quot;:NaN,&#92;&quot;kolommen&#92;&quot;:&#92;&quot;lden, lnight&#92;&quot;,&#92;&quot;status&#92;&quot;:&#92;&quot;ok&#92;&quot;},{&#92;&quot;bestand&#92;&quot;:&#92;&quot;inwoners_brussel_sector_contour_2024.xlsx&#92;&quot;,&#92;&quot;pad&#92;&quot;:&#92;&quot;C:&#92;&#92;&#92;&#92;Users&#92;&#92;&#92;&#92;AlexanderL&#92;&#92;&#92;&#92;OneDrive - Idea Consult nv&#92;&#92;&#92;&#92;RTD&#92;&#92;&#92;&#92;2. Projects&#92;&#92;&#92;&#92;25 RTD 72  (Financiering van de maatregelen &#92;&#92;u2018RO en beheer&#92;&#92;u2019 als 2e pijler van de Ba)&#92;&#92;&#92;&#92;dashboard-balanced-approach&#92;&#92;&#92;&#92;data&#92;&#92;&#92;&#92;inwoners_brussel_sector_contour_2024.xlsx&#92;&quot;,&#92;&quot;beschrijving&#92;&quot;:&#92;&quot;Brussel sector x dB (inwoners)&#92;&quot;,&#92;&quot;rijen&#92;&quot;:NaN,&#92;&quot;kolommen&#92;&quot;:&#92;&quot;lden, lnight&#92;&quot;,&#92;&quot;status&#92;&quot;:&#92;&quot;ok&#92;&quot;},{&#92;&quot;bestand&#92;&quot;:&#92;&quot;population 2024 par bout de secteur stat.xlsx&#92;&quot;,&#92;&quot;pad&#92;&quot;:&#92;&quot;C:&#92;&#92;&#92;&#92;Users&#92;&#92;&#92;&#92;AlexanderL&#92;&#92;&#92;&#92;OneDrive - Idea Consult nv&#92;&#92;&#92;&#92;RTD&#92;&#92;&#92;&#92;2. Projects&#92;&#92;&#92;&#92;25 RTD 72  (Financiering van de maatregelen &#92;&#92;u2018RO en beheer&#92;&#92;u2019 als 2e pijler van de Ba)&#92;&#92;&#92;&#92;dashboard-balanced-approach&#92;&#92;&#92;&#92;data&#92;&#92;&#92;&#92;population 2024 par bout de secteur stat.xlsx&#92;&quot;,&#92;&quot;beschrijving&#92;&quot;:&#92;&quot;Sector x dB Brussel+Vlaanderen (gemeente-contour)&#92;&quot;,&#92;&quot;rijen&#92;&quot;:NaN,&#92;&quot;kolommen&#92;&quot;:&#92;&quot;intersection ss Lden - surface, intersection ss Lnight - surfac&#92;&quot;,&#92;&quot;status&#92;&quot;:&#92;&quot;ok&#92;&quot;},{&#92;&quot;bestand&#92;&quot;:&#92;&quot;vergunningen_omgevingsloket_2026_lang.csv&#92;&quot;,&#92;&quot;pad&#92;&quot;:&#92;&quot;C:&#92;&#92;&#92;&#92;Users&#92;&#92;&#92;&#92;AlexanderL&#92;&#92;&#92;&#92;OneDrive - Idea Consult nv&#92;&#92;&#92;&#92;RTD&#92;&#92;&#92;&#92;2. Projects&#92;&#92;&#92;&#92;25 RTD 72  (Financiering van de maatregelen &#92;&#92;u2018RO en beheer&#92;&#92;u2019 als 2e pijler van de Ba)&#92;&#92;&#92;&#92;dashboard-balanced-approach&#92;&#92;&#92;&#92;data&#92;&#92;&#92;&#92;vergunningen_omgevingsloket_2026_lang.csv&#92;&quot;,&#92;&quot;beschrijving&#92;&quot;:&#92;&quot;Vergunningen lang&#92;&quot;,&#92;&quot;rijen&#92;&quot;:24852.0,&#92;&quot;kolommen&#92;&quot;:&#92;&quot;bron, jaar_indiening, gemeente, handeling, gebouw_functie, metriek, waarde&#92;&quot;,&#92;&quot;status&#92;&quot;:&#92;&quot;deels&#92;&quot;},{&#92;&quot;bestand&#92;&quot;:&#92;&quot;vergunningen_kwetsbare_functies_2026_lang.csv&#92;&quot;,&#92;&quot;pad&#92;&quot;:&#92;&quot;C:&#92;&#92;&#92;&#92;Users&#92;&#92;&#92;&#92;AlexanderL&#92;&#92;&#92;&#92;OneDrive - Idea Consult nv&#92;&#92;&#92;&#92;RTD&#92;&#92;&#92;&#92;2. Projects&#92;&#92;&#92;&#92;25 RTD 72  (Financiering van de maatregelen &#92;&#92;u2018RO en beheer&#92;&#92;u2019 als 2e pijler van de Ba)&#92;&#92;&#92;&#92;dashboard-balanced-approach&#92;&#92;&#92;&#92;data&#92;&#92;&#92;&#92;vergunningen_kwetsbare_functies_2026_lang.csv&#92;&quot;,&#92;&quot;beschrijving&#92;&quot;:&#92;&quot;Kwetsbare functies&#92;&quot;,&#92;&quot;rijen&#92;&quot;:1332.0,&#92;&quot;kolommen&#92;&quot;:&#92;&quot;bron, jaar_indiening, gemeente, handeling, gebouw_functie, metriek, waarde&#92;&quot;,&#92;&quot;status&#92;&quot;:&#92;&quot;deels&#92;&quot;},{&#92;&quot;bestand&#92;&quot;:&#92;&quot;vergunningen_verkaveling_2026_lang.csv&#92;&quot;,&#92;&quot;pad&#92;&quot;:&#92;&quot;C:&#92;&#92;&#92;&#92;Users&#92;&#92;&#92;&#92;AlexanderL&#92;&#92;&#92;&#92;OneDrive - Idea Consult nv&#92;&#92;&#92;&#92;RTD&#92;&#92;&#92;&#92;2. Projects&#92;&#92;&#92;&#92;25 RTD 72  (Financiering van de maatregelen &#92;&#92;u2018RO en beheer&#92;&#92;u2019 als 2e pijler van de Ba)&#92;&#92;&#92;&#92;dashboard-balanced-approach&#92;&#92;&#92;&#92;data&#92;&#92;&#92;&#92;vergunningen_verkaveling_2026_lang.csv&#92;&quot;,&#92;&quot;beschrijving&#92;&quot;:&#92;&quot;Verkaveling/sloop&#92;&quot;,&#92;&quot;rijen&#92;&quot;:4530.0,&#92;&quot;kolommen&#92;&quot;:&#92;&quot;bron, jaar_indiening, gemeente, handeling, gebouw_functie, metriek, waarde&#92;&quot;,&#92;&quot;status&#92;&quot;:&#92;&quot;deels&#92;&quot;},{&#92;&quot;bestand&#92;&quot;:&#92;&quot;transacties_vastgoed/&#92;&quot;,&#92;&quot;pad&#92;&quot;:&#92;&quot;C:&#92;&#92;&#92;&#92;Users&#92;&#92;&#92;&#92;AlexanderL&#92;&#92;&#92;&#92;OneDrive - Idea Consult nv&#92;&#92;&#92;&#92;RTD&#92;&#92;&#92;&#92;2. Projects&#92;&#92;&#92;&#92;25 RTD 72  (Financiering van de maatregelen &#92;&#92;u2018RO en beheer&#92;&#92;u2019 als 2e pijler van de Ba)&#92;&#92;&#92;&#92;dashboard-balanced-approach&#92;&#92;&#92;&#92;data&#92;&#92;&#92;&#92;transacties_vastgoed&#92;&quot;,&#92;&quot;beschrijving&#92;&quot;:&#92;&quot;CaPaKey transacties&#92;&quot;,&#92;&quot;rijen&#92;&quot;:6.0,&#92;&quot;kolommen&#92;&quot;:&#92;&quot;transacties_appartementen.csv, transacties_handel.csv, transacties_industrie_bebouwd.csv, transacties_industrie_terrein.csv, transacties_kantoren.csv, transacties_woningen.csv&#92;&quot;,&#92;&quot;status&#92;&quot;:&#92;&quot;deels&#92;&quot;}]&quot;' data-total-rows='7' data-total-columns='6' data-max-columns='50' data-banner-text='&quot;&quot;' data-pagination='false' data-page-size='10' data-field-types='[[&quot;bestand&quot;,[&quot;string&quot;,&quot;object&quot;]],[&quot;pad&quot;,[&quot;string&quot;,&quot;object&quot;]],[&quot;beschrijving&quot;,[&quot;string&quot;,&quot;object&quot;]],[&quot;rijen&quot;,[&quot;number&quot;,&quot;float64&quot;]],[&quot;kolommen&quot;,[&quot;string&quot;,&quot;object&quot;]],[&quot;status&quot;,[&quot;string&quot;,&quot;object&quot;]]]' data-show-filters='true' data-show-download='true' data-show-column-summaries='false' data-show-data-types='true' data-show-page-size-selector='true' data-show-column-explorer='true' data-show-chart-builder='true' data-row-headers='[]' data-hidden-columns='[]' data-has-stable-row-id='false' data-lazy='false' data-preload='false'></marimo-table></marimo-ui-element>"
+          }
+        }
+      ],
+      "console": []
+    },
+    {
+      "id": "lEQa",
+      "code_hash": "a2dd4c960a867ee8200bcf8d2d057989",
+      "outputs": [
+        {
+          "type": "data",
+          "data": {
+            "text/markdown": "<span class=\"markdown prose dark:prose-invert contents\"><h2 id=\"deel-b-laden-ruwe-bronnen\">Deel B \u2014 Laden ruwe bronnen</h2>\n<h4 id=\"kolomoverzicht-ruwe-bronnen-na-laden\">Kolomoverzicht (ruwe bronnen na laden)</h4>\n<span class=\"paragraph\"><strong><code>raw_vlaanderen_lden</code> / <code>raw_vlaanderen_lnight</code></strong> \u2014 na <code>hernoem_vlaanderen_kolommen()</code>:</span>\n<table>\n<thead>\n<tr>\n<th>Kolom</th>\n<th>Beschrijving</th>\n</tr>\n</thead>\n<tbody>\n<tr>\n<td><code>geluidscontour</code></td>\n<td>Bandlabel (bv. <code>45-46</code>)</td>\n</tr>\n<tr>\n<td><code>db_ondergrens</code> / <code>db_bovengrens</code></td>\n<td>dB-grenzen van de band</td>\n</tr>\n<tr>\n<td><code>inwoners</code></td>\n<td>Inwoners Vlaanderen (+ rest land) in contour</td>\n</tr>\n<tr>\n<td><code>aantal_woningen</code></td>\n<td>Woningen Vlaanderen in contour</td>\n</tr>\n<tr>\n<td><code>aantal bebouwbare percelen die werden gecre\u00eberd door woongebieden aan te duiden</code></td>\n<td>Flow-teller woongebied-aanduiding (cumulatief 5 jr; Excel-naam ongewijzigd)</td>\n</tr>\n<tr>\n<td><code>aantal niet-bebouwbarepercelen die worden gecre\u00eberd door woongebied te schrappen</code></td>\n<td>Woongebied-schrapping (Excel-naam ongewijzigd)</td>\n</tr>\n</tbody>\n</table>\n<span class=\"paragraph\"><strong><code>raw_brussel_lden</code></strong> (sector, selectie kolommen):</span>\n<table>\n<thead>\n<tr>\n<th>Kolom</th>\n<th>Beschrijving</th>\n</tr>\n</thead>\n<tbody>\n<tr>\n<td><code>dB</code></td>\n<td>dB-waarde van de contour</td>\n</tr>\n<tr>\n<td><code>Population dans le contour</code></td>\n<td>Inwoners sector in contour</td>\n</tr>\n<tr>\n<td><code>T_MUN_NL</code></td>\n<td>Gemeentenaam (NL)</td>\n</tr>\n</tbody>\n</table>\n<span class=\"paragraph\"><strong><code>vergunningen_*</code> (lang CSV)</strong> \u2014 kolommen <code>bron</code>, <code>jaar_indiening</code>, <code>gemeente</code>, <code>handeling</code>, <code>gebouw_functie</code>, <code>metriek</code>, <code>waarde</code>.</span>\n<span class=\"paragraph\"><strong><code>transacties</code></strong> \u2014 per segment samengevoegd:</span>\n<table>\n<thead>\n<tr>\n<th>Kolom</th>\n<th>Beschrijving</th>\n</tr>\n</thead>\n<tbody>\n<tr>\n<td><code>capakey</code></td>\n<td>Kadastraal perceel (hernoemd uit <code>NISCode</code>)</td>\n</tr>\n<tr>\n<td><code>sum_ParcelsNumber</code></td>\n<td>Aantal transacties op perceel</td>\n</tr>\n<tr>\n<td><code>avg_PriceP25</code> / <code>avg_PriceP50</code> / <code>avg_PriceP75</code></td>\n<td>Prijspercentielen</td>\n</tr>\n<tr>\n<td><code>avg_ParcelsAreaP50</code></td>\n<td>Mediane perceeloppervlakte</td>\n</tr>\n<tr>\n<td><code>average_price_m2</code></td>\n<td>Gemiddelde prijs per m\u00b2</td>\n</tr>\n<tr>\n<td><code>segment</code></td>\n<td><code>woningen</code>, <code>appartementen</code>, <code>handel</code>, ...</td>\n</tr>\n</tbody>\n</table></span>"
+          }
+        }
+      ],
+      "console": []
+    },
+    {
+      "id": "PKri",
+      "code_hash": "7cbc409909116f23b035098107916d3d",
+      "outputs": [
+        {
+          "type": "data",
+          "data": {
+            "text/plain": ""
+          }
+        }
+      ],
+      "console": [
+        {
+          "type": "stream",
+          "name": "stdout",
+          "text": "Vlaanderen lden: (30, 7)\nBrussel lden: (1033, 39)\nVergunningen omg: 24852\nTransacties: 118740\n",
+          "mimetype": "text/plain"
+        }
+      ]
+    },
+    {
+      "id": "Xref",
+      "code_hash": "46522acc51d1708ad9b13a090ddd04c0",
+      "outputs": [
+        {
+          "type": "data",
+          "data": {
+            "text/html": "<marimo-ui-element object-id='Xref-0' random-id='2b800468-5fd0-ad85-46b0-85f8d5415c0c'><marimo-table data-initial-value='[]' data-label='null' data-data='&quot;[{&#92;&quot;geluidscontour&#92;&quot;:&#92;&quot;45-46&#92;&quot;,&#92;&quot;db_ondergrens&#92;&quot;:45,&#92;&quot;db_bovengrens&#92;&quot;:46,&#92;&quot;inwoners&#92;&quot;:45987,&#92;&quot;aantal_woningen&#92;&quot;:17688,&#92;&quot;bebouwbare_percelen_woongebied(5jr)&#92;&quot;:0.6,&#92;&quot;niet_bebouwbare_percelen_woongebied_schrapping(5jr)&#92;&quot;:4.4},{&#92;&quot;geluidscontour&#92;&quot;:&#92;&quot;46-47&#92;&quot;,&#92;&quot;db_ondergrens&#92;&quot;:46,&#92;&quot;db_bovengrens&#92;&quot;:47,&#92;&quot;inwoners&#92;&quot;:28960,&#92;&quot;aantal_woningen&#92;&quot;:11714,&#92;&quot;bebouwbare_percelen_woongebied(5jr)&#92;&quot;:1,&#92;&quot;niet_bebouwbare_percelen_woongebied_schrapping(5jr)&#92;&quot;:4},{&#92;&quot;geluidscontour&#92;&quot;:&#92;&quot;47-48&#92;&quot;,&#92;&quot;db_ondergrens&#92;&quot;:47,&#92;&quot;db_bovengrens&#92;&quot;:48,&#92;&quot;inwoners&#92;&quot;:27769,&#92;&quot;aantal_woningen&#92;&quot;:10989,&#92;&quot;bebouwbare_percelen_woongebied(5jr)&#92;&quot;:0.6,&#92;&quot;niet_bebouwbare_percelen_woongebied_schrapping(5jr)&#92;&quot;:2},{&#92;&quot;geluidscontour&#92;&quot;:&#92;&quot;48-49&#92;&quot;,&#92;&quot;db_ondergrens&#92;&quot;:48,&#92;&quot;db_bovengrens&#92;&quot;:49,&#92;&quot;inwoners&#92;&quot;:38500,&#92;&quot;aantal_woningen&#92;&quot;:12806,&#92;&quot;bebouwbare_percelen_woongebied(5jr)&#92;&quot;:0.2,&#92;&quot;niet_bebouwbare_percelen_woongebied_schrapping(5jr)&#92;&quot;:3},{&#92;&quot;geluidscontour&#92;&quot;:&#92;&quot;49-50&#92;&quot;,&#92;&quot;db_ondergrens&#92;&quot;:49,&#92;&quot;db_bovengrens&#92;&quot;:50,&#92;&quot;inwoners&#92;&quot;:26406,&#92;&quot;aantal_woningen&#92;&quot;:9891,&#92;&quot;bebouwbare_percelen_woongebied(5jr)&#92;&quot;:0,&#92;&quot;niet_bebouwbare_percelen_woongebied_schrapping(5jr)&#92;&quot;:2.8},{&#92;&quot;geluidscontour&#92;&quot;:&#92;&quot;50-51&#92;&quot;,&#92;&quot;db_ondergrens&#92;&quot;:50,&#92;&quot;db_bovengrens&#92;&quot;:51,&#92;&quot;inwoners&#92;&quot;:35323,&#92;&quot;aantal_woningen&#92;&quot;:12064,&#92;&quot;bebouwbare_percelen_woongebied(5jr)&#92;&quot;:0,&#92;&quot;niet_bebouwbare_percelen_woongebied_schrapping(5jr)&#92;&quot;:4.2},{&#92;&quot;geluidscontour&#92;&quot;:&#92;&quot;51-52&#92;&quot;,&#92;&quot;db_ondergrens&#92;&quot;:51,&#92;&quot;db_bovengrens&#92;&quot;:52,&#92;&quot;inwoners&#92;&quot;:25892,&#92;&quot;aantal_woningen&#92;&quot;:8936,&#92;&quot;bebouwbare_percelen_woongebied(5jr)&#92;&quot;:0,&#92;&quot;niet_bebouwbare_percelen_woongebied_schrapping(5jr)&#92;&quot;:2.8},{&#92;&quot;geluidscontour&#92;&quot;:&#92;&quot;52-53&#92;&quot;,&#92;&quot;db_ondergrens&#92;&quot;:52,&#92;&quot;db_bovengrens&#92;&quot;:53,&#92;&quot;inwoners&#92;&quot;:24298,&#92;&quot;aantal_woningen&#92;&quot;:8374,&#92;&quot;bebouwbare_percelen_woongebied(5jr)&#92;&quot;:0,&#92;&quot;niet_bebouwbare_percelen_woongebied_schrapping(5jr)&#92;&quot;:1.4},{&#92;&quot;geluidscontour&#92;&quot;:&#92;&quot;53-54&#92;&quot;,&#92;&quot;db_ondergrens&#92;&quot;:53,&#92;&quot;db_bovengrens&#92;&quot;:54,&#92;&quot;inwoners&#92;&quot;:35767,&#92;&quot;aantal_woningen&#92;&quot;:11579,&#92;&quot;bebouwbare_percelen_woongebied(5jr)&#92;&quot;:0,&#92;&quot;niet_bebouwbare_percelen_woongebied_schrapping(5jr)&#92;&quot;:3.6},{&#92;&quot;geluidscontour&#92;&quot;:&#92;&quot;54-55&#92;&quot;,&#92;&quot;db_ondergrens&#92;&quot;:54,&#92;&quot;db_bovengrens&#92;&quot;:55,&#92;&quot;inwoners&#92;&quot;:26418,&#92;&quot;aantal_woningen&#92;&quot;:8838,&#92;&quot;bebouwbare_percelen_woongebied(5jr)&#92;&quot;:0,&#92;&quot;niet_bebouwbare_percelen_woongebied_schrapping(5jr)&#92;&quot;:1.4}]&quot;' data-total-rows='30' data-total-columns='7' data-max-columns='50' data-banner-text='&quot;&quot;' data-pagination='true' data-page-size='10' data-field-types='[[&quot;geluidscontour&quot;,[&quot;string&quot;,&quot;object&quot;]],[&quot;db_ondergrens&quot;,[&quot;integer&quot;,&quot;int64&quot;]],[&quot;db_bovengrens&quot;,[&quot;integer&quot;,&quot;int64&quot;]],[&quot;inwoners&quot;,[&quot;integer&quot;,&quot;int64&quot;]],[&quot;aantal_woningen&quot;,[&quot;integer&quot;,&quot;int64&quot;]],[&quot;bebouwbare_percelen_woongebied(5jr)&quot;,[&quot;string&quot;,&quot;object&quot;]],[&quot;niet_bebouwbare_percelen_woongebied_schrapping(5jr)&quot;,[&quot;string&quot;,&quot;object&quot;]]]' data-show-filters='true' data-show-download='true' data-show-column-summaries='true' data-show-data-types='true' data-show-page-size-selector='true' data-show-column-explorer='true' data-show-chart-builder='true' data-row-headers='[]' data-hidden-columns='[]' data-has-stable-row-id='false' data-lazy='false' data-preload='false'></marimo-table></marimo-ui-element>"
+          }
+        }
+      ],
+      "console": []
+    },
+    {
+      "id": "SFPL",
+      "code_hash": "c02af93fbf75e367de3873f3016546ff",
+      "outputs": [
+        {
+          "type": "data",
+          "data": {
+            "text/markdown": "<span class=\"markdown prose dark:prose-invert contents\"><h2 id=\"deel-b2-traceerbare-opbouw-lden-lnight\">Deel B2 \u2014 Traceerbare opbouw <code>lden</code> / <code>lnight</code></h2>\n<span class=\"paragraph\">Elke kolom uit FLOW \u00a72.0 (27 variabelen) krijgt <strong>\u00e9\u00e9n eigen stap</strong>: eerst documentatie (beschrijving, bron, berekenmethode), daarna de code die <code>lden[\"\u2026\"]</code> en <code>lnight[\"\u2026\"]</code> vult.</span>\n<ul>\n<li><strong>Stap 0</strong>: alleen index <code>db_ondergrens</code> (nog geen kolommen)</li>\n<li><strong>Stappen 1\u201327</strong>: \u00e9\u00e9n variabele per stap</li>\n<li><strong>Stap 28</strong>: kolomvolgorde FLOW + schema-check</li>\n</ul>\n<span class=\"paragraph\">Na elke stap: <code>toon_stap(...)</code> toont welke kolom nieuw is.</span></span>"
+          }
+        }
+      ],
+      "console": []
+    },
+    {
+      "id": "BYtC",
+      "code_hash": "ea8013e748e8c9badb36e3b835bb37e7",
+      "outputs": [
+        {
+          "type": "data",
+          "data": {
+            "text/plain": ""
+          }
+        }
+      ],
+      "console": []
+    },
+    {
+      "id": "RGSE",
+      "code_hash": "8b629b8f0ac4b593b79efc0b49df990c",
+      "outputs": [
+        {
+          "type": "data",
+          "data": {
+            "text/plain": ""
+          }
+        }
+      ],
+      "console": []
+    },
+    {
+      "id": "Kclp",
+      "code_hash": "0c83d3076fed0dfb4498839b52400cb1",
+      "outputs": [
+        {
+          "type": "data",
+          "data": {
+            "text/markdown": "<span class=\"markdown prose dark:prose-invert contents\"><h3 id=\"stap-0-index-db_ondergrens\">Stap 0 \u2014 Index <code>db_ondergrens</code></h3>\n<h4 id=\"beschrijving\">Beschrijving</h4>\n<span class=\"paragraph\">Startdataframe met de 30 geluidsbanden (dB-ondergrens 45\u201374) als index. Nog geen FLOW-variabelen.</span>\n<h4 id=\"bron\">Bron</h4>\n<ul>\n<li><code>data/contour_vlaanderen_stocks.xlsx</code> \u2014 kolom <code>db_ondergrens</code> (via <code>lees_contour_vlaanderen()</code>)</li>\n</ul>\n<h4 id=\"berekenmethode\">Berekenmethode</h4>\n<span class=\"paragraph\">De banden worden overgenomen uit de Vlaanderen Lden-contour; Lnight gebruikt dezelfde bandindeling.</span></span>"
+          }
+        }
+      ],
+      "console": []
+    },
+    {
+      "id": "emfo",
+      "code_hash": "9405648845dbbeb1fbf39983f8786ee9",
+      "outputs": [
+        {
+          "type": "data",
+          "data": {
+            "application/json": "[]"
+          }
+        }
+      ],
+      "console": [
+        {
+          "type": "stream",
+          "name": "stdout",
+          "text": "=== 0 index ===\nlden.shape: (30, 0)\nlden.columns (0): []\nlnight.columns (0): []\n",
+          "mimetype": "text/plain"
+        }
+      ]
+    },
+    {
+      "id": "Hstk",
+      "code_hash": "7782713737b933740401d7213f40562b",
+      "outputs": [
+        {
+          "type": "data",
+          "data": {
+            "text/markdown": "<span class=\"markdown prose dark:prose-invert contents\"><h3 id=\"stap-1-inwoners_per_contour\">Stap 1 \u2014 <code>inwoners_per_contour</code></h3>\n<h4 id=\"beschrijving\">Beschrijving</h4>\n<span class=\"paragraph\">Totaal aantal inwoners per geluidscontourband rond de luchthaven (Vlaanderen + Brussel). Gebruikt voor KPI's en kostengewichting in de simulator; geen flow-teller.</span>\n<h4 id=\"bron\">Bron</h4>\n<ul>\n<li><code>data/contour_vlaanderen_stocks.xlsx</code> \u2014 inwoners Vlaanderen per 1 dB-band (<code>lden</code> / <code>lnight</code> sheet)</li>\n<li><code>data/inwoners_brussel_sector_contour_2024.xlsx</code> \u2014 inwoners Brussel per statistische sector, geaggregeerd naar dB via <code>lees_brussel_inwoners_per_db()</code></li>\n</ul>\n<h4 id=\"berekenmethode\">Berekenmethode</h4>\n<span class=\"paragraph\"><strong>Vlaanderen:</strong> waarde <code>inwoners</code> per <code>db_ondergrens</code> rechtstreeks overnemen uit de contour-Excel.</span>\n<span class=\"paragraph\"><strong>Brussel:</strong> enkel inwoners per statistische sector beschikbaar; deze worden via de sector\u2013contour-koppeling (<code>population 2024 par bout de secteur stat.xlsx</code>) naar dB-banden vertaald en gesommeerd.</span>\n<span class=\"paragraph\"><strong>Totaal:</strong> <code>inwoners_per_contour = inwoners_vlaanderen + inwoners_brussel</code> per band.</span></span>"
+          }
+        }
+      ],
+      "console": []
+    },
+    {
+      "id": "nWHF",
+      "code_hash": "fbcb21f757228d14806066e535768279",
+      "outputs": [
+        {
+          "type": "error",
+          "ename": "exception",
+          "evalue": "'State' object has no attribute 'index'",
+          "traceback": null
+        }
+      ],
+      "console": [
+        {
+          "type": "stream",
+          "name": "stderr",
+          "text": "<span class=\"codehilite\"><div class=\"highlight\"><pre><span></span><span class=\"gt\">Traceback (most recent call last):</span>\n  File <span class=\"nb\">&quot;C:\\Users\\AlexanderL\\AppData\\Local\\Temp\\marimo_27520\\__marimo__cell_nWHF_.py&quot;</span>, line <span class=\"m\">6</span>, in <span class=\"n\">&lt;module&gt;</span>\n<span class=\"w\">    </span><span class=\"n\">_idx</span> <span class=\"o\">=</span> <span class=\"n\">_lden</span><span class=\"o\">.</span><span class=\"n\">index</span>\n<span class=\"w\">           </span><span class=\"pm\">^^^^^^^^^^^</span>\n<span class=\"gr\">AttributeError</span>: <span class=\"n\">&#39;State&#39; object has no attribute &#39;index&#39;</span>\n</pre></div>\n</span>",
+          "mimetype": "application/vnd.marimo+traceback"
+        }
+      ]
+    },
+    {
+      "id": "iLit",
+      "code_hash": "14e10f4152e08c354bbf7bcba8df132e",
+      "outputs": [
+        {
+          "type": "data",
+          "data": {
+            "text/markdown": "<span class=\"markdown prose dark:prose-invert contents\"><h3 id=\"stap-2-bebouwbare_percelen_woongebied5jr\">Stap 2 \u2014 <code>bebouwbare_percelen_woongebied(5jr)</code></h3>\n<h4 id=\"beschrijving\">Beschrijving</h4>\n<span class=\"paragraph\">Cumulatief aantal <strong>bebouwbare percelen</strong> dat in de laatste 5 jaar werd gecre\u00eberd door woongebieden aan te duiden. Flow-teller (jaarlijks = waarde / 5); geen stock.</span>\n<h4 id=\"bron\">Bron</h4>\n<ul>\n<li><code>data/contour_vlaanderen_stocks.xlsx</code> \u2014 kolom <em>aantal bebouwbare percelen die werden gecre\u00eberd door woongebieden aan te duiden</em> (hernoemd bij laden)</li>\n</ul>\n<h4 id=\"berekenmethode\">Berekenmethode</h4>\n<span class=\"paragraph\">Waarde per <code>db_ondergrens</code> overnemen uit de Vlaanderen-contour (<code>series_op_index</code>). Brussel: geen aparte bron \u2192 0 waar geen Vlaanderen-data.</span></span>"
+          }
+        }
+      ],
+      "console": []
+    },
+    {
+      "id": "ZHCJ",
+      "code_hash": "f4c2120cb28d03d484344a7e6e007996",
+      "outputs": [
+        {
+          "type": "error",
+          "ename": "exception",
+          "evalue": "'State' object has no attribute 'index'",
+          "traceback": null
+        }
+      ],
+      "console": [
+        {
+          "type": "stream",
+          "name": "stderr",
+          "text": "<span class=\"codehilite\"><div class=\"highlight\"><pre><span></span><span class=\"gt\">Traceback (most recent call last):</span>\n  File <span class=\"nb\">&quot;C:\\Users\\AlexanderL\\AppData\\Local\\Temp\\marimo_27520\\__marimo__cell_ZHCJ_.py&quot;</span>, line <span class=\"m\">6</span>, in <span class=\"n\">&lt;module&gt;</span>\n<span class=\"w\">    </span><span class=\"n\">_idx</span> <span class=\"o\">=</span> <span class=\"n\">_lden</span><span class=\"o\">.</span><span class=\"n\">index</span>\n<span class=\"w\">           </span><span class=\"pm\">^^^^^^^^^^^</span>\n<span class=\"gr\">AttributeError</span>: <span class=\"n\">&#39;State&#39; object has no attribute &#39;index&#39;</span>\n</pre></div>\n</span>",
+          "mimetype": "application/vnd.marimo+traceback"
+        }
+      ]
+    },
+    {
+      "id": "ROlb",
+      "code_hash": "6e327bc10d56c67a8d941c4b214c4aea",
+      "outputs": [
+        {
+          "type": "data",
+          "data": {
+            "text/markdown": "<span class=\"markdown prose dark:prose-invert contents\"><h3 id=\"stap-3-niet_bebouwbare_percelen_woongebied_schrapping5jr\">Stap 3 \u2014 <code>niet_bebouwbare_percelen_woongebied_schrapping(5jr)</code></h3>\n<h4 id=\"beschrijving\">Beschrijving</h4>\n<span class=\"paragraph\">Cumulatief aantal <strong>niet-bebouwbare percelen</strong> door schrapping van woongebied (laatste 5 jaar). Flow-teller; geen stock.</span>\n<h4 id=\"bron\">Bron</h4>\n<ul>\n<li><code>data/contour_vlaanderen_stocks.xlsx</code> \u2014 kolom <em>aantal niet-bebouwbare percelen die worden gecre\u00eberd door woongebied te schrappen</em></li>\n</ul>\n<h4 id=\"berekenmethode\">Berekenmethode</h4>\n<span class=\"paragraph\">Waarde per <code>db_ondergrens</code> overnemen uit de Vlaanderen-contour.</span></span>"
+          }
+        }
+      ],
+      "console": []
+    },
+    {
+      "id": "qnkX",
+      "code_hash": "395ea1e78b60b66745f315e36b82973b",
+      "outputs": [
+        {
+          "type": "error",
+          "ename": "exception",
+          "evalue": "'State' object has no attribute 'index'",
+          "traceback": null
+        }
+      ],
+      "console": [
+        {
+          "type": "stream",
+          "name": "stderr",
+          "text": "<span class=\"codehilite\"><div class=\"highlight\"><pre><span></span><span class=\"gt\">Traceback (most recent call last):</span>\n  File <span class=\"nb\">&quot;C:\\Users\\AlexanderL\\AppData\\Local\\Temp\\marimo_27520\\__marimo__cell_qnkX_.py&quot;</span>, line <span class=\"m\">6</span>, in <span class=\"n\">&lt;module&gt;</span>\n<span class=\"w\">    </span><span class=\"n\">_idx</span> <span class=\"o\">=</span> <span class=\"n\">_lden</span><span class=\"o\">.</span><span class=\"n\">index</span>\n<span class=\"w\">           </span><span class=\"pm\">^^^^^^^^^^^</span>\n<span class=\"gr\">AttributeError</span>: <span class=\"n\">&#39;State&#39; object has no attribute &#39;index&#39;</span>\n</pre></div>\n</span>",
+          "mimetype": "application/vnd.marimo+traceback"
+        }
+      ]
+    },
+    {
+      "id": "TqIu",
+      "code_hash": "dd0113d58e3573e49b7801a33dbf9dbb",
+      "outputs": [
+        {
+          "type": "data",
+          "data": {
+            "text/markdown": "<span class=\"markdown prose dark:prose-invert contents\"><h3 id=\"stap-4-bewoonde_niet_geisoleerde_woning\">Stap 4 \u2014 <code>bewoonde_niet_ge\u00efsoleerde_woning</code></h3>\n<h4 id=\"beschrijving\">Beschrijving</h4>\n<span class=\"paragraph\">Stock bewoonde <strong>niet-ge\u00efsoleerde</strong> woningen per geluidsband.</span>\n<h4 id=\"bron\">Bron</h4>\n<ul>\n<li><code>data/contour_vlaanderen_stocks.xlsx</code> \u2014 <code>aantal_woningen</code> (huizen) per band</li>\n<li><code>data/inwoners_brussel_sector_contour_2024.xlsx</code> + Brusselse inwoners per dB (stap 1) \u2014 geschatte woningen Brussel</li>\n</ul>\n<h4 id=\"berekenmethode\">Berekenmethode</h4>\n<ol>\n<li>Woningen Vlaanderen per band uit contour-Excel.</li>\n<li>Woningen Brussel = <code>inwoners_brussel / gemiddeld_inwoners_per_woning_vlaanderen</code> (fallback <strong>2,0</strong> bij ontbrekende data of wanneer het gemiddelde 0 is \u2014 bv. 0 inwoners maar wel woningen in Vlaanderen per band).</li>\n<li>Totaal woningen = Vlaanderen + Brussel.</li>\n<li><strong>Beleidsaanname (placeholder):</strong> 80% van totaal = niet-ge\u00efsoleerd (<code>PCT_NIET_GEISOLEERD = 0,80</code>).</li>\n</ol></span>"
+          }
+        }
+      ],
+      "console": []
+    },
+    {
+      "id": "Vxnm",
+      "code_hash": "2ee25feaef0b13e136e0c4a12ff85a9d",
+      "outputs": [
+        {
+          "type": "error",
+          "ename": "exception",
+          "evalue": "'State' object has no attribute 'index'",
+          "traceback": null
+        }
+      ],
+      "console": [
+        {
+          "type": "stream",
+          "name": "stderr",
+          "text": "<span class=\"codehilite\"><div class=\"highlight\"><pre><span></span><span class=\"gt\">Traceback (most recent call last):</span>\n  File <span class=\"nb\">&quot;C:\\Users\\AlexanderL\\AppData\\Local\\Temp\\marimo_27520\\__marimo__cell_Vxnm_.py&quot;</span>, line <span class=\"m\">6</span>, in <span class=\"n\">&lt;module&gt;</span>\n<span class=\"w\">    </span><span class=\"n\">_idx</span> <span class=\"o\">=</span> <span class=\"n\">_lden</span><span class=\"o\">.</span><span class=\"n\">index</span>\n<span class=\"w\">           </span><span class=\"pm\">^^^^^^^^^^^</span>\n<span class=\"gr\">AttributeError</span>: <span class=\"n\">&#39;State&#39; object has no attribute &#39;index&#39;</span>\n</pre></div>\n</span>",
+          "mimetype": "application/vnd.marimo+traceback"
+        }
+      ]
+    },
+    {
+      "id": "DnEU",
+      "code_hash": "d4f48fcf680cfc59ce6d154b6047166c",
+      "outputs": [
+        {
+          "type": "data",
+          "data": {
+            "text/markdown": "<span class=\"markdown prose dark:prose-invert contents\"><h3 id=\"stap-5-bewoonde_geisoleerde_woning\">Stap 5 \u2014 <code>bewoonde_ge\u00efsoleerde_woning</code></h3>\n<h4 id=\"beschrijving\">Beschrijving</h4>\n<span class=\"paragraph\">Stock bewoonde <strong>ge\u00efsoleerde</strong> woningen per geluidsband.</span>\n<h4 id=\"bron\">Bron</h4>\n<span class=\"paragraph\">Zelfde bronnen als stap 4 (woningen Vlaanderen + geschat Brussel).</span>\n<h4 id=\"berekenmethode\">Berekenmethode</h4>\n<span class=\"paragraph\"><strong>Beleidsaanname (placeholder):</strong> 20% van totaal woningen per band (<code>PCT_GEISOLEERD = 0,20</code>). Gebruikt <code>won_totaal_lden</code> / <code>won_totaal_lnight</code> uit stap 4.</span></span>"
+          }
+        }
+      ],
+      "console": []
+    },
+    {
+      "id": "ulZA",
+      "code_hash": "5a0aabb8bc8214ac9e12d93995b717b2",
+      "outputs": [
+        {
+          "type": "error",
+          "ename": "exception",
+          "evalue": "An ancestor raised an exception (AttributeError): ",
+          "traceback": null
+        }
+      ],
+      "console": []
+    },
+    {
+      "id": "ecfG",
+      "code_hash": "dca61780bf769cf0edac849a527aa7c3",
+      "outputs": [
+        {
+          "type": "data",
+          "data": {
+            "text/markdown": "<span class=\"markdown prose dark:prose-invert contents\"><h3 id=\"stap-6-onbebouwde_bebouwbare_percelen\">Stap 6 \u2014 <code>onbebouwde_bebouwbare_percelen</code></h3>\n<h4 id=\"beschrijving\">Beschrijving</h4>\n<span class=\"paragraph\">Stock <strong>onbebouwde bebouwbare percelen</strong> per geluidsband (noemer voor o.a. aankoop/voorkoop percelen).</span>\n<h4 id=\"bron\">Bron</h4>\n<span class=\"paragraph\">Nog geen betrouwbare kadastrale/ruimtelijke stock per contour in de pipeline.</span>\n<h4 id=\"berekenmethode\">Berekenmethode</h4>\n<span class=\"paragraph\"><strong>Placeholder 0</strong> tot gedetailleerde perceel-stock per band beschikbaar is. Niet afleiden uit woongebied-tellers.</span></span>"
+          }
+        }
+      ],
+      "console": []
+    },
+    {
+      "id": "Pvdt",
+      "code_hash": "c787d8cef2dde43a6456800fe2fada98",
+      "outputs": [
+        {
+          "type": "error",
+          "ename": "exception",
+          "evalue": "'State' object does not support item assignment",
+          "traceback": null
+        }
+      ],
+      "console": [
+        {
+          "type": "stream",
+          "name": "stderr",
+          "text": "<span class=\"codehilite\"><div class=\"highlight\"><pre><span></span><span class=\"gt\">Traceback (most recent call last):</span>\n  File <span class=\"nb\">&quot;C:\\Users\\AlexanderL\\AppData\\Local\\Temp\\marimo_27520\\__marimo__cell_Pvdt_.py&quot;</span>, line <span class=\"m\">6</span>, in <span class=\"n\">&lt;module&gt;</span>\n<span class=\"w\">    </span><span class=\"n\">_lden</span><span class=\"p\">[</span><span class=\"n\">_KOL</span><span class=\"p\">]</span> <span class=\"o\">=</span> <span class=\"mf\">0.0</span>\n<span class=\"w\">    </span><span class=\"pm\">~~~~~^^^^^^</span>\n<span class=\"gr\">TypeError</span>: <span class=\"n\">&#39;State&#39; object does not support item assignment</span>\n</pre></div>\n</span>",
+          "mimetype": "application/vnd.marimo+traceback"
+        }
+      ]
+    },
+    {
+      "id": "ZBYS",
+      "code_hash": "227b08fda3bd361c987574295bc0dcf4",
+      "outputs": [
+        {
+          "type": "data",
+          "data": {
+            "text/markdown": "<span class=\"markdown prose dark:prose-invert contents\"><h3 id=\"stap-7-onbebouwde_onbebouwbare_percelen\">Stap 7 \u2014 <code>onbebouwde_onbebouwbare_percelen</code></h3>\n<h4 id=\"beschrijving\">Beschrijving</h4>\n<span class=\"paragraph\">Stock <strong>onbebouwde onbebouwbare percelen</strong> per band (o.a. noemer woongebiedverbod).</span>\n<h4 id=\"bron\">Bron</h4>\n<span class=\"paragraph\">Nog geen directe bron per contour.</span>\n<h4 id=\"berekenmethode\">Berekenmethode</h4>\n<span class=\"paragraph\"><strong>Placeholder 0.</strong></span></span>"
+          }
+        }
+      ],
+      "console": []
+    },
+    {
+      "id": "aLJB",
+      "code_hash": "feda7c3f7b1792e7b3960aa1469e34db",
+      "outputs": [
+        {
+          "type": "error",
+          "ename": "exception",
+          "evalue": "'State' object does not support item assignment",
+          "traceback": null
+        }
+      ],
+      "console": [
+        {
+          "type": "stream",
+          "name": "stderr",
+          "text": "<span class=\"codehilite\"><div class=\"highlight\"><pre><span></span><span class=\"gt\">Traceback (most recent call last):</span>\n  File <span class=\"nb\">&quot;C:\\Users\\AlexanderL\\AppData\\Local\\Temp\\marimo_27520\\__marimo__cell_aLJB_.py&quot;</span>, line <span class=\"m\">6</span>, in <span class=\"n\">&lt;module&gt;</span>\n<span class=\"w\">    </span><span class=\"n\">_lden</span><span class=\"p\">[</span><span class=\"n\">_KOL</span><span class=\"p\">]</span> <span class=\"o\">=</span> <span class=\"mf\">0.0</span>\n<span class=\"w\">    </span><span class=\"pm\">~~~~~^^^^^^</span>\n<span class=\"gr\">TypeError</span>: <span class=\"n\">&#39;State&#39; object does not support item assignment</span>\n</pre></div>\n</span>",
+          "mimetype": "application/vnd.marimo+traceback"
+        }
+      ]
+    },
+    {
+      "id": "nHfw",
+      "code_hash": "10c2fd03b1aa07f8ca80a687873bcca3",
+      "outputs": [
+        {
+          "type": "data",
+          "data": {
+            "text/markdown": "<span class=\"markdown prose dark:prose-invert contents\"><h3 id=\"stap-8-nieuwe_woning\">Stap 8 \u2014 <code>nieuwe_woning</code></h3>\n<h4 id=\"beschrijving\">Beschrijving</h4>\n<span class=\"paragraph\">Stock <strong>nieuwe woningen</strong> (bv. in aanbouw) per band.</span>\n<h4 id=\"bron\">Bron</h4>\n<span class=\"paragraph\">Nog niet gemodelleerd in beschikbare data.</span>\n<h4 id=\"berekenmethode\">Berekenmethode</h4>\n<span class=\"paragraph\"><strong>Placeholder 0.</strong></span></span>"
+          }
+        }
+      ],
+      "console": []
+    },
+    {
+      "id": "xXTn",
+      "code_hash": "70b83e63cfcc8b14a371d40609161817",
+      "outputs": [
+        {
+          "type": "error",
+          "ename": "exception",
+          "evalue": "'State' object does not support item assignment",
+          "traceback": null
+        }
+      ],
+      "console": [
+        {
+          "type": "stream",
+          "name": "stderr",
+          "text": "<span class=\"codehilite\"><div class=\"highlight\"><pre><span></span><span class=\"gt\">Traceback (most recent call last):</span>\n  File <span class=\"nb\">&quot;C:\\Users\\AlexanderL\\AppData\\Local\\Temp\\marimo_27520\\__marimo__cell_xXTn_.py&quot;</span>, line <span class=\"m\">6</span>, in <span class=\"n\">&lt;module&gt;</span>\n<span class=\"w\">    </span><span class=\"n\">_lden</span><span class=\"p\">[</span><span class=\"n\">_KOL</span><span class=\"p\">]</span> <span class=\"o\">=</span> <span class=\"mf\">0.0</span>\n<span class=\"w\">    </span><span class=\"pm\">~~~~~^^^^^^</span>\n<span class=\"gr\">TypeError</span>: <span class=\"n\">&#39;State&#39; object does not support item assignment</span>\n</pre></div>\n</span>",
+          "mimetype": "application/vnd.marimo+traceback"
+        }
+      ]
+    },
+    {
+      "id": "AjVT",
+      "code_hash": "0c5ec49a0738eaf654c95d2e3cf9481f",
+      "outputs": [
+        {
+          "type": "data",
+          "data": {
+            "text/markdown": "<span class=\"markdown prose dark:prose-invert contents\"><h3 id=\"stap-9-perceel_eigendom_overheid\">Stap 9 \u2014 <code>perceel_eigendom_overheid</code></h3>\n<h4 id=\"beschrijving\">Beschrijving</h4>\n<span class=\"paragraph\">Aandeel onbebouwde percelen in <strong>overheidsbezit</strong> per band.</span>\n<h4 id=\"bron\">Bron</h4>\n<span class=\"paragraph\">Nog geen eigendomsregister per contour.</span>\n<h4 id=\"berekenmethode\">Berekenmethode</h4>\n<span class=\"paragraph\"><strong>Placeholder 0.</strong></span></span>"
+          }
+        }
+      ],
+      "console": []
+    },
+    {
+      "id": "pHFh",
+      "code_hash": "2b0f9254820256fe697414e60a104126",
+      "outputs": [
+        {
+          "type": "error",
+          "ename": "exception",
+          "evalue": "'State' object does not support item assignment",
+          "traceback": null
+        }
+      ],
+      "console": [
+        {
+          "type": "stream",
+          "name": "stderr",
+          "text": "<span class=\"codehilite\"><div class=\"highlight\"><pre><span></span><span class=\"gt\">Traceback (most recent call last):</span>\n  File <span class=\"nb\">&quot;C:\\Users\\AlexanderL\\AppData\\Local\\Temp\\marimo_27520\\__marimo__cell_pHFh_.py&quot;</span>, line <span class=\"m\">6</span>, in <span class=\"n\">&lt;module&gt;</span>\n<span class=\"w\">    </span><span class=\"n\">_lden</span><span class=\"p\">[</span><span class=\"n\">_KOL</span><span class=\"p\">]</span> <span class=\"o\">=</span> <span class=\"mf\">0.0</span>\n<span class=\"w\">    </span><span class=\"pm\">~~~~~^^^^^^</span>\n<span class=\"gr\">TypeError</span>: <span class=\"n\">&#39;State&#39; object does not support item assignment</span>\n</pre></div>\n</span>",
+          "mimetype": "application/vnd.marimo+traceback"
+        }
+      ]
+    },
+    {
+      "id": "NCOB",
+      "code_hash": "78ca5582dfc2c7db25e760fd93975e43",
+      "outputs": [
+        {
+          "type": "data",
+          "data": {
+            "text/markdown": "<span class=\"markdown prose dark:prose-invert contents\"><h3 id=\"stap-10-woning_eigendom_overheid\">Stap 10 \u2014 <code>woning_eigendom_overheid</code></h3>\n<h4 id=\"beschrijving\">Beschrijving</h4>\n<span class=\"paragraph\">Aandeel woningen in <strong>overheidsbezit</strong> per band.</span>\n<h4 id=\"bron\">Bron</h4>\n<span class=\"paragraph\">Nog geen eigendomsregister per contour.</span>\n<h4 id=\"berekenmethode\">Berekenmethode</h4>\n<span class=\"paragraph\"><strong>Placeholder 0.</strong></span></span>"
+          }
+        }
+      ],
+      "console": []
+    },
+    {
+      "id": "aqbW",
+      "code_hash": "ac40ff4aef78de6904d4940283307b2a",
+      "outputs": [
+        {
+          "type": "error",
+          "ename": "exception",
+          "evalue": "'State' object does not support item assignment",
+          "traceback": null
+        }
+      ],
+      "console": [
+        {
+          "type": "stream",
+          "name": "stderr",
+          "text": "<span class=\"codehilite\"><div class=\"highlight\"><pre><span></span><span class=\"gt\">Traceback (most recent call last):</span>\n  File <span class=\"nb\">&quot;C:\\Users\\AlexanderL\\AppData\\Local\\Temp\\marimo_27520\\__marimo__cell_aqbW_.py&quot;</span>, line <span class=\"m\">6</span>, in <span class=\"n\">&lt;module&gt;</span>\n<span class=\"w\">    </span><span class=\"n\">_lden</span><span class=\"p\">[</span><span class=\"n\">_KOL</span><span class=\"p\">]</span> <span class=\"o\">=</span> <span class=\"mf\">0.0</span>\n<span class=\"w\">    </span><span class=\"pm\">~~~~~^^^^^^</span>\n<span class=\"gr\">TypeError</span>: <span class=\"n\">&#39;State&#39; object does not support item assignment</span>\n</pre></div>\n</span>",
+          "mimetype": "application/vnd.marimo+traceback"
+        }
+      ]
+    },
+    {
+      "id": "TRpd",
+      "code_hash": "2848fa68e9946436d09c87ae72e6538d",
+      "outputs": [
+        {
+          "type": "data",
+          "data": {
+            "text/markdown": "<span class=\"markdown prose dark:prose-invert contents\"><h3 id=\"stap-11-vergunde_wooneenheden_nieuwbouw\">Stap 11 \u2014 <code>vergunde_wooneenheden_nieuwbouw</code></h3>\n<h4 id=\"beschrijving\">Beschrijving</h4>\n<span class=\"paragraph\">Aantal <strong>vergunde wooneenheden nieuwbouw</strong> per geluidsband (teller o.a. verbod kleine woning).</span>\n<h4 id=\"bron\">Bron</h4>\n<ul>\n<li><code>data/vergunningen_omgevingsloket_2026_lang.csv</code></li>\n<li><code>data/vergunningen_kwetsbare_functies_2026_lang.csv</code></li>\n<li><code>data/vergunningen_verkaveling_2026_lang.csv</code></li>\n<li><code>data/population 2024 par bout de secteur stat.xlsx</code> \u2014 gemeente \u2192 contour conversie</li>\n</ul>\n<h4 id=\"berekenmethode\">Berekenmethode</h4>\n<ol>\n<li>Vergunningen per gemeente combineren en naar contour verdelen (<code>verdeel_gemeente_naar_contour</code>, jaar = <code>JAAR_TELLERS</code>).</li>\n<li>Filter: <code>handeling == \"Nieuwbouw\"</code> en <code>metriek == \"Aantal wooneenheden\"</code>.</li>\n<li>Som per <code>db_ondergrens</code>.</li>\n</ol></span>"
+          }
+        }
+      ],
+      "console": []
+    },
+    {
+      "id": "TXez",
+      "code_hash": "3d1847b0d0d0dcb0756e617fbf4f14fc",
+      "outputs": [
+        {
+          "type": "error",
+          "ename": "exception",
+          "evalue": "'State' object has no attribute 'columns'",
+          "traceback": null
+        }
+      ],
+      "console": [
+        {
+          "type": "stream",
+          "name": "stderr",
+          "text": "<span class=\"codehilite\"><div class=\"highlight\"><pre><span></span><span class=\"gt\">Traceback (most recent call last):</span>\n  File <span class=\"nb\">&quot;C:\\Users\\AlexanderL\\AppData\\Local\\Temp\\marimo_27520\\__marimo__cell_TXez_.py&quot;</span>, line <span class=\"m\">9</span>, in <span class=\"n\">&lt;module&gt;</span>\n<span class=\"w\">    </span><span class=\"n\">conversie_lden_band</span> <span class=\"o\">=</span> <span class=\"n\">koppel_conversie_aan_contourband</span><span class=\"p\">(</span><span class=\"n\">conversie_lden</span><span class=\"p\">,</span> <span class=\"n\">_lden</span><span class=\"p\">)</span>\n  File <span class=\"nb\">&quot;C:\\Users\\AlexanderL\\OneDrive - Idea Consult nv\\RTD\\2. Projects\\25 RTD 72  (Financiering van de maatregelen \u2018RO en beheer\u2019 als 2e pijler van de Ba)\\dashboard-balanced-approach\\contour\\spatial.py&quot;</span>, line <span class=\"m\">50</span>, in <span class=\"n\">koppel_conversie_aan_contourband</span>\n<span class=\"w\">    </span><span class=\"n\">banden</span> <span class=\"o\">=</span> <span class=\"n\">_banden_van_contour</span><span class=\"p\">(</span><span class=\"n\">df_contour</span><span class=\"p\">)</span>\n  File <span class=\"nb\">&quot;C:\\Users\\AlexanderL\\OneDrive - Idea Consult nv\\RTD\\2. Projects\\25 RTD 72  (Financiering van de maatregelen \u2018RO en beheer\u2019 als 2e pijler van de Ba)\\dashboard-balanced-approach\\contour\\spatial.py&quot;</span>, line <span class=\"m\">40</span>, in <span class=\"n\">_banden_van_contour</span>\n<span class=\"w\">    </span><span class=\"k\">if</span> <span class=\"s2\">&quot;geluidscontour&quot;</span> <span class=\"ow\">in</span> <span class=\"n\">df_contour</span><span class=\"o\">.</span><span class=\"n\">columns</span> <span class=\"ow\">and</span> <span class=\"s2\">&quot;db_ondergrens&quot;</span> <span class=\"ow\">in</span> <span class=\"n\">df_contour</span><span class=\"o\">.</span><span class=\"n\">columns</span><span class=\"p\">:</span>\n<span class=\"w\">                           </span><span class=\"pm\">^^^^^^^^^^^^^^^^^^</span>\n<span class=\"gr\">AttributeError</span>: <span class=\"n\">&#39;State&#39; object has no attribute &#39;columns&#39;</span>\n</pre></div>\n</span>",
+          "mimetype": "application/vnd.marimo+traceback"
+        }
+      ]
+    },
+    {
+      "id": "dNNg",
+      "code_hash": "a012208c36723a78dfa351233031e287",
+      "outputs": [
+        {
+          "type": "data",
+          "data": {
+            "text/markdown": "<span class=\"markdown prose dark:prose-invert contents\"><h3 id=\"stap-12-gem_wooneenheden_per_vergunning\">Stap 12 \u2014 <code>gem_wooneenheden_per_vergunning</code></h3>\n<h4 id=\"beschrijving\">Beschrijving</h4>\n<span class=\"paragraph\">Gemiddeld aantal wooneenheden per vergunningsaanvraag (nationaal cijfer, geen splitsing per contour).</span>\n<h4 id=\"bron\">Bron</h4>\n<ul>\n<li><code>data/vergunningen_omgevingsloket_2026_lang.csv</code> \u2014 <code>Aantal projecten</code> en <code>Aantal wooneenheden</code></li>\n</ul>\n<h4 id=\"berekenmethode\">Berekenmethode</h4>\n<span class=\"paragraph\"><code>gem = som(wooneenheden) / som(projecten)</code> over omgevingsloket, jaar <code>JAAR_TELLERS</code>. Zelfde constante in elke band (lden en lnight).</span></span>"
+          }
+        }
+      ],
+      "console": []
+    },
+    {
+      "id": "yCnT",
+      "code_hash": "749c5864c2e959360adff6ff4ece928d",
+      "outputs": [
+        {
+          "type": "error",
+          "ename": "exception",
+          "evalue": "An ancestor raised an exception (AttributeError): ",
+          "traceback": null
+        }
+      ],
+      "console": []
+    },
+    {
+      "id": "wlCL",
+      "code_hash": "2cf3cc5d96d76a14ee99bcfe657b41b8",
+      "outputs": [
+        {
+          "type": "data",
+          "data": {
+            "text/markdown": "<span class=\"markdown prose dark:prose-invert contents\"><h3 id=\"stap-13-vergunningen_kwetsbare_groep\">Stap 13 \u2014 <code>vergunningen_kwetsbare_groep</code></h3>\n<h4 id=\"beschrijving\">Beschrijving</h4>\n<span class=\"paragraph\">Aantal vergunningen / projecten voor <strong>kwetsbare functies</strong> per contourband.</span>\n<h4 id=\"bron\">Bron</h4>\n<ul>\n<li><code>data/vergunningen_kwetsbare_functies_2026_lang.csv</code> (via <code>df_verg</code>, bron = <code>kwetsbare_functies</code>)</li>\n</ul>\n<h4 id=\"berekenmethode\">Berekenmethode</h4>\n<span class=\"paragraph\">Som <code>waarde</code> per <code>db_ondergrens</code> waar <code>bron == \"kwetsbare_functies\"</code>, jaar <code>JAAR_TELLERS</code>.</span></span>"
+          }
+        }
+      ],
+      "console": []
+    },
+    {
+      "id": "kqZH",
+      "code_hash": "20181407fbb2678050f6e02e16ba1e7d",
+      "outputs": [
+        {
+          "type": "error",
+          "ename": "exception",
+          "evalue": "An ancestor raised an exception (AttributeError): ",
+          "traceback": null
+        }
+      ],
+      "console": []
+    },
+    {
+      "id": "wAgl",
+      "code_hash": "e0f3576a7cd9ee5bcfadc2d09cdc5d83",
+      "outputs": [
+        {
+          "type": "data",
+          "data": {
+            "text/markdown": "<span class=\"markdown prose dark:prose-invert contents\"><h3 id=\"stap-14-renovatie_totaal\">Stap 14 \u2014 <code>renovatie_totaal</code></h3>\n<h4 id=\"beschrijving\">Beschrijving</h4>\n<span class=\"paragraph\">Totaal aantal vergunningen <strong>verbouwen of hergebruik</strong> per band (renovatie-teller).</span>\n<h4 id=\"bron\">Bron</h4>\n<ul>\n<li>Vergunningsbestanden (omgevingsloket e.a.) via <code>df_verg</code></li>\n</ul>\n<h4 id=\"berekenmethode\">Berekenmethode</h4>\n<span class=\"paragraph\">Filter <code>handeling == \"Verbouwen of hergebruik\"</code>, som <code>waarde</code> per <code>db_ondergrens</code>.</span></span>"
+          }
+        }
+      ],
+      "console": []
+    },
+    {
+      "id": "rEll",
+      "code_hash": "c32e2aea20fc67b51db311be9401b2c1",
+      "outputs": [
+        {
+          "type": "error",
+          "ename": "exception",
+          "evalue": "An ancestor raised an exception (AttributeError): ",
+          "traceback": null
+        }
+      ],
+      "console": []
+    },
+    {
+      "id": "dGlV",
+      "code_hash": "19502daf52eb76c3df97327ab25b8f08",
+      "outputs": [
+        {
+          "type": "data",
+          "data": {
+            "text/markdown": "<span class=\"markdown prose dark:prose-invert contents\"><h3 id=\"stap-15-alle_transacties_percelen\">Stap 15 \u2014 <code>alle_transacties_percelen</code></h3>\n<h4 id=\"beschrijving\">Beschrijving</h4>\n<span class=\"paragraph\">Totaal aantal <strong>perceeltransacties</strong> per geluidsband (industrie/onbebouwd segmenten).</span>\n<h4 id=\"bron\">Bron</h4>\n<ul>\n<li><code>data/transacties_vastgoed/transacties_industrie_terrein.csv</code></li>\n<li><code>data/transacties_vastgoed/transacties_industrie_bebouwd.csv</code></li>\n<li><code>data/capakey_contour_lden.csv</code> \u2014 koppeling CaPaKey \u2192 <code>db_ondergrens</code></li>\n</ul>\n<h4 id=\"berekenmethode\">Berekenmethode</h4>\n<ol>\n<li>Transacties laden; <code>sum_ParcelsNumber</code> numeriek.</li>\n<li>Koppelen aan contour via capakey-mapping (<code>bereken_prijzen_uit_transacties</code> levert ook <code>capakey_mapping</code>).</li>\n<li>Segmenten <code>industrie_terrein</code> + <code>industrie_bebouwd</code>: som per band.</li>\n</ol></span>"
+          }
+        }
+      ],
+      "console": []
+    },
+    {
+      "id": "SdmI",
+      "code_hash": "064f7382fa2cc541826579e7daf42d62",
+      "outputs": [
+        {
+          "type": "error",
+          "ename": "exception",
+          "evalue": "'State' object has no attribute 'columns'",
+          "traceback": null
+        }
+      ],
+      "console": [
+        {
+          "type": "stream",
+          "name": "stdout",
+          "text": "  [prijzen] bereken_capakey_prijzen \u2026\n  [prijzen] capakey_prijzen: 19,790 rijen\n  [prijzen] bouw_capakey_contour_mapping \u2026\n",
+          "mimetype": "text/plain"
+        },
+        {
+          "type": "stream",
+          "name": "stderr",
+          "text": "<span class=\"codehilite\"><div class=\"highlight\"><pre><span></span><span class=\"gt\">Traceback (most recent call last):</span>\n  File <span class=\"nb\">&quot;C:\\Users\\AlexanderL\\AppData\\Local\\Temp\\marimo_27520\\__marimo__cell_SdmI_.py&quot;</span>, line <span class=\"m\">6</span>, in <span class=\"n\">&lt;module&gt;</span>\n<span class=\"w\">    </span><span class=\"n\">_</span><span class=\"p\">,</span> <span class=\"n\">capakey_mapping</span><span class=\"p\">,</span> <span class=\"n\">prijzen_contour</span> <span class=\"o\">=</span> <span class=\"n\">bereken_prijzen_uit_transacties</span><span class=\"p\">(</span><span class=\"n\">transacties_1</span><span class=\"p\">,</span> <span class=\"n\">brussel_lden</span><span class=\"p\">,</span> <span class=\"n\">_lden</span><span class=\"p\">)</span>\n<span class=\"w\">                                          </span><span class=\"pm\">~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^</span>\n  File <span class=\"nb\">&quot;C:\\Users\\AlexanderL\\OneDrive - Idea Consult nv\\RTD\\2. Projects\\25 RTD 72  (Financiering van de maatregelen \u2018RO en beheer\u2019 als 2e pijler van de Ba)\\dashboard-balanced-approach\\contour\\prices.py&quot;</span>, line <span class=\"m\">253</span>, in <span class=\"n\">bereken_prijzen_uit_transacties</span>\n<span class=\"w\">    </span><span class=\"n\">mapping</span> <span class=\"o\">=</span> <span class=\"n\">bouw_capakey_contour_mapping</span><span class=\"p\">(</span><span class=\"n\">transacties</span><span class=\"p\">,</span> <span class=\"n\">brussel_sector</span><span class=\"p\">,</span> <span class=\"n\">contour_lden</span><span class=\"p\">,</span> <span class=\"n\">extern_pad</span><span class=\"p\">)</span>\n  File <span class=\"nb\">&quot;C:\\Users\\AlexanderL\\OneDrive - Idea Consult nv\\RTD\\2. Projects\\25 RTD 72  (Financiering van de maatregelen \u2018RO en beheer\u2019 als 2e pijler van de Ba)\\dashboard-balanced-approach\\contour\\prices.py&quot;</span>, line <span class=\"m\">171</span>, in <span class=\"n\">bouw_capakey_contour_mapping</span>\n<span class=\"w\">    </span><span class=\"n\">bru</span> <span class=\"o\">=</span> <span class=\"n\">brussel_capakey_naar_contour</span><span class=\"p\">(</span><span class=\"n\">pd</span><span class=\"o\">.</span><span class=\"n\">Series</span><span class=\"p\">(</span><span class=\"n\">rest</span><span class=\"p\">),</span> <span class=\"n\">brussel_sector</span><span class=\"p\">,</span> <span class=\"n\">contour_lden</span><span class=\"p\">)</span>\n  File <span class=\"nb\">&quot;C:\\Users\\AlexanderL\\OneDrive - Idea Consult nv\\RTD\\2. Projects\\25 RTD 72  (Financiering van de maatregelen \u2018RO en beheer\u2019 als 2e pijler van de Ba)\\dashboard-balanced-approach\\contour\\prices.py&quot;</span>, line <span class=\"m\">132</span>, in <span class=\"n\">brussel_capakey_naar_contour</span>\n<span class=\"w\">    </span><span class=\"k\">if</span> <span class=\"s2\">&quot;db_ondergrens&quot;</span> <span class=\"ow\">in</span> <span class=\"n\">contour_lden</span><span class=\"o\">.</span><span class=\"n\">columns</span><span class=\"p\">:</span>\n<span class=\"w\">                          </span><span class=\"pm\">^^^^^^^^^^^^^^^^^^^^</span>\n<span class=\"gr\">AttributeError</span>: <span class=\"n\">&#39;State&#39; object has no attribute &#39;columns&#39;</span>\n</pre></div>\n</span>",
+          "mimetype": "application/vnd.marimo+traceback"
+        }
+      ]
+    },
+    {
+      "id": "lgWD",
+      "code_hash": "07174050b579fd2ba0ebf50c3e8490cd",
+      "outputs": [
+        {
+          "type": "data",
+          "data": {
+            "text/markdown": "<span class=\"markdown prose dark:prose-invert contents\"><h3 id=\"stap-16-alle_verkopen_onbebouwde_bebouwbare_percelen\">Stap 16 \u2014 <code>alle_verkopen_onbebouwde_bebouwbare_percelen</code></h3>\n<h4 id=\"beschrijving\">Beschrijving</h4>\n<span class=\"paragraph\">Teller <strong>verkopen van onbebouwde bebouwbare percelen</strong> per band (o.a. voorkooprecht percelen).</span>\n<h4 id=\"bron\">Bron</h4>\n<span class=\"paragraph\">Zelfde transactiebestanden als stap 15.</span>\n<h4 id=\"berekenmethode\">Berekenmethode</h4>\n<span class=\"paragraph\"><strong>Beleidsaanname:</strong> geen aparte filter op bebouwbare vs. andere percelen in de transactiedata \u2192 voorlopig <strong>gelijk aan</strong> <code>alle_transacties_percelen</code> (stap 15).</span></span>"
+          }
+        }
+      ],
+      "console": []
+    },
+    {
+      "id": "yOPj",
+      "code_hash": "68291c5fe937e7134fc358548b0aac4f",
+      "outputs": [
+        {
+          "type": "error",
+          "ename": "exception",
+          "evalue": "An ancestor raised an exception (AttributeError): ",
+          "traceback": null
+        }
+      ],
+      "console": []
+    },
+    {
+      "id": "fwwy",
+      "code_hash": "d2214c22b17a01976a890152813ff8b8",
+      "outputs": [
+        {
+          "type": "data",
+          "data": {
+            "text/markdown": "<span class=\"markdown prose dark:prose-invert contents\"><h3 id=\"stap-17-alle_transacties_woningen\">Stap 17 \u2014 <code>alle_transacties_woningen</code></h3>\n<h4 id=\"beschrijving\">Beschrijving</h4>\n<span class=\"paragraph\">Totaal aantal <strong>woningtransacties</strong> per band.</span>\n<h4 id=\"bron\">Bron</h4>\n<ul>\n<li><code>data/transacties_vastgoed/transacties_woningen.csv</code></li>\n<li><code>data/transacties_vastgoed/transacties_appartementen.csv</code></li>\n<li>CaPaKey \u2192 contour mapping</li>\n</ul>\n<h4 id=\"berekenmethode\">Berekenmethode</h4>\n<span class=\"paragraph\">Segmenten <code>woningen</code> + <code>appartementen</code>: som <code>sum_ParcelsNumber</code> per <code>db_ondergrens</code>.</span></span>"
+          }
+        }
+      ],
+      "console": []
+    },
+    {
+      "id": "LJZf",
+      "code_hash": "f9418103e256c99068a02065c88fd0bc",
+      "outputs": [
+        {
+          "type": "error",
+          "ename": "exception",
+          "evalue": "An ancestor raised an exception (AttributeError): ",
+          "traceback": null
+        }
+      ],
+      "console": []
+    },
+    {
+      "id": "urSm",
+      "code_hash": "e924549a62902e1e010c5c390799309d",
+      "outputs": [
+        {
+          "type": "data",
+          "data": {
+            "text/markdown": "<span class=\"markdown prose dark:prose-invert contents\"><h3 id=\"stap-18-alle_verkopen_woningen\">Stap 18 \u2014 <code>alle_verkopen_woningen</code></h3>\n<h4 id=\"beschrijving\">Beschrijving</h4>\n<span class=\"paragraph\">Teller <strong>woningverkopen</strong> per band (o.a. voorkooprecht woningen).</span>\n<h4 id=\"bron\">Bron</h4>\n<span class=\"paragraph\">Zelfde als stap 17.</span>\n<h4 id=\"berekenmethode\">Berekenmethode</h4>\n<span class=\"paragraph\"><strong>Beleidsaanname:</strong> geen publiek/priv\u00e9-split in data \u2192 voorlopig <strong>gelijk aan</strong> <code>alle_transacties_woningen</code>.</span></span>"
+          }
+        }
+      ],
+      "console": []
+    },
+    {
+      "id": "jxvo",
+      "code_hash": "3849581a414c1ca49cabd302a2446870",
+      "outputs": [
+        {
+          "type": "error",
+          "ename": "exception",
+          "evalue": "An ancestor raised an exception (AttributeError): ",
+          "traceback": null
+        }
+      ],
+      "console": []
+    },
+    {
+      "id": "mWxS",
+      "code_hash": "2c7d5843127a33dfe0e3163d2343d38b",
+      "outputs": [
+        {
+          "type": "data",
+          "data": {
+            "text/markdown": "<span class=\"markdown prose dark:prose-invert contents\"><h3 id=\"stap-19-prijs_onbebouwde_bebouwbare_percelen\">Stap 19 \u2014 <code>prijs_onbebouwde_bebouwbare_percelen</code></h3>\n<h4 id=\"beschrijving\">Beschrijving</h4>\n<span class=\"paragraph\">Gewogen gemiddelde <strong>transactieprijs per onbebouwd bebouwbare perceel</strong> per band (\u20ac).</span>\n<h4 id=\"bron\">Bron</h4>\n<ul>\n<li>Vastgoedtransacties industrie/onbebouwd (<code>contour/prices.py</code> \u2192 <code>prijzen_contour</code>)</li>\n<li>Brusselse sectorverdeling voor gewichten</li>\n</ul>\n<h4 id=\"berekenmethode\">Berekenmethode</h4>\n<span class=\"paragraph\">Mediaan/gewogen prijs per <code>db_ondergrens</code> uit <code>bereken_prijzen_uit_transacties</code> (segmenten industrie_terrein + industrie_bebouwd).</span></span>"
+          }
+        }
+      ],
+      "console": []
+    },
+    {
+      "id": "CcZR",
+      "code_hash": "14225feea7c072203bda6a8e4c1e4ab3",
+      "outputs": [
+        {
+          "type": "error",
+          "ename": "exception",
+          "evalue": "An ancestor raised an exception (AttributeError): ",
+          "traceback": null
+        }
+      ],
+      "console": []
+    },
+    {
+      "id": "YWSi",
+      "code_hash": "9cd5c90ecade765c4d262891a265948c",
+      "outputs": [
+        {
+          "type": "data",
+          "data": {
+            "text/markdown": "<span class=\"markdown prose dark:prose-invert contents\"><h3 id=\"stap-20-prijs_onbebouwde_onbebouwbare_percelen\">Stap 20 \u2014 <code>prijs_onbebouwde_onbebouwbare_percelen</code></h3>\n<h4 id=\"beschrijving\">Beschrijving</h4>\n<span class=\"paragraph\">Eenheidsprijs <strong>onbebouwd onbebouwbaar perceel</strong> per band (\u20ac).</span>\n<h4 id=\"bron\">Bron</h4>\n<ul>\n<li><code>transacties_industrie_terrein.csv</code> (primair segment)</li>\n</ul>\n<h4 id=\"berekenmethode\">Berekenmethode</h4>\n<span class=\"paragraph\">Gewogen gemiddelde prijs per band uit <code>prijzen_contour</code>.</span></span>"
+          }
+        }
+      ],
+      "console": []
+    },
+    {
+      "id": "zlud",
+      "code_hash": "308975ea516520f0410c4eda059d8a27",
+      "outputs": [
+        {
+          "type": "error",
+          "ename": "exception",
+          "evalue": "An ancestor raised an exception (AttributeError): ",
+          "traceback": null
+        }
+      ],
+      "console": []
+    },
+    {
+      "id": "tZnO",
+      "code_hash": "2dcc2d98542367ec37d531e1b2ee515b",
+      "outputs": [
+        {
+          "type": "data",
+          "data": {
+            "text/markdown": "<span class=\"markdown prose dark:prose-invert contents\"><h3 id=\"stap-21-prijs_bewoonde_niet_geisoleerde_woning\">Stap 21 \u2014 <code>prijs_bewoonde_niet_ge\u00efsoleerde_woning</code></h3>\n<h4 id=\"beschrijving\">Beschrijving</h4>\n<span class=\"paragraph\">Eenheidsprijs <strong>bewoonde niet-ge\u00efsoleerde woning</strong> per band (\u20ac).</span>\n<h4 id=\"bron\">Bron</h4>\n<ul>\n<li><code>transacties_woningen.csv</code> + <code>transacties_appartementen.csv</code></li>\n</ul>\n<h4 id=\"berekenmethode\">Berekenmethode</h4>\n<span class=\"paragraph\">Gewogen gemiddelde transactieprijs woningen/appartementen per <code>db_ondergrens</code>.</span></span>"
+          }
+        }
+      ],
+      "console": []
+    },
+    {
+      "id": "xvXZ",
+      "code_hash": "c13cb9cf0bc8c810cd89cb33d1d0e2c8",
+      "outputs": [
+        {
+          "type": "error",
+          "ename": "exception",
+          "evalue": "An ancestor raised an exception (AttributeError): ",
+          "traceback": null
+        }
+      ],
+      "console": []
+    },
+    {
+      "id": "CLip",
+      "code_hash": "7f86d72c634cdccf3a2061c5e96f3b3f",
+      "outputs": [
+        {
+          "type": "data",
+          "data": {
+            "text/markdown": "<span class=\"markdown prose dark:prose-invert contents\"><h3 id=\"stap-22-prijs_bewoonde_geisoleerde_woning\">Stap 22 \u2014 <code>prijs_bewoonde_ge\u00efsoleerde_woning</code></h3>\n<h4 id=\"beschrijving\">Beschrijving</h4>\n<span class=\"paragraph\">Eenheidsprijs <strong>bewoonde ge\u00efsoleerde woning</strong> per band (\u20ac).</span>\n<h4 id=\"bron\">Bron</h4>\n<span class=\"paragraph\">Zelfde woningtransacties als stap 21.</span>\n<h4 id=\"berekenmethode\">Berekenmethode</h4>\n<span class=\"paragraph\"><strong>Beleidsaanname:</strong> geen isolatie-split in transactiedata \u2192 zelfde prijs als niet-ge\u00efsoleerde woning.</span></span>"
+          }
+        }
+      ],
+      "console": []
+    },
+    {
+      "id": "YECM",
+      "code_hash": "5134f5a48040b033012e0050064957e5",
+      "outputs": [
+        {
+          "type": "error",
+          "ename": "exception",
+          "evalue": "An ancestor raised an exception (AttributeError): ",
+          "traceback": null
+        }
+      ],
+      "console": []
+    },
+    {
+      "id": "cEAS",
+      "code_hash": "75b9ebb66dea37db2f9e4c78980b1b72",
+      "outputs": [
+        {
+          "type": "data",
+          "data": {
+            "text/markdown": "<span class=\"markdown prose dark:prose-invert contents\"><h3 id=\"stap-23-r\">Stap 23 \u2014 <code>R+</code></h3>\n<h4 id=\"beschrijving\">Beschrijving</h4>\n<span class=\"paragraph\">Teller renovaties <strong>met</strong> akoestische maatregel (R+), baseline renovatiestroom.</span>\n<h4 id=\"bron\">Bron</h4>\n<span class=\"paragraph\">Nog niet afgeleid uit vergunningen of andere bron (geen isolatie-split in renovatiedata).</span>\n<h4 id=\"berekenmethode\">Berekenmethode</h4>\n<span class=\"paragraph\"><strong>Placeholder 0</strong> tot renovatiemodel gekoppeld is.</span></span>"
+          }
+        }
+      ],
+      "console": []
+    },
+    {
+      "id": "iXej",
+      "code_hash": "c7cd5b9d8d9f0ce7566c9a23b231efdf",
+      "outputs": [
+        {
+          "type": "error",
+          "ename": "exception",
+          "evalue": "'State' object does not support item assignment",
+          "traceback": null
+        }
+      ],
+      "console": [
+        {
+          "type": "stream",
+          "name": "stderr",
+          "text": "<span class=\"codehilite\"><div class=\"highlight\"><pre><span></span><span class=\"gt\">Traceback (most recent call last):</span>\n  File <span class=\"nb\">&quot;C:\\Users\\AlexanderL\\AppData\\Local\\Temp\\marimo_27520\\__marimo__cell_iXej_.py&quot;</span>, line <span class=\"m\">6</span>, in <span class=\"n\">&lt;module&gt;</span>\n<span class=\"w\">    </span><span class=\"n\">_lden</span><span class=\"p\">[</span><span class=\"n\">_KOL</span><span class=\"p\">]</span> <span class=\"o\">=</span> <span class=\"mf\">0.0</span>\n<span class=\"w\">    </span><span class=\"pm\">~~~~~^^^^^^</span>\n<span class=\"gr\">TypeError</span>: <span class=\"n\">&#39;State&#39; object does not support item assignment</span>\n</pre></div>\n</span>",
+          "mimetype": "application/vnd.marimo+traceback"
+        }
+      ]
+    },
+    {
+      "id": "EJmg",
+      "code_hash": "d96286c82d13c0add4366544f33e5ecb",
+      "outputs": [
+        {
+          "type": "data",
+          "data": {
+            "text/markdown": "<span class=\"markdown prose dark:prose-invert contents\"><h3 id=\"stap-24-r\">Stap 24 \u2014 <code>R\u2212</code></h3>\n<h4 id=\"beschrijving\">Beschrijving</h4>\n<span class=\"paragraph\">Teller renovaties <strong>zonder</strong> akoestische maatregel (R\u2212).</span>\n<h4 id=\"bron\">Bron</h4>\n<span class=\"paragraph\">Nog niet beschikbaar per contour.</span>\n<h4 id=\"berekenmethode\">Berekenmethode</h4>\n<span class=\"paragraph\"><strong>Placeholder 0.</strong></span></span>"
+          }
+        }
+      ],
+      "console": []
+    },
+    {
+      "id": "UmEG",
+      "code_hash": "dc8c60ed13a68587a4968e348121cd2f",
+      "outputs": [
+        {
+          "type": "error",
+          "ename": "exception",
+          "evalue": "'State' object does not support item assignment",
+          "traceback": null
+        }
+      ],
+      "console": [
+        {
+          "type": "stream",
+          "name": "stderr",
+          "text": "<span class=\"codehilite\"><div class=\"highlight\"><pre><span></span><span class=\"gt\">Traceback (most recent call last):</span>\n  File <span class=\"nb\">&quot;C:\\Users\\AlexanderL\\AppData\\Local\\Temp\\marimo_27520\\__marimo__cell_UmEG_.py&quot;</span>, line <span class=\"m\">6</span>, in <span class=\"n\">&lt;module&gt;</span>\n<span class=\"w\">    </span><span class=\"n\">_lden</span><span class=\"p\">[</span><span class=\"n\">_KOL</span><span class=\"p\">]</span> <span class=\"o\">=</span> <span class=\"mf\">0.0</span>\n<span class=\"w\">    </span><span class=\"pm\">~~~~~^^^^^^</span>\n<span class=\"gr\">TypeError</span>: <span class=\"n\">&#39;State&#39; object does not support item assignment</span>\n</pre></div>\n</span>",
+          "mimetype": "application/vnd.marimo+traceback"
+        }
+      ]
+    },
+    {
+      "id": "vEBW",
+      "code_hash": "c44e7c162942ae1a4f9e4ec2052608ff",
+      "outputs": [
+        {
+          "type": "data",
+          "data": {
+            "text/markdown": "<span class=\"markdown prose dark:prose-invert contents\"><h3 id=\"stap-25-nieuwbouw_geisoleerd\">Stap 25 \u2014 <code>nieuwbouw_ge\u00efsoleerd</code></h3>\n<h4 id=\"beschrijving\">Beschrijving</h4>\n<span class=\"paragraph\">Jaarlijkse stroom nieuwbouw die <strong>wel</strong> aan isolatienorm voldoet.</span>\n<h4 id=\"bron\">Bron</h4>\n<span class=\"paragraph\">Nog niet gemodelleerd.</span>\n<h4 id=\"berekenmethode\">Berekenmethode</h4>\n<span class=\"paragraph\"><strong>Placeholder 0.</strong></span></span>"
+          }
+        }
+      ],
+      "console": []
+    },
+    {
+      "id": "kLmu",
+      "code_hash": "a571414be5e3d127ba74a80ec2f03ba0",
+      "outputs": [
+        {
+          "type": "error",
+          "ename": "exception",
+          "evalue": "'State' object does not support item assignment",
+          "traceback": null
+        }
+      ],
+      "console": [
+        {
+          "type": "stream",
+          "name": "stderr",
+          "text": "<span class=\"codehilite\"><div class=\"highlight\"><pre><span></span><span class=\"gt\">Traceback (most recent call last):</span>\n  File <span class=\"nb\">&quot;C:\\Users\\AlexanderL\\AppData\\Local\\Temp\\marimo_27520\\__marimo__cell_kLmu_.py&quot;</span>, line <span class=\"m\">6</span>, in <span class=\"n\">&lt;module&gt;</span>\n<span class=\"w\">    </span><span class=\"n\">_lden</span><span class=\"p\">[</span><span class=\"n\">_KOL</span><span class=\"p\">]</span> <span class=\"o\">=</span> <span class=\"mf\">0.0</span>\n<span class=\"w\">    </span><span class=\"pm\">~~~~~^^^^^^</span>\n<span class=\"gr\">TypeError</span>: <span class=\"n\">&#39;State&#39; object does not support item assignment</span>\n</pre></div>\n</span>",
+          "mimetype": "application/vnd.marimo+traceback"
+        }
+      ]
+    },
+    {
+      "id": "IpqN",
+      "code_hash": "d8c3e4097809f8870dc48a5bb3f9345f",
+      "outputs": [
+        {
+          "type": "data",
+          "data": {
+            "text/markdown": "<span class=\"markdown prose dark:prose-invert contents\"><h3 id=\"stap-26-nieuwbouw_niet_geisoleerd\">Stap 26 \u2014 <code>nieuwbouw_niet_ge\u00efsoleerd</code></h3>\n<h4 id=\"beschrijving\">Beschrijving</h4>\n<span class=\"paragraph\">Jaarlijkse stroom nieuwbouw <strong>zonder</strong> isolatienorm.</span>\n<h4 id=\"bron\">Bron</h4>\n<span class=\"paragraph\">Nog niet gemodelleerd.</span>\n<h4 id=\"berekenmethode\">Berekenmethode</h4>\n<span class=\"paragraph\"><strong>Placeholder 0.</strong></span></span>"
+          }
+        }
+      ],
+      "console": []
+    },
+    {
+      "id": "dxZZ",
+      "code_hash": "3f2ff9137adf5f11f0792c52fccad85b",
+      "outputs": [
+        {
+          "type": "error",
+          "ename": "exception",
+          "evalue": "'State' object does not support item assignment",
+          "traceback": null
+        }
+      ],
+      "console": [
+        {
+          "type": "stream",
+          "name": "stderr",
+          "text": "<span class=\"codehilite\"><div class=\"highlight\"><pre><span></span><span class=\"gt\">Traceback (most recent call last):</span>\n  File <span class=\"nb\">&quot;C:\\Users\\AlexanderL\\AppData\\Local\\Temp\\marimo_27520\\__marimo__cell_dxZZ_.py&quot;</span>, line <span class=\"m\">6</span>, in <span class=\"n\">&lt;module&gt;</span>\n<span class=\"w\">    </span><span class=\"n\">_lden</span><span class=\"p\">[</span><span class=\"n\">_KOL</span><span class=\"p\">]</span> <span class=\"o\">=</span> <span class=\"mf\">0.0</span>\n<span class=\"w\">    </span><span class=\"pm\">~~~~~^^^^^^</span>\n<span class=\"gr\">TypeError</span>: <span class=\"n\">&#39;State&#39; object does not support item assignment</span>\n</pre></div>\n</span>",
+          "mimetype": "application/vnd.marimo+traceback"
+        }
+      ]
+    },
+    {
+      "id": "dlnW",
+      "code_hash": "336401f864c3619f5b53f0b655e604d0",
+      "outputs": [
+        {
+          "type": "data",
+          "data": {
+            "text/markdown": "<span class=\"markdown prose dark:prose-invert contents\"><h3 id=\"stap-27-potentieel_isoleerbare_woningen\">Stap 27 \u2014 <code>potentieel_isoleerbare_woningen</code></h3>\n<h4 id=\"beschrijving\">Beschrijving</h4>\n<span class=\"paragraph\">Woningen die akoestisch isoleerbaar zijn via <strong>geluidsbuffers</strong> (stock/teller aanleg buffers).</span>\n<h4 id=\"bron\">Bron</h4>\n<span class=\"paragraph\">Ruimtelijk bufferpotentieel nog niet berekend in pipeline.</span>\n<h4 id=\"berekenmethode\">Berekenmethode</h4>\n<span class=\"paragraph\"><strong>Placeholder 0.</strong></span></span>"
+          }
+        }
+      ],
+      "console": []
+    },
+    {
+      "id": "TTti",
+      "code_hash": "4c103b6bdfef57cd7acdee2beeeb90a3",
+      "outputs": [
+        {
+          "type": "error",
+          "ename": "exception",
+          "evalue": "'State' object does not support item assignment",
+          "traceback": null
+        }
+      ],
+      "console": [
+        {
+          "type": "stream",
+          "name": "stderr",
+          "text": "<span class=\"codehilite\"><div class=\"highlight\"><pre><span></span><span class=\"gt\">Traceback (most recent call last):</span>\n  File <span class=\"nb\">&quot;C:\\Users\\AlexanderL\\AppData\\Local\\Temp\\marimo_27520\\__marimo__cell_TTti_.py&quot;</span>, line <span class=\"m\">6</span>, in <span class=\"n\">&lt;module&gt;</span>\n<span class=\"w\">    </span><span class=\"n\">_lden</span><span class=\"p\">[</span><span class=\"n\">_KOL</span><span class=\"p\">]</span> <span class=\"o\">=</span> <span class=\"mf\">0.0</span>\n<span class=\"w\">    </span><span class=\"pm\">~~~~~^^^^^^</span>\n<span class=\"gr\">TypeError</span>: <span class=\"n\">&#39;State&#39; object does not support item assignment</span>\n</pre></div>\n</span>",
+          "mimetype": "application/vnd.marimo+traceback"
+        }
+      ]
+    },
+    {
+      "id": "RKFZ",
+      "code_hash": "c67dfd367c2e29be19ca40a8bc70ba92",
+      "outputs": [
+        {
+          "type": "data",
+          "data": {
+            "text/markdown": "<span class=\"markdown prose dark:prose-invert contents\"><h3 id=\"stap-28-flow-volgorde-en-schema-check\">Stap 28 \u2014 FLOW-volgorde en schema-check</h3>\n<h4 id=\"beschrijving\">Beschrijving</h4>\n<span class=\"paragraph\">Alle 27 variabelen zijn ingevuld. Kolommen worden geordend volgens FLOW \u00a72.0 en gevalideerd.</span>\n<h4 id=\"bron\">Bron</h4>\n<span class=\"paragraph\">Interne schema-definitie (<code>contour/schema.py</code> \u2192 <code>FLOW_KOLOMMEN</code>).</span>\n<h4 id=\"berekenmethode\">Berekenmethode</h4>\n<span class=\"paragraph\">Herschikken zonder waarden te wijzigen; <code>assert_flow_schema</code> controleert kolommen en index.</span></span>"
+          }
+        }
+      ],
+      "console": []
+    },
+    {
+      "id": "IaQp",
+      "code_hash": "0ef035eec024a5429f8164c411c86b4d",
+      "outputs": [
+        {
+          "type": "error",
+          "ename": "exception",
+          "evalue": "'State' object is not subscriptable",
+          "traceback": null
+        }
+      ],
+      "console": [
+        {
+          "type": "stream",
+          "name": "stderr",
+          "text": "<span class=\"codehilite\"><div class=\"highlight\"><pre><span></span><span class=\"gt\">Traceback (most recent call last):</span>\n  File <span class=\"nb\">&quot;C:\\Users\\AlexanderL\\AppData\\Local\\Temp\\marimo_27520\\__marimo__cell_IaQp_.py&quot;</span>, line <span class=\"m\">6</span>, in <span class=\"n\">&lt;module&gt;</span>\n<span class=\"w\">    </span><span class=\"n\">lden_1</span> <span class=\"o\">=</span> <span class=\"n\">_lden</span><span class=\"p\">[</span><span class=\"nb\">list</span><span class=\"p\">(</span><span class=\"n\">FLOW_KOLOMMEN</span><span class=\"p\">)]</span>\n<span class=\"w\">             </span><span class=\"pm\">~~~~~^^^^^^^^^^^^^^^^^^^^^</span>\n<span class=\"gr\">TypeError</span>: <span class=\"n\">&#39;State&#39; object is not subscriptable</span>\n</pre></div>\n</span>",
+          "mimetype": "application/vnd.marimo+traceback"
+        }
+      ]
+    },
+    {
+      "id": "IWgg",
+      "code_hash": "def57d2b8de8de88b0a3fb99eaf553e5",
+      "outputs": [
+        {
+          "type": "data",
+          "data": {
+            "text/markdown": "<span class=\"markdown prose dark:prose-invert contents\"><h3 id=\"stap-29-eindresultaat-deel-b2\">Stap 29 \u2014 Eindresultaat Deel B2</h3></span>"
+          }
+        }
+      ],
+      "console": []
+    },
+    {
+      "id": "fCoF",
+      "code_hash": "9ef9b5ebae0d1469f3ae10ee3fb728f5",
+      "outputs": [
+        {
+          "type": "error",
+          "ename": "exception",
+          "evalue": "An ancestor raised an exception (TypeError): ",
+          "traceback": null
+        }
+      ],
+      "console": []
+    },
+    {
+      "id": "LkGn",
+      "code_hash": "2fd111d009e00c372930e81464c04783",
+      "outputs": [
+        {
+          "type": "data",
+          "data": {
+            "text/markdown": "<span class=\"markdown prose dark:prose-invert contents\"><h2 id=\"deel-c-geconsolideerde-master-tabellen-parquet\">Deel C - Geconsolideerde master-tabellen -&gt; parquet</h2>\n<span class=\"paragraph\">Voer <strong>eerst Deel B2</strong> uit (stappen 0\u201329) om elke tussenstap te zien. De cel hieronder roept daarna de volledige pipeline aan (schrijft parquet + zelfde resultaat als stap8).</span>\n<h4 id=\"kolomoverzicht-tables-na-run_data_pipeline\">Kolomoverzicht (<code>tables</code> na <code>run_data_pipeline()</code>)</h4>\n<span class=\"paragraph\"><strong><code>contour_lden</code> / <code>contour_lnight</code></strong> \u2014 volledige kolomlijst (lden = onderstaand; lnight idem structuur):</span>\n<table>\n<thead>\n<tr>\n<th>Kolom</th>\n<th>Beschrijving</th>\n</tr>\n</thead>\n<tbody>\n<tr>\n<td><code>geluidscontour</code></td>\n<td>Bandlabel (bv. <code>45-46</code>)</td>\n</tr>\n<tr>\n<td><code>db_ondergrens</code></td>\n<td>Ondergrens dB-band</td>\n</tr>\n<tr>\n<td><code>db_bovengrens</code></td>\n<td>Bovengrens dB-band</td>\n</tr>\n<tr>\n<td><code>inwoners</code></td>\n<td>Totaal inwoners Vlaanderen + Brussel in band</td>\n</tr>\n<tr>\n<td><code>aantal_woningen</code></td>\n<td>Woningen Vlaanderen (bron Excel)</td>\n</tr>\n<tr>\n<td><code>aantal bebouwbare percelen die werden gecre\u00eberd door woongebieden aan te duiden</code></td>\n<td>Flow-teller woongebied-aanduiding, cumulatief 5 jr (Vlaanderen)</td>\n</tr>\n<tr>\n<td><code>aantal niet-bebouwbarepercelen die worden gecre\u00eberd door woongebied te schrappen</code></td>\n<td>Woongebied-schrapping (Vlaanderen)</td>\n</tr>\n<tr>\n<td><code>gemiddeld_aantal_inwoners_per_huis</code></td>\n<td>Vlaanderen: <code>inwoners</code> / <code>aantal_woningen</code></td>\n</tr>\n<tr>\n<td><code>inwoners_brussel</code></td>\n<td>Brussel: som sectoren per <code>db_ondergrens</code></td>\n</tr>\n<tr>\n<td><code>inwoners_vlaanderen</code></td>\n<td>Kopie Vlaanderen-<code>inwoners</code> v\u00f3\u00f3r merge</td>\n</tr>\n<tr>\n<td><code>aantal_woningen_vlaanderen</code></td>\n<td>Gelijk aan Excel <code>aantal_woningen</code></td>\n</tr>\n<tr>\n<td><code>aantal_woningen_brussel</code></td>\n<td>Geschat: <code>inwoners_brussel</code> / gem. inw./woning</td>\n</tr>\n<tr>\n<td><code>aantal_woningen_totaal</code></td>\n<td>Som Vlaanderen + Brussel</td>\n</tr>\n<tr>\n<td><code>db_midden</code></td>\n<td>Middelpunt band: (<code>db_ondergrens</code> + <code>db_bovengrens</code>) / 2</td>\n</tr>\n<tr>\n<td><code>dosis_effect_relatie</code></td>\n<td>% ernstig gehinderden (lookup lden/lnight)</td>\n</tr>\n<tr>\n<td><code>aantal_ernstig_gehinderden_vlaanderen_2026</code></td>\n<td>Ernstig gehinderden (vlaanderen): inwoners x dosis-effect / 100</td>\n</tr>\n<tr>\n<td><code>aantal_ernstig_gehinderden_brussel_2026</code></td>\n<td>Ernstig gehinderden (brussel): inwoners x dosis-effect / 100</td>\n</tr>\n<tr>\n<td><code>aantal_ernstig_gehinderden_totaal_2026</code></td>\n<td>Ernstig gehinderden (totaal): inwoners x dosis-effect / 100</td>\n</tr>\n<tr>\n<td><code>aantal_bewoonde_ge\u00efsoleerde_huizen_vlaanderen_2026</code></td>\n<td>Placeholder 20% woningen (vlaanderen)</td>\n</tr>\n<tr>\n<td><code>aantal_bewoonde_ge\u00efsoleerde_huizen_brussel_2026</code></td>\n<td>Placeholder 20% woningen (brussel)</td>\n</tr>\n<tr>\n<td><code>aantal_bewoonde_ge\u00efsoleerde_huizen_totaal_2026</code></td>\n<td>Placeholder 20% woningen (totaal)</td>\n</tr>\n<tr>\n<td><code>aantal_bewoonde_niet_ge\u00efsoleerde_huizen_vlaanderen_2026</code></td>\n<td>Placeholder 20% woningen (vlaanderen)</td>\n</tr>\n<tr>\n<td><code>aantal_bewoonde_niet_ge\u00efsoleerde_huizen_brussel_2026</code></td>\n<td>Placeholder 20% woningen (brussel)</td>\n</tr>\n<tr>\n<td><code>aantal_bewoonde_niet_ge\u00efsoleerde_huizen_totaal_2026</code></td>\n<td>Placeholder 20% woningen (totaal)</td>\n</tr>\n<tr>\n<td><code>aantal_onbebouwde_bebouwbare_percelen_*_2026</code></td>\n<td>Placeholder <strong>0</strong> (stock; niet = woongebied-flow-kolom)</td>\n</tr>\n<tr>\n<td><code>aantal_onbebouwde_onbebouwbare_percelen_*_2026</code></td>\n<td>Placeholder <strong>0</strong> (idem)</td>\n</tr>\n<tr>\n<td><code>aantal_perceel_eigendom_overheid_vlaanderen_2026</code></td>\n<td>Startwaarde 0 (nog geen bron)</td>\n</tr>\n<tr>\n<td><code>aantal_perceel_eigendom_overheid_brussel_2026</code></td>\n<td>Startwaarde 0 (nog geen bron)</td>\n</tr>\n<tr>\n<td><code>aantal_perceel_eigendom_overheid_totaal_2026</code></td>\n<td>Startwaarde 0 (nog geen bron)</td>\n</tr>\n<tr>\n<td><code>aantal_woning_eigendom_overheid_vlaanderen_2026</code></td>\n<td>Startwaarde 0 (nog geen bron)</td>\n</tr>\n<tr>\n<td><code>aantal_woning_eigendom_overheid_brussel_2026</code></td>\n<td>Startwaarde 0 (nog geen bron)</td>\n</tr>\n<tr>\n<td><code>aantal_woning_eigendom_overheid_totaal_2026</code></td>\n<td>Startwaarde 0 (nog geen bron)</td>\n</tr>\n<tr>\n<td><code>prijs_onbebouwde_bebouwbare_percelen</code></td>\n<td>\u20ac/eenheid uit transacties industrie</td>\n</tr>\n<tr>\n<td><code>prijs_onbebouwde_onbebouwbare_percelen</code></td>\n<td>\u20ac/eenheid uit transacties industrie-terrein</td>\n</tr>\n<tr>\n<td><code>prijs_bewoonde_niet_ge\u00efsoleerde_woning</code></td>\n<td>\u20ac/woning uit woningen + appartementen</td>\n</tr>\n<tr>\n<td><code>prijs_bewoonde_ge\u00efsoleerde_woning</code></td>\n<td>Idem (zelfde transactiebron)</td>\n</tr>\n</tbody>\n</table>\n<span class=\"paragraph\"><strong>Overige parquet-bestanden:</strong></span>\n<table>\n<thead>\n<tr>\n<th>Sleutel</th>\n<th>Belangrijkste kolommen</th>\n</tr>\n</thead>\n<tbody>\n<tr>\n<td><code>conversie_gemeente_db</code></td>\n<td><code>gemeente</code>, <code>db</code>, <code>aandeel</code>, <code>indicator</code></td>\n</tr>\n<tr>\n<td><code>vergunningen_gemeente</code></td>\n<td>gemeente x handeling x metriek</td>\n</tr>\n<tr>\n<td><code>vergunningen_contour</code></td>\n<td>vergunningen per <code>geluidscontour</code></td>\n</tr>\n<tr>\n<td><code>vergunningen_niet_toewijsbaar</code></td>\n<td>gemeenten zonder match</td>\n</tr>\n<tr>\n<td><code>transacties_capakey</code></td>\n<td>ruwe transacties + <code>segment</code></td>\n</tr>\n<tr>\n<td><code>capakey_prijzen</code></td>\n<td>prijs per capakey</td>\n</tr>\n<tr>\n<td><code>capakey_contour_mapping</code></td>\n<td>capakey -&gt; contour</td>\n</tr>\n<tr>\n<td><code>prijs_dekking</code></td>\n<td>dekkingsstatistiek prijsberekening</td>\n</tr>\n</tbody>\n</table></span>"
+          }
+        }
+      ],
+      "console": []
+    },
+    {
+      "id": "zVRe",
+      "code_hash": "ed5ba340c192cd7eb3ee1cccc21ebf87",
+      "outputs": [
+        {
+          "type": "data",
+          "data": {
+            "text/html": "<marimo-ui-element object-id='zVRe-0' random-id='24f2d48a-b841-772b-4d73-c0422161e8bc'><marimo-table data-initial-value='[]' data-label='null' data-data='&quot;[{&#92;&quot;&#92;&quot;:&#92;&quot;count&#92;&quot;,&#92;&quot;onbebouwde_bebouwbare_percelen&#92;&quot;:30.0,&#92;&quot;onbebouwde_onbebouwbare_percelen&#92;&quot;:30.0,&#92;&quot;bewoonde_niet_ge&#92;&#92;u00efsoleerde_woning&#92;&quot;:30.0,&#92;&quot;bewoonde_ge&#92;&#92;u00efsoleerde_woning&#92;&quot;:30.0,&#92;&quot;nieuwe_woning&#92;&quot;:30.0,&#92;&quot;perceel_eigendom_overheid&#92;&quot;:30.0,&#92;&quot;woning_eigendom_overheid&#92;&quot;:30.0,&#92;&quot;bebouwbare_percelen_woongebied(5jr)&#92;&quot;:30.0,&#92;&quot;niet_bebouwbare_percelen_woongebied_schrapping(5jr)&#92;&quot;:30.0,&#92;&quot;alle_transacties_percelen&#92;&quot;:30.0,&#92;&quot;alle_verkopen_onbebouwde_bebouwbare_percelen&#92;&quot;:30.0,&#92;&quot;alle_transacties_woningen&#92;&quot;:30.0,&#92;&quot;alle_verkopen_woningen&#92;&quot;:30.0,&#92;&quot;vergunde_wooneenheden_nieuwbouw&#92;&quot;:30.0,&#92;&quot;gem_wooneenheden_per_vergunning&#92;&quot;:30.0,&#92;&quot;vergunningen_kwetsbare_groep&#92;&quot;:30.0,&#92;&quot;renovatie_totaal&#92;&quot;:30.0,&#92;&quot;R+&#92;&quot;:30.0,&#92;&quot;R&#92;&#92;u2212&#92;&quot;:30.0,&#92;&quot;nieuwbouw_ge&#92;&#92;u00efsoleerd&#92;&quot;:30.0,&#92;&quot;nieuwbouw_niet_ge&#92;&#92;u00efsoleerd&#92;&quot;:30.0,&#92;&quot;potentieel_isoleerbare_woningen&#92;&quot;:30.0,&#92;&quot;inwoners_per_contour&#92;&quot;:30.0,&#92;&quot;prijs_onbebouwde_bebouwbare_percelen&#92;&quot;:30.0,&#92;&quot;prijs_onbebouwde_onbebouwbare_percelen&#92;&quot;:30.0,&#92;&quot;prijs_bewoonde_niet_ge&#92;&#92;u00efsoleerde_woning&#92;&quot;:30.0,&#92;&quot;prijs_bewoonde_ge&#92;&#92;u00efsoleerde_woning&#92;&quot;:30.0},{&#92;&quot;&#92;&quot;:&#92;&quot;mean&#92;&quot;,&#92;&quot;onbebouwde_bebouwbare_percelen&#92;&quot;:0.0,&#92;&quot;onbebouwde_onbebouwbare_percelen&#92;&quot;:0.0,&#92;&quot;bewoonde_niet_ge&#92;&#92;u00efsoleerde_woning&#92;&quot;:11526.484067071697,&#92;&quot;bewoonde_ge&#92;&#92;u00efsoleerde_woning&#92;&quot;:2881.621016767924,&#92;&quot;nieuwe_woning&#92;&quot;:0.0,&#92;&quot;perceel_eigendom_overheid&#92;&quot;:0.0,&#92;&quot;woning_eigendom_overheid&#92;&quot;:0.0,&#92;&quot;bebouwbare_percelen_woongebied(5jr)&#92;&quot;:0.21333333333333335,&#92;&quot;niet_bebouwbare_percelen_woongebied_schrapping(5jr)&#92;&quot;:1.4333333333333333,&#92;&quot;alle_transacties_percelen&#92;&quot;:264.73333333333335,&#92;&quot;alle_verkopen_onbebouwde_bebouwbare_percelen&#92;&quot;:264.73333333333335,&#92;&quot;alle_transacties_woningen&#92;&quot;:94475.06666666667,&#92;&quot;alle_verkopen_woningen&#92;&quot;:94475.06666666667,&#92;&quot;vergunde_wooneenheden_nieuwbouw&#92;&quot;:72.0917201222289,&#92;&quot;gem_wooneenheden_per_vergunning&#92;&quot;:0.942287426758903,&#92;&quot;vergunningen_kwetsbare_groep&#92;&quot;:2.49847772303319,&#92;&quot;renovatie_totaal&#92;&quot;:52195.373813622326,&#92;&quot;R+&#92;&quot;:0.0,&#92;&quot;R&#92;&#92;u2212&#92;&quot;:0.0,&#92;&quot;nieuwbouw_ge&#92;&#92;u00efsoleerd&#92;&quot;:0.0,&#92;&quot;nieuwbouw_niet_ge&#92;&#92;u00efsoleerd&#92;&quot;:0.0,&#92;&quot;potentieel_isoleerbare_woningen&#92;&quot;:0.0,&#92;&quot;inwoners_per_contour&#92;&quot;:39789.53167974484,&#92;&quot;prijs_onbebouwde_bebouwbare_percelen&#92;&quot;:941948.5704200002,&#92;&quot;prijs_onbebouwde_onbebouwbare_percelen&#92;&quot;:395410.7608695651,&#92;&quot;prijs_bewoonde_niet_ge&#92;&#92;u00efsoleerde_woning&#92;&quot;:280087.8502149421,&#92;&quot;prijs_bewoonde_ge&#92;&#92;u00efsoleerde_woning&#92;&quot;:280087.8502149421},{&#92;&quot;&#92;&quot;:&#92;&quot;std&#92;&quot;,&#92;&quot;onbebouwde_bebouwbare_percelen&#92;&quot;:0.0,&#92;&quot;onbebouwde_onbebouwbare_percelen&#92;&quot;:0.0,&#92;&quot;bewoonde_niet_ge&#92;&#92;u00efsoleerde_woning&#92;&quot;:16348.465207459856,&#92;&quot;bewoonde_ge&#92;&#92;u00efsoleerde_woning&#92;&quot;:4087.116301864964,&#92;&quot;nieuwe_woning&#92;&quot;:0.0,&#92;&quot;perceel_eigendom_overheid&#92;&quot;:0.0,&#92;&quot;woning_eigendom_overheid&#92;&quot;:0.0,&#92;&quot;bebouwbare_percelen_woongebied(5jr)&#92;&quot;:0.277592275224596,&#92;&quot;niet_bebouwbare_percelen_woongebied_schrapping(5jr)&#92;&quot;:1.3697050609612962,&#92;&quot;alle_transacties_percelen&#92;&quot;:417.47780724276816,&#92;&quot;alle_verkopen_onbebouwde_bebouwbare_percelen&#92;&quot;:417.47780724276816,&#92;&quot;alle_transacties_woningen&#92;&quot;:132940.9589870977,&#92;&quot;alle_verkopen_woningen&#92;&quot;:132940.9589870977,&#92;&quot;vergunde_wooneenheden_nieuwbouw&#92;&quot;:77.49868407665343,&#92;&quot;gem_wooneenheden_per_vergunning&#92;&quot;:2.2584051416334807e-16,&#92;&quot;vergunningen_kwetsbare_groep&#92;&quot;:3.4782716079021343,&#92;&quot;renovatie_totaal&#92;&quot;:50466.59807646919,&#92;&quot;R+&#92;&quot;:0.0,&#92;&quot;R&#92;&#92;u2212&#92;&quot;:0.0,&#92;&quot;nieuwbouw_ge&#92;&#92;u00efsoleerd&#92;&quot;:0.0,&#92;&quot;nieuwbouw_niet_ge&#92;&#92;u00efsoleerd&#92;&quot;:0.0,&#92;&quot;potentieel_isoleerbare_woningen&#92;&quot;:0.0,&#92;&quot;inwoners_per_contour&#92;&quot;:54743.653461564405,&#92;&quot;prijs_onbebouwde_bebouwbare_percelen&#92;&quot;:312943.7431816063,&#92;&quot;prijs_onbebouwde_onbebouwbare_percelen&#92;&quot;:1.1840547148967343e-10,&#92;&quot;prijs_bewoonde_niet_ge&#92;&#92;u00efsoleerde_woning&#92;&quot;:17632.925075225907,&#92;&quot;prijs_bewoonde_ge&#92;&#92;u00efsoleerde_woning&#92;&quot;:17632.925075225907},{&#92;&quot;&#92;&quot;:&#92;&quot;min&#92;&quot;,&#92;&quot;onbebouwde_bebouwbare_percelen&#92;&quot;:0.0,&#92;&quot;onbebouwde_onbebouwbare_percelen&#92;&quot;:0.0,&#92;&quot;bewoonde_niet_ge&#92;&#92;u00efsoleerde_woning&#92;&quot;:0.8,&#92;&quot;bewoonde_ge&#92;&#92;u00efsoleerde_woning&#92;&quot;:0.2,&#92;&quot;nieuwe_woning&#92;&quot;:0.0,&#92;&quot;perceel_eigendom_overheid&#92;&quot;:0.0,&#92;&quot;woning_eigendom_overheid&#92;&quot;:0.0,&#92;&quot;bebouwbare_percelen_woongebied(5jr)&#92;&quot;:0.0,&#92;&quot;niet_bebouwbare_percelen_woongebied_schrapping(5jr)&#92;&quot;:0.0,&#92;&quot;alle_transacties_percelen&#92;&quot;:0.0,&#92;&quot;alle_verkopen_onbebouwde_bebouwbare_percelen&#92;&quot;:0.0,&#92;&quot;alle_transacties_woningen&#92;&quot;:0.0,&#92;&quot;alle_verkopen_woningen&#92;&quot;:0.0,&#92;&quot;vergunde_wooneenheden_nieuwbouw&#92;&quot;:1.043027878190949,&#92;&quot;gem_wooneenheden_per_vergunning&#92;&quot;:0.9422874267589032,&#92;&quot;vergunningen_kwetsbare_groep&#92;&quot;:0.016324331550672314,&#92;&quot;renovatie_totaal&#92;&quot;:2373.883043475632,&#92;&quot;R+&#92;&quot;:0.0,&#92;&quot;R&#92;&#92;u2212&#92;&quot;:0.0,&#92;&quot;nieuwbouw_ge&#92;&#92;u00efsoleerd&#92;&quot;:0.0,&#92;&quot;nieuwbouw_niet_ge&#92;&#92;u00efsoleerd&#92;&quot;:0.0,&#92;&quot;potentieel_isoleerbare_woningen&#92;&quot;:0.0,&#92;&quot;inwoners_per_contour&#92;&quot;:0.0,&#92;&quot;prijs_onbebouwde_bebouwbare_percelen&#92;&quot;:839387.3004666666,&#92;&quot;prijs_onbebouwde_onbebouwbare_percelen&#92;&quot;:395410.76086956525,&#92;&quot;prijs_bewoonde_niet_ge&#92;&#92;u00efsoleerde_woning&#92;&quot;:252660.6891762484,&#92;&quot;prijs_bewoonde_ge&#92;&#92;u00efsoleerde_woning&#92;&quot;:252660.6891762484},{&#92;&quot;&#92;&quot;:&#92;&quot;25%&#92;&quot;,&#92;&quot;onbebouwde_bebouwbare_percelen&#92;&quot;:0.0,&#92;&quot;onbebouwde_onbebouwbare_percelen&#92;&quot;:0.0,&#92;&quot;bewoonde_niet_ge&#92;&#92;u00efsoleerde_woning&#92;&quot;:122.00000000000001,&#92;&quot;bewoonde_ge&#92;&#92;u00efsoleerde_woning&#92;&quot;:30.500000000000004,&#92;&quot;nieuwe_woning&#92;&quot;:0.0,&#92;&quot;perceel_eigendom_overheid&#92;&quot;:0.0,&#92;&quot;woning_eigendom_overheid&#92;&quot;:0.0,&#92;&quot;bebouwbare_percelen_woongebied(5jr)&#92;&quot;:0.0,&#92;&quot;niet_bebouwbare_percelen_woongebied_schrapping(5jr)&#92;&quot;:0.25,&#92;&quot;alle_transacties_percelen&#92;&quot;:0.0,&#92;&quot;alle_verkopen_onbebouwde_bebouwbare_percelen&#92;&quot;:0.0,&#92;&quot;alle_transacties_woningen&#92;&quot;:0.0,&#92;&quot;alle_verkopen_woningen&#92;&quot;:0.0,&#92;&quot;vergunde_wooneenheden_nieuwbouw&#92;&quot;:4.641526758294207,&#92;&quot;gem_wooneenheden_per_vergunning&#92;&quot;:0.9422874267589032,&#92;&quot;vergunningen_kwetsbare_groep&#92;&quot;:0.051265258337391525,&#92;&quot;renovatie_totaal&#92;&quot;:10993.735198628352,&#92;&quot;R+&#92;&quot;:0.0,&#92;&quot;R&#92;&#92;u2212&#92;&quot;:0.0,&#92;&quot;nieuwbouw_ge&#92;&#92;u00efsoleerd&#92;&quot;:0.0,&#92;&quot;nieuwbouw_niet_ge&#92;&#92;u00efsoleerd&#92;&quot;:0.0,&#92;&quot;potentieel_isoleerbare_woningen&#92;&quot;:0.0,&#92;&quot;inwoners_per_contour&#92;&quot;:369.75,&#92;&quot;prijs_onbebouwde_bebouwbare_percelen&#92;&quot;:839387.3004666666,&#92;&quot;prijs_onbebouwde_onbebouwbare_percelen&#92;&quot;:395410.76086956525,&#92;&quot;prijs_bewoonde_niet_ge&#92;&#92;u00efsoleerde_woning&#92;&quot;:271201.2203491796,&#92;&quot;prijs_bewoonde_ge&#92;&#92;u00efsoleerde_woning&#92;&quot;:271201.2203491796},{&#92;&quot;&#92;&quot;:&#92;&quot;50%&#92;&quot;,&#92;&quot;onbebouwde_bebouwbare_percelen&#92;&quot;:0.0,&#92;&quot;onbebouwde_onbebouwbare_percelen&#92;&quot;:0.0,&#92;&quot;bewoonde_niet_ge&#92;&#92;u00efsoleerde_woning&#92;&quot;:1984.2494850409444,&#92;&quot;bewoonde_ge&#92;&#92;u00efsoleerde_woning&#92;&quot;:496.0623712602361,&#92;&quot;nieuwe_woning&#92;&quot;:0.0,&#92;&quot;perceel_eigendom_overheid&#92;&quot;:0.0,&#92;&quot;woning_eigendom_overheid&#92;&quot;:0.0,&#92;&quot;bebouwbare_percelen_woongebied(5jr)&#92;&quot;:0.0,&#92;&quot;niet_bebouwbare_percelen_woongebied_schrapping(5jr)&#92;&quot;:1.2,&#92;&quot;alle_transacties_percelen&#92;&quot;:2.0,&#92;&quot;alle_verkopen_onbebouwde_bebouwbare_percelen&#92;&quot;:2.0,&#92;&quot;alle_transacties_woningen&#92;&quot;:1717.5,&#92;&quot;alle_verkopen_woningen&#92;&quot;:1717.5,&#92;&quot;vergunde_wooneenheden_nieuwbouw&#92;&quot;:25.94755342453598,&#92;&quot;gem_wooneenheden_per_vergunning&#92;&quot;:0.9422874267589032,&#92;&quot;vergunningen_kwetsbare_groep&#92;&quot;:0.7156027368370158,&#92;&quot;renovatie_totaal&#92;&quot;:30182.776351863475,&#92;&quot;R+&#92;&quot;:0.0,&#92;&quot;R&#92;&#92;u2212&#92;&quot;:0.0,&#92;&quot;nieuwbouw_ge&#92;&#92;u00efsoleerd&#92;&quot;:0.0,&#92;&quot;nieuwbouw_niet_ge&#92;&#92;u00efsoleerd&#92;&quot;:0.0,&#92;&quot;potentieel_isoleerbare_woningen&#92;&quot;:0.0,&#92;&quot;inwoners_per_contour&#92;&quot;:6972.080232032913,&#92;&quot;prijs_onbebouwde_bebouwbare_percelen&#92;&quot;:839387.3004666666,&#92;&quot;prijs_onbebouwde_onbebouwbare_percelen&#92;&quot;:395410.76086956525,&#92;&quot;prijs_bewoonde_niet_ge&#92;&#92;u00efsoleerde_woning&#92;&quot;:271201.2203491796,&#92;&quot;prijs_bewoonde_ge&#92;&#92;u00efsoleerde_woning&#92;&quot;:271201.2203491796},{&#92;&quot;&#92;&quot;:&#92;&quot;75%&#92;&quot;,&#92;&quot;onbebouwde_bebouwbare_percelen&#92;&quot;:0.0,&#92;&quot;onbebouwde_onbebouwbare_percelen&#92;&quot;:0.0,&#92;&quot;bewoonde_niet_ge&#92;&#92;u00efsoleerde_woning&#92;&quot;:19264.223188710796,&#92;&quot;bewoonde_ge&#92;&#92;u00efsoleerde_woning&#92;&quot;:4816.055797177699,&#92;&quot;nieuwe_woning&#92;&quot;:0.0,&#92;&quot;perceel_eigendom_overheid&#92;&quot;:0.0,&#92;&quot;woning_eigendom_overheid&#92;&quot;:0.0,&#92;&quot;bebouwbare_percelen_woongebied(5jr)&#92;&quot;:0.4,&#92;&quot;niet_bebouwbare_percelen_woongebied_schrapping(5jr)&#92;&quot;:2.1500000000000004,&#92;&quot;alle_transacties_percelen&#92;&quot;:409.25,&#92;&quot;alle_verkopen_onbebouwde_bebouwbare_percelen&#92;&quot;:409.25,&#92;&quot;alle_transacties_woningen&#92;&quot;:222679.25,&#92;&quot;alle_verkopen_woningen&#92;&quot;:222679.25,&#92;&quot;vergunde_wooneenheden_nieuwbouw&#92;&quot;:155.26900727787495,&#92;&quot;gem_wooneenheden_per_vergunning&#92;&quot;:0.9422874267589032,&#92;&quot;vergunningen_kwetsbare_groep&#92;&quot;:3.1513730433136224,&#92;&quot;renovatie_totaal&#92;&quot;:94330.33130702155,&#92;&quot;R+&#92;&quot;:0.0,&#92;&quot;R&#92;&#92;u2212&#92;&quot;:0.0,&#92;&quot;nieuwbouw_ge&#92;&#92;u00efsoleerd&#92;&quot;:0.0,&#92;&quot;nieuwbouw_niet_ge&#92;&#92;u00efsoleerd&#92;&quot;:0.0,&#92;&quot;potentieel_isoleerbare_woningen&#92;&quot;:0.0,&#92;&quot;inwoners_per_contour&#92;&quot;:69794.7458730492,&#92;&quot;prijs_onbebouwde_bebouwbare_percelen&#92;&quot;:839387.3004666666,&#92;&quot;prijs_onbebouwde_onbebouwbare_percelen&#92;&quot;:395410.76086956525,&#92;&quot;prijs_bewoonde_niet_ge&#92;&#92;u00efsoleerde_woning&#92;&quot;:300567.39383785764,&#92;&quot;prijs_bewoonde_ge&#92;&#92;u00efsoleerde_woning&#92;&quot;:300567.39383785764},{&#92;&quot;&#92;&quot;:&#92;&quot;max&#92;&quot;,&#92;&quot;onbebouwde_bebouwbare_percelen&#92;&quot;:0.0,&#92;&quot;onbebouwde_onbebouwbare_percelen&#92;&quot;:0.0,&#92;&quot;bewoonde_niet_ge&#92;&#92;u00efsoleerde_woning&#92;&quot;:50779.534086381056,&#92;&quot;bewoonde_ge&#92;&#92;u00efsoleerde_woning&#92;&quot;:12694.883521595264,&#92;&quot;nieuwe_woning&#92;&quot;:0.0,&#92;&quot;perceel_eigendom_overheid&#92;&quot;:0.0,&#92;&quot;woning_eigendom_overheid&#92;&quot;:0.0,&#92;&quot;bebouwbare_percelen_woongebied(5jr)&#92;&quot;:1.0,&#92;&quot;niet_bebouwbare_percelen_woongebied_schrapping(5jr)&#92;&quot;:4.4,&#92;&quot;alle_transacties_percelen&#92;&quot;:1357.0,&#92;&quot;alle_verkopen_onbebouwde_bebouwbare_percelen&#92;&quot;:1357.0,&#92;&quot;alle_transacties_woningen&#92;&quot;:367044.0,&#92;&quot;alle_verkopen_woningen&#92;&quot;:367044.0,&#92;&quot;vergunde_wooneenheden_nieuwbouw&#92;&quot;:207.33903254012137,&#92;&quot;gem_wooneenheden_per_vergunning&#92;&quot;:0.9422874267589032,&#92;&quot;vergunningen_kwetsbare_groep&#92;&quot;:14.351928029669644,&#92;&quot;renovatie_totaal&#92;&quot;:187798.88610751482,&#92;&quot;R+&#92;&quot;:0.0,&#92;&quot;R&#92;&#92;u2212&#92;&quot;:0.0,&#92;&quot;nieuwbouw_ge&#92;&#92;u00efsoleerd&#92;&quot;:0.0,&#92;&quot;nieuwbouw_niet_ge&#92;&#92;u00efsoleerd&#92;&quot;:0.0,&#92;&quot;potentieel_isoleerbare_woningen&#92;&quot;:0.0,&#92;&quot;inwoners_per_contour&#92;&quot;:156924.9730174999,&#92;&quot;prijs_onbebouwde_bebouwbare_percelen&#92;&quot;:1865000.0000000002,&#92;&quot;prijs_onbebouwde_onbebouwbare_percelen&#92;&quot;:395410.76086956525,&#92;&quot;prijs_bewoonde_niet_ge&#92;&#92;u00efsoleerde_woning&#92;&quot;:317556.1915557586,&#92;&quot;prijs_bewoonde_ge&#92;&#92;u00efsoleerde_woning&#92;&quot;:317556.1915557586}]&quot;' data-total-rows='8' data-total-columns='27' data-max-columns='50' data-banner-text='&quot;&quot;' data-pagination='false' data-page-size='10' data-field-types='[[&quot;onbebouwde_bebouwbare_percelen&quot;,[&quot;number&quot;,&quot;float64&quot;]],[&quot;onbebouwde_onbebouwbare_percelen&quot;,[&quot;number&quot;,&quot;float64&quot;]],[&quot;bewoonde_niet_ge\u00efsoleerde_woning&quot;,[&quot;number&quot;,&quot;float64&quot;]],[&quot;bewoonde_ge\u00efsoleerde_woning&quot;,[&quot;number&quot;,&quot;float64&quot;]],[&quot;nieuwe_woning&quot;,[&quot;number&quot;,&quot;float64&quot;]],[&quot;perceel_eigendom_overheid&quot;,[&quot;number&quot;,&quot;float64&quot;]],[&quot;woning_eigendom_overheid&quot;,[&quot;number&quot;,&quot;float64&quot;]],[&quot;bebouwbare_percelen_woongebied(5jr)&quot;,[&quot;number&quot;,&quot;float64&quot;]],[&quot;niet_bebouwbare_percelen_woongebied_schrapping(5jr)&quot;,[&quot;number&quot;,&quot;float64&quot;]],[&quot;alle_transacties_percelen&quot;,[&quot;number&quot;,&quot;float64&quot;]],[&quot;alle_verkopen_onbebouwde_bebouwbare_percelen&quot;,[&quot;number&quot;,&quot;float64&quot;]],[&quot;alle_transacties_woningen&quot;,[&quot;number&quot;,&quot;float64&quot;]],[&quot;alle_verkopen_woningen&quot;,[&quot;number&quot;,&quot;float64&quot;]],[&quot;vergunde_wooneenheden_nieuwbouw&quot;,[&quot;number&quot;,&quot;float64&quot;]],[&quot;gem_wooneenheden_per_vergunning&quot;,[&quot;number&quot;,&quot;float64&quot;]],[&quot;vergunningen_kwetsbare_groep&quot;,[&quot;number&quot;,&quot;float64&quot;]],[&quot;renovatie_totaal&quot;,[&quot;number&quot;,&quot;float64&quot;]],[&quot;R+&quot;,[&quot;number&quot;,&quot;float64&quot;]],[&quot;R\u2212&quot;,[&quot;number&quot;,&quot;float64&quot;]],[&quot;nieuwbouw_ge\u00efsoleerd&quot;,[&quot;number&quot;,&quot;float64&quot;]],[&quot;nieuwbouw_niet_ge\u00efsoleerd&quot;,[&quot;number&quot;,&quot;float64&quot;]],[&quot;potentieel_isoleerbare_woningen&quot;,[&quot;number&quot;,&quot;float64&quot;]],[&quot;inwoners_per_contour&quot;,[&quot;number&quot;,&quot;float64&quot;]],[&quot;prijs_onbebouwde_bebouwbare_percelen&quot;,[&quot;number&quot;,&quot;float64&quot;]],[&quot;prijs_onbebouwde_onbebouwbare_percelen&quot;,[&quot;number&quot;,&quot;float64&quot;]],[&quot;prijs_bewoonde_niet_ge\u00efsoleerde_woning&quot;,[&quot;number&quot;,&quot;float64&quot;]],[&quot;prijs_bewoonde_ge\u00efsoleerde_woning&quot;,[&quot;number&quot;,&quot;float64&quot;]]]' data-show-filters='true' data-show-download='true' data-show-column-summaries='false' data-show-data-types='true' data-show-page-size-selector='true' data-show-column-explorer='true' data-show-chart-builder='true' data-row-headers='[[&quot;&quot;,[&quot;string&quot;,&quot;object&quot;]]]' data-hidden-columns='[]' data-has-stable-row-id='false' data-lazy='false' data-preload='false'></marimo-table></marimo-ui-element>"
+          }
+        }
+      ],
+      "console": [
+        {
+          "type": "stream",
+          "name": "stdout",
+          "text": "[pipeline] 1/10 lees_brussel_sector \u2026\n[pipeline] 2/10 lees_transacties \u2026\n[pipeline]    transacties: 118,740 rijen\n[pipeline] 3/10 basis-shell lden (stappen 0-2) \u2026\n[pipeline] 4/10 prijzen uit transacties \u2026\n  [prijzen] bereken_capakey_prijzen \u2026\n  [prijzen] capakey_prijzen: 19,790 rijen\n  [prijzen] bouw_capakey_contour_mapping \u2026\n  [prijzen] mapping: 33,260 rijen\n  [prijzen] aggregeer_prijzen_naar_contour \u2026\n  [prijzen] klaar\n[pipeline] 5/10 conversietabel gemeente -> db \u2026\n[pipeline] 6/10 lees_vergunningen \u2026\n[pipeline]    vergunningen gecombineerd: 30,714 rijen\n[pipeline] 7/10 bouw_lden + bouw_lnight (FLOW-schema) \u2026\n[pipeline] 7b/10 bouw regional layers \u2026\n[pipeline] 8/10 schrijf parquet \u2026\n[pipeline]    \u2192 lden.parquet (30 rijen)\n[pipeline]    \u2192 lnight.parquet (30 rijen)\n[pipeline]    \u2192 lden_regional.parquet (30 rijen)\n[pipeline]    \u2192 lnight_regional.parquet (30 rijen)\n[pipeline]    \u2192 contour_lden.parquet (30 rijen)\n[pipeline]    \u2192 contour_lnight.parquet (30 rijen)\n[pipeline]    \u2192 conversie_gemeente_db.parquet (818 rijen)\n[pipeline]    \u2192 vergunningen_gemeente.parquet (29,274 rijen)\n[pipeline]    \u2192 vergunningen_contour.parquet (4,860 rijen)\n[pipeline]    \u2192 vergunningen_niet_toewijsbaar.parquet (594 rijen)\n[pipeline]    \u2192 transacties_capakey.parquet (118,740 rijen)\n[pipeline]    \u2192 capakey_prijzen.parquet (19,790 rijen)\n[pipeline]    \u2192 capakey_contour_mapping.parquet (33,260 rijen)\n[pipeline]    \u2192 prijs_dekking.parquet (1 rijen)\n[pipeline] klaar.\n",
+          "mimetype": "text/plain"
+        }
+      ]
+    },
+    {
+      "id": "woaO",
+      "code_hash": "00608e1a42d37ee9e0364f83cd4a6b6d",
+      "outputs": [
+        {
+          "type": "data",
+          "data": {
+            "text/markdown": "<span class=\"markdown prose dark:prose-invert contents\"><h2 id=\"overzicht-berekende-stocks-en-flows\">Overzicht berekende stocks en flows</h2>\n<span class=\"paragraph\">Na <strong>Deel C</strong> (<code>run_data_pipeline()</code>) staan de stocks en KPI's in <code>contour_lden</code> / <code>contour_lnight</code> (parquet in <code>output/intermediate/</code>). De <strong>flow rates</strong> worden berekend in <a href=\"contour_flows.ipynb\"><code>contour_flows.ipynb</code></a> (<code>run_flows_pipeline()</code> -&gt; <code>flow_rates.parquet</code> + <code>input/flow_rules.csv</code>). Referentie: <a href=\"../FLOW_BEREKENINGEN.md\">FLOW_BEREKENINGEN.md</a>.</span>\n<h3 id=\"stocks-en-kpi-kolommen-contour_lden-contour_lnight\">Stocks en KPI-kolommen (<code>contour_lden</code> / <code>contour_lnight</code>)</h3>\n<table>\n<thead>\n<tr>\n<th>Kolom (patroon)</th>\n<th>Simulator-stock</th>\n<th>Bron / berekening</th>\n<th>Status</th>\n</tr>\n</thead>\n<tbody>\n<tr>\n<td><code>geluidscontour</code>, <code>db_ondergrens</code>, <code>db_bovengrens</code></td>\n<td>-</td>\n<td><code>contour_vlaanderen_stocks.xlsx</code></td>\n<td>Geladen</td>\n</tr>\n<tr>\n<td><code>inwoners</code>, <code>aantal_woningen</code></td>\n<td>-</td>\n<td>Excel (Vlaanderen, buiten Brussel)</td>\n<td>Geladen</td>\n</tr>\n<tr>\n<td>Woongebied-kolommen (2x, volledige Excel-naam)</td>\n<td>-</td>\n<td>Excel: cumulatief effect aanwijzing/schrapping</td>\n<td>Geladen</td>\n</tr>\n<tr>\n<td><code>inwoners_brussel</code>, <code>inwoners_vlaanderen</code>, <code>inwoners</code></td>\n<td>-</td>\n<td>Brussel-sector + som</td>\n<td>Berekend</td>\n</tr>\n<tr>\n<td><code>gemiddeld_aantal_inwoners_per_huis</code></td>\n<td>-</td>\n<td><code>inwoners</code> / <code>aantal_woningen</code> (Vlaanderen)</td>\n<td>Berekend</td>\n</tr>\n<tr>\n<td><code>aantal_woningen_vlaanderen</code>, <code>_brussel</code>, <code>_totaal</code></td>\n<td>-</td>\n<td>Inwoners per regio / gemiddelde bezetting</td>\n<td>Berekend</td>\n</tr>\n<tr>\n<td><code>db_midden</code>, <code>dosis_effect_relatie</code></td>\n<td>-</td>\n<td>Midden band; lookup-tabel lden/lnight</td>\n<td>Berekend</td>\n</tr>\n<tr>\n<td><code>aantal_ernstig_gehinderden_{vlaanderen,brussel,totaal}_2026</code></td>\n<td>-</td>\n<td><code>inwoners</code> x dosis-effect / 100</td>\n<td>Berekend</td>\n</tr>\n<tr>\n<td><code>aantal_bewoonde_ge\u00efsoleerde_huizen_{vlaanderen,brussel,totaal}_2026</code></td>\n<td><code>bewoonde_ge\u00efsoleerde_woning</code></td>\n<td>Placeholder: 20% van woningen per regio</td>\n<td>Placeholder</td>\n</tr>\n<tr>\n<td><code>aantal_bewoonde_niet_ge\u00efsoleerde_huizen_*_2026</code></td>\n<td><code>bewoonde_niet_ge\u00efsoleerde_woning</code></td>\n<td>Placeholder: 80% van woningen per regio</td>\n<td>Placeholder</td>\n</tr>\n<tr>\n<td><code>aantal_onbebouwde_bebouwbare_percelen_*_2026</code></td>\n<td><code>onbebouwde_bebouwbare_percelen</code></td>\n<td>Placeholder <strong>0</strong></td>\n<td>Placeholder <strong>0</strong></td>\n</tr>\n<tr>\n<td><code>aantal_onbebouwde_onbebouwbare_percelen_*_2026</code></td>\n<td><code>onbebouwde_onbebouwbare_percelen</code></td>\n<td>Placeholder <strong>0</strong></td>\n<td>Placeholder <strong>0</strong></td>\n</tr>\n<tr>\n<td><code>aantal_perceel_eigendom_overheid_*_2026</code></td>\n<td><code>perceel_eigendom_overheid</code></td>\n<td>Start 0</td>\n<td>Placeholder</td>\n</tr>\n<tr>\n<td><code>aantal_woning_eigendom_overheid_*_2026</code></td>\n<td><code>woning_eigendom_overheid</code></td>\n<td>Start 0</td>\n<td>Placeholder</td>\n</tr>\n<tr>\n<td><code>prijs_onbebouwde_bebouwbare_percelen</code>, <code>prijs_onbebouwde_onbebouwbare_percelen</code></td>\n<td>-</td>\n<td>Transactieprijs per contour</td>\n<td>Berekend</td>\n</tr>\n<tr>\n<td><code>prijs_bewoonde_niet_ge\u00efsoleerde_woning</code>, <code>prijs_bewoonde_ge\u00efsoleerde_woning</code></td>\n<td>-</td>\n<td>Idem (woningen + appartementen)</td>\n<td>Berekend</td>\n</tr>\n<tr>\n<td><code>nieuwe_woning</code></td>\n<td><code>nieuwe_woning</code></td>\n<td>Alleen in <code>stocks_contour</code>: start 0</td>\n<td>Vast</td>\n</tr>\n</tbody>\n</table>\n<span class=\"paragraph\"><em>Tussenproducten in parquet:</em> <code>vergunningen_contour</code>, <code>vergunningen_gemeente</code>, <code>transacties_capakey</code>, <code>capakey_prijzen</code>, <code>conversie_gemeente_db</code>.</span>\n<h3 id=\"flow-rates-measure_id-inputflow_rulescsv\">Flow rates (<code>measure_id</code> -&gt; <code>input/flow_rules.csv</code>)</h3>\n<span class=\"paragraph\">Formule: <code>flow_rate = teller / noemer</code> (landelijk geaggregeerd, tenzij anders vermeld).</span>\n<table>\n<thead>\n<tr>\n<th><code>measure_id</code></th>\n<th>Teller (indicatief)</th>\n<th>Noemer (stock)</th>\n<th>Baseline</th>\n<th>Active</th>\n<th>Status</th>\n</tr>\n</thead>\n<tbody>\n<tr>\n<td><code>verkavelingsverbod</code></td>\n<td>-</td>\n<td><code>onbebouwde_bebouwbare_percelen</code></td>\n<td>0</td>\n<td>0</td>\n<td>Geen hinder-effect</td>\n</tr>\n<tr>\n<td><code>woongebiedverbod</code></td>\n<td>Woongebied-aanduiding / 5</td>\n<td><code>onbebouwde_onbebouwbare_percelen</code></td>\n<td>berekend</td>\n<td>= baseline</td>\n<td>OK</td>\n</tr>\n<tr>\n<td><code>aankoopbeleid_percelen</code></td>\n<td>25% x transacties percelen</td>\n<td><code>onbebouwde_bebouwbare_percelen</code></td>\n<td>0</td>\n<td>berekend</td>\n<td>Deels</td>\n</tr>\n<tr>\n<td><code>voorkooprecht_percelen</code></td>\n<td>Transacties percelen</td>\n<td><code>onbebouwde_bebouwbare_percelen</code></td>\n<td>0</td>\n<td>berekend</td>\n<td>Deels</td>\n</tr>\n<tr>\n<td><code>onteigening_percelen</code></td>\n<td>Vast 5%</td>\n<td><code>onbebouwde_bebouwbare_percelen</code></td>\n<td>0</td>\n<td>0,05</td>\n<td>OK</td>\n</tr>\n<tr>\n<td><code>verbod_kleine_woning</code></td>\n<td>Vergunde wooneenheden nieuwbouw</td>\n<td><code>onbebouwde_bebouwbare_percelen</code></td>\n<td>berekend</td>\n<td>= baseline</td>\n<td>Deels</td>\n</tr>\n<tr>\n<td><code>verbod_grote_woning</code></td>\n<td>-</td>\n<td><code>onbebouwde_bebouwbare_percelen</code></td>\n<td>0,01</td>\n<td>0</td>\n<td>Beleidskeuze</td>\n</tr>\n<tr>\n<td><code>verbod_kwetsbare_groep</code></td>\n<td>Vergunningen kwetsbare groep</td>\n<td><code>onbebouwde_bebouwbare_percelen</code></td>\n<td>berekend</td>\n<td>= baseline</td>\n<td>Deels</td>\n</tr>\n<tr>\n<td><code>woonverdichtingsverbod_niet_ge\u00efsoleerde_woningen</code></td>\n<td>-</td>\n<td><code>bewoonde_niet_ge\u00efsoleerde_woning</code></td>\n<td>0,01</td>\n<td>0</td>\n<td>Beleidskeuze</td>\n</tr>\n<tr>\n<td><code>woonverdichtingsverbod_ge\u00efsoleerde_woningen</code></td>\n<td>-</td>\n<td><code>bewoonde_ge\u00efsoleerde_woning</code></td>\n<td>0,01</td>\n<td>0</td>\n<td>Beleidskeuze</td>\n</tr>\n<tr>\n<td><code>aankoopbeleid_niet_ge\u00efsoleerde_woningen</code></td>\n<td>25% x transacties woningen</td>\n<td><code>bewoonde_niet_ge\u00efsoleerde_woning</code></td>\n<td>0</td>\n<td>berekend</td>\n<td>Deels</td>\n</tr>\n<tr>\n<td><code>aankoopbeleid_ge\u00efsoleerde_woningen</code></td>\n<td>25% x transacties woningen</td>\n<td><code>bewoonde_ge\u00efsoleerde_woning</code></td>\n<td>0</td>\n<td>berekend</td>\n<td>Deels</td>\n</tr>\n<tr>\n<td><code>voorkooprecht_niet_ge\u00efsoleerde_woningen</code></td>\n<td>Transacties woningen</td>\n<td><code>bewoonde_niet_ge\u00efsoleerde_woning</code></td>\n<td>0</td>\n<td>berekend</td>\n<td>Deels</td>\n</tr>\n<tr>\n<td><code>voorkooprecht_ge\u00efsoleerde_woningen</code></td>\n<td>Transacties woningen</td>\n<td><code>bewoonde_ge\u00efsoleerde_woning</code></td>\n<td>0</td>\n<td>berekend</td>\n<td>Deels</td>\n</tr>\n<tr>\n<td><code>onteigening_niet_ge\u00efsoleerde_woningen</code></td>\n<td>Vast 5%</td>\n<td><code>bewoonde_niet_ge\u00efsoleerde_woning</code></td>\n<td>0</td>\n<td>0,05</td>\n<td>OK</td>\n</tr>\n<tr>\n<td><code>onteigening_ge\u00efsoleerde_woningen</code></td>\n<td>Vast 5%</td>\n<td><code>bewoonde_ge\u00efsoleerde_woning</code></td>\n<td>0</td>\n<td>0,05</td>\n<td>OK</td>\n</tr>\n<tr>\n<td><code>isolatievoorschriften_nieuwbouw_naar_niet_ge\u00efsoleerde_woning</code></td>\n<td>-</td>\n<td>dynamisch <code>nieuwe_woning</code></td>\n<td>0,5</td>\n<td>0</td>\n<td>Deels</td>\n</tr>\n<tr>\n<td><code>isolatievoorschriften_nieuwbouw_naar_ge\u00efsoleerde_woning</code></td>\n<td>-</td>\n<td>dynamisch <code>nieuwe_woning</code></td>\n<td>1</td>\n<td>1</td>\n<td>Deels</td>\n</tr>\n<tr>\n<td><code>renovatie_zonder_maatregel</code></td>\n<td>50% renovatievergunningen</td>\n<td><code>bewoonde_niet_ge\u00efsoleerde_woning</code></td>\n<td>berekend</td>\n<td>0</td>\n<td>Deels</td>\n</tr>\n<tr>\n<td><code>verplicht_isoleren_renovatie</code></td>\n<td>Renovatie totaal</td>\n<td><code>bewoonde_niet_ge\u00efsoleerde_woning</code></td>\n<td>0</td>\n<td>berekend</td>\n<td>Deels</td>\n</tr>\n<tr>\n<td><code>gesubsidieerd_isolatieprogramma</code></td>\n<td>2x renovatie</td>\n<td><code>bewoonde_niet_ge\u00efsoleerde_woning</code></td>\n<td>0</td>\n<td>berekend</td>\n<td>Deels</td>\n</tr>\n<tr>\n<td><code>gestuurd_isolatieprogramma</code></td>\n<td>4x renovatie</td>\n<td><code>bewoonde_niet_ge\u00efsoleerde_woning</code></td>\n<td>0</td>\n<td>berekend</td>\n<td>Deels</td>\n</tr>\n<tr>\n<td><code>aanleg_geluidsbuffers</code></td>\n<td>-</td>\n<td>-</td>\n<td>0</td>\n<td>0</td>\n<td>Placeholder</td>\n</tr>\n<tr>\n<td><code>compensatie_buitenzone</code></td>\n<td>-</td>\n<td>-</td>\n<td>0</td>\n<td>0</td>\n<td>Nog niet gekoppeld</td>\n</tr>\n<tr>\n<td><code>compensatie_verhuis</code></td>\n<td>-</td>\n<td>-</td>\n<td>0</td>\n<td>0</td>\n<td>Nog niet gekoppeld</td>\n</tr>\n<tr>\n<td><code>versterken_sociale_cohesie</code></td>\n<td>-</td>\n<td>-</td>\n<td>0</td>\n<td>0</td>\n<td>Nog niet gekoppeld</td>\n</tr>\n<tr>\n<td><code>vergroenen_leefomgeving</code></td>\n<td>-</td>\n<td>-</td>\n<td>0</td>\n<td>0</td>\n<td>Nog niet gekoppeld</td>\n</tr>\n</tbody>\n</table>\n<span class=\"paragraph\"><strong>Legende:</strong> <em>Geladen</em> = bronbestand; <em>Berekend</em> = afgeleid in <code>contour/</code>; <em>Placeholder</em> = voorlopige aannames; <em>Deels</em> = geen volledige contour-split; <em>OK</em> = formule toegepast met beschikbare data.</span></span>"
+          }
+        }
+      ],
+      "console": []
+    },
+    {
+      "id": "HnMC",
+      "code_hash": "c3a8251ab5da4d89da41248b16770dcc",
+      "outputs": [
+        {
+          "type": "error",
+          "ename": "exception",
+          "evalue": "\"['geluidscontour'] not in index\"",
+          "traceback": null
+        }
+      ],
+      "console": [
+        {
+          "type": "stream",
+          "name": "stderr",
+          "text": "<span class=\"codehilite\"><div class=\"highlight\"><pre><span></span><span class=\"gt\">Traceback (most recent call last):</span>\n  File <span class=\"nb\">&quot;C:\\Users\\AlexanderL\\AppData\\Local\\Temp\\marimo_27520\\__marimo__cell_HnMC_.py&quot;</span>, line <span class=\"m\">16</span>, in <span class=\"n\">&lt;module&gt;</span>\n<span class=\"w\">    </span><span class=\"n\">contour_lden</span><span class=\"p\">[</span><span class=\"n\">prijs_kolommen</span><span class=\"p\">]</span><span class=\"o\">.</span><span class=\"n\">head</span><span class=\"p\">(</span><span class=\"mi\">10</span><span class=\"p\">)</span>\n<span class=\"w\">    </span><span class=\"pm\">~~~~~~~~~~~~^^^^^^^^^^^^^^^^</span>\n  File <span class=\"nb\">&quot;C:\\Users\\AlexanderL\\AppData\\Roaming\\Python\\Python314\\site-packages\\pandas\\core\\frame.py&quot;</span>, line <span class=\"m\">4119</span>, in <span class=\"n\">__getitem__</span>\n<span class=\"w\">    </span><span class=\"n\">indexer</span> <span class=\"o\">=</span> <span class=\"bp\">self</span><span class=\"o\">.</span><span class=\"n\">columns</span><span class=\"o\">.</span><span class=\"n\">_get_indexer_strict</span><span class=\"p\">(</span><span class=\"n\">key</span><span class=\"p\">,</span> <span class=\"s2\">&quot;columns&quot;</span><span class=\"p\">)[</span><span class=\"mi\">1</span><span class=\"p\">]</span>\n<span class=\"w\">              </span><span class=\"pm\">~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^</span>\n  File <span class=\"nb\">&quot;C:\\Users\\AlexanderL\\AppData\\Roaming\\Python\\Python314\\site-packages\\pandas\\core\\indexes\\base.py&quot;</span>, line <span class=\"m\">6212</span>, in <span class=\"n\">_get_indexer_strict</span>\n<span class=\"w\">    </span><span class=\"bp\">self</span><span class=\"o\">.</span><span class=\"n\">_raise_if_missing</span><span class=\"p\">(</span><span class=\"n\">keyarr</span><span class=\"p\">,</span> <span class=\"n\">indexer</span><span class=\"p\">,</span> <span class=\"n\">axis_name</span><span class=\"p\">)</span>\n<span class=\"w\">    </span><span class=\"pm\">~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^</span>\n  File <span class=\"nb\">&quot;C:\\Users\\AlexanderL\\AppData\\Roaming\\Python\\Python314\\site-packages\\pandas\\core\\indexes\\base.py&quot;</span>, line <span class=\"m\">6264</span>, in <span class=\"n\">_raise_if_missing</span>\n<span class=\"w\">    </span><span class=\"k\">raise</span> <span class=\"ne\">KeyError</span><span class=\"p\">(</span><span class=\"sa\">f</span><span class=\"s2\">&quot;</span><span class=\"si\">{</span><span class=\"n\">not_found</span><span class=\"si\">}</span><span class=\"s2\"> not in index&quot;</span><span class=\"p\">)</span>\n<span class=\"gr\">KeyError</span>: <span class=\"n\">&quot;[&#39;geluidscontour&#39;] not in index&quot;</span>\n</pre></div>\n</span>",
+          "mimetype": "application/vnd.marimo+traceback"
+        }
+      ]
+    },
+    {
+      "id": "wadT",
+      "code_hash": "43870b479810bbacf35bc3d52b00b857",
+      "outputs": [
+        {
+          "type": "data",
+          "data": {
+            "text/html": "<marimo-ui-element object-id='wadT-0' random-id='66df8259-9518-112b-e6ad-79534ffd5e43'><marimo-table data-initial-value='[]' data-label='null' data-data='&quot;[{&#92;&quot;db_ondergrens&#92;&quot;:45,&#92;&quot;onbebouwde_bebouwbare_percelen&#92;&quot;:0.0,&#92;&quot;onbebouwde_onbebouwbare_percelen&#92;&quot;:0.0,&#92;&quot;bewoonde_niet_ge&#92;&#92;u00efsoleerde_woning&#92;&quot;:46506.64112074952,&#92;&quot;bewoonde_ge&#92;&#92;u00efsoleerde_woning&#92;&quot;:11626.66028018738,&#92;&quot;nieuwe_woning&#92;&quot;:0.0,&#92;&quot;perceel_eigendom_overheid&#92;&quot;:0.0,&#92;&quot;woning_eigendom_overheid&#92;&quot;:0.0,&#92;&quot;bebouwbare_percelen_woongebied(5jr)&#92;&quot;:0.6,&#92;&quot;niet_bebouwbare_percelen_woongebied_schrapping(5jr)&#92;&quot;:4.4,&#92;&quot;alle_transacties_percelen&#92;&quot;:924.0,&#92;&quot;alle_verkopen_onbebouwde_bebouwbare_percelen&#92;&quot;:924.0,&#92;&quot;alle_transacties_woningen&#92;&quot;:294269.0,&#92;&quot;alle_verkopen_woningen&#92;&quot;:294269.0,&#92;&quot;vergunde_wooneenheden_nieuwbouw&#92;&quot;:188.69916086861232,&#92;&quot;gem_wooneenheden_per_vergunning&#92;&quot;:0.9422874267589032,&#92;&quot;vergunningen_kwetsbare_groep&#92;&quot;:14.351928029669644,&#92;&quot;renovatie_totaal&#92;&quot;:187798.88610751482,&#92;&quot;R+&#92;&quot;:0.0,&#92;&quot;R&#92;&#92;u2212&#92;&quot;:0.0,&#92;&quot;nieuwbouw_ge&#92;&#92;u00efsoleerd&#92;&quot;:0.0,&#92;&quot;nieuwbouw_niet_ge&#92;&#92;u00efsoleerd&#92;&quot;:0.0,&#92;&quot;potentieel_isoleerbare_woningen&#92;&quot;:0.0,&#92;&quot;inwoners_per_contour&#92;&quot;:151140.6677705159,&#92;&quot;prijs_onbebouwde_bebouwbare_percelen&#92;&quot;:1865000.0,&#92;&quot;prijs_onbebouwde_onbebouwbare_percelen&#92;&quot;:395410.76086956525,&#92;&quot;prijs_bewoonde_niet_ge&#92;&#92;u00efsoleerde_woning&#92;&quot;:283157.5257350665,&#92;&quot;prijs_bewoonde_ge&#92;&#92;u00efsoleerde_woning&#92;&quot;:283157.5257350665},{&#92;&quot;db_ondergrens&#92;&quot;:46,&#92;&quot;onbebouwde_bebouwbare_percelen&#92;&quot;:0.0,&#92;&quot;onbebouwde_onbebouwbare_percelen&#92;&quot;:0.0,&#92;&quot;bewoonde_niet_ge&#92;&#92;u00efsoleerde_woning&#92;&quot;:50779.534086381056,&#92;&quot;bewoonde_ge&#92;&#92;u00efsoleerde_woning&#92;&quot;:12694.883521595264,&#92;&quot;nieuwe_woning&#92;&quot;:0.0,&#92;&quot;perceel_eigendom_overheid&#92;&quot;:0.0,&#92;&quot;woning_eigendom_overheid&#92;&quot;:0.0,&#92;&quot;bebouwbare_percelen_woongebied(5jr)&#92;&quot;:1.0,&#92;&quot;niet_bebouwbare_percelen_woongebied_schrapping(5jr)&#92;&quot;:4.0,&#92;&quot;alle_transacties_percelen&#92;&quot;:1357.0,&#92;&quot;alle_verkopen_onbebouwde_bebouwbare_percelen&#92;&quot;:1357.0,&#92;&quot;alle_transacties_woningen&#92;&quot;:330123.0,&#92;&quot;alle_verkopen_woningen&#92;&quot;:330123.0,&#92;&quot;vergunde_wooneenheden_nieuwbouw&#92;&quot;:156.47350452484872,&#92;&quot;gem_wooneenheden_per_vergunning&#92;&quot;:0.9422874267589032,&#92;&quot;vergunningen_kwetsbare_groep&#92;&quot;:7.942851900125499,&#92;&quot;renovatie_totaal&#92;&quot;:121167.06197623852,&#92;&quot;R+&#92;&quot;:0.0,&#92;&quot;R&#92;&#92;u2212&#92;&quot;:0.0,&#92;&quot;nieuwbouw_ge&#92;&#92;u00efsoleerd&#92;&quot;:0.0,&#92;&quot;nieuwbouw_niet_ge&#92;&#92;u00efsoleerd&#92;&quot;:0.0,&#92;&quot;potentieel_isoleerbare_woningen&#92;&quot;:0.0,&#92;&quot;inwoners_per_contour&#92;&quot;:156924.9730174999,&#92;&quot;prijs_onbebouwde_bebouwbare_percelen&#92;&quot;:1865000.0000000002,&#92;&quot;prijs_onbebouwde_onbebouwbare_percelen&#92;&quot;:395410.76086956525,&#92;&quot;prijs_bewoonde_niet_ge&#92;&#92;u00efsoleerde_woning&#92;&quot;:269596.265679018,&#92;&quot;prijs_bewoonde_ge&#92;&#92;u00efsoleerde_woning&#92;&quot;:269596.265679018},{&#92;&quot;db_ondergrens&#92;&quot;:47,&#92;&quot;onbebouwde_bebouwbare_percelen&#92;&quot;:0.0,&#92;&quot;onbebouwde_onbebouwbare_percelen&#92;&quot;:0.0,&#92;&quot;bewoonde_niet_ge&#92;&#92;u00efsoleerde_woning&#92;&quot;:38771.25106874217,&#92;&quot;bewoonde_ge&#92;&#92;u00efsoleerde_woning&#92;&quot;:9692.812767185542,&#92;&quot;nieuwe_woning&#92;&quot;:0.0,&#92;&quot;perceel_eigendom_overheid&#92;&quot;:0.0,&#92;&quot;woning_eigendom_overheid&#92;&quot;:0.0,&#92;&quot;bebouwbare_percelen_woongebied(5jr)&#92;&quot;:0.6,&#92;&quot;niet_bebouwbare_percelen_woongebied_schrapping(5jr)&#92;&quot;:2.0,&#92;&quot;alle_transacties_percelen&#92;&quot;:1126.0,&#92;&quot;alle_verkopen_onbebouwde_bebouwbare_percelen&#92;&quot;:1126.0,&#92;&quot;alle_transacties_woningen&#92;&quot;:300523.0,&#92;&quot;alle_verkopen_woningen&#92;&quot;:300523.0,&#92;&quot;vergunde_wooneenheden_nieuwbouw&#92;&quot;:163.47114552881297,&#92;&quot;gem_wooneenheden_per_vergunning&#92;&quot;:0.9422874267589032,&#92;&quot;vergunningen_kwetsbare_groep&#92;&quot;:7.43988686816872,&#92;&quot;renovatie_totaal&#92;&quot;:114550.05076617317,&#92;&quot;R+&#92;&quot;:0.0,&#92;&quot;R&#92;&#92;u2212&#92;&quot;:0.0,&#92;&quot;nieuwbouw_ge&#92;&#92;u00efsoleerd&#92;&quot;:0.0,&#92;&quot;nieuwbouw_niet_ge&#92;&#92;u00efsoleerd&#92;&quot;:0.0,&#92;&quot;potentieel_isoleerbare_woningen&#92;&quot;:0.0,&#92;&quot;inwoners_per_contour&#92;&quot;:122467.7940358428,&#92;&quot;prijs_onbebouwde_bebouwbare_percelen&#92;&quot;:1865000.0000000002,&#92;&quot;prijs_onbebouwde_onbebouwbare_percelen&#92;&quot;:395410.76086956525,&#92;&quot;prijs_bewoonde_niet_ge&#92;&#92;u00efsoleerde_woning&#92;&quot;:261143.1732032437,&#92;&quot;prijs_bewoonde_ge&#92;&#92;u00efsoleerde_woning&#92;&quot;:261143.1732032437},{&#92;&quot;db_ondergrens&#92;&quot;:48,&#92;&quot;onbebouwde_bebouwbare_percelen&#92;&quot;:0.0,&#92;&quot;onbebouwde_onbebouwbare_percelen&#92;&quot;:0.0,&#92;&quot;bewoonde_niet_ge&#92;&#92;u00efsoleerde_woning&#92;&quot;:40041.74906109127,&#92;&quot;bewoonde_ge&#92;&#92;u00efsoleerde_woning&#92;&quot;:10010.437265272818,&#92;&quot;nieuwe_woning&#92;&quot;:0.0,&#92;&quot;perceel_eigendom_overheid&#92;&quot;:0.0,&#92;&quot;woning_eigendom_overheid&#92;&quot;:0.0,&#92;&quot;bebouwbare_percelen_woongebied(5jr)&#92;&quot;:0.2,&#92;&quot;niet_bebouwbare_percelen_woongebied_schrapping(5jr)&#92;&quot;:3.0,&#92;&quot;alle_transacties_percelen&#92;&quot;:1128.0,&#92;&quot;alle_verkopen_onbebouwde_bebouwbare_percelen&#92;&quot;:1128.0,&#92;&quot;alle_transacties_woningen&#92;&quot;:367044.0,&#92;&quot;alle_verkopen_woningen&#92;&quot;:367044.0,&#92;&quot;vergunde_wooneenheden_nieuwbouw&#92;&quot;:185.45253236417093,&#92;&quot;gem_wooneenheden_per_vergunning&#92;&quot;:0.9422874267589032,&#92;&quot;vergunningen_kwetsbare_groep&#92;&quot;:5.7924204207496,&#92;&quot;renovatie_totaal&#92;&quot;:113279.36914152945,&#92;&quot;R+&#92;&quot;:0.0,&#92;&quot;R&#92;&#92;u2212&#92;&quot;:0.0,&#92;&quot;nieuwbouw_ge&#92;&#92;u00efsoleerd&#92;&quot;:0.0,&#92;&quot;nieuwbouw_niet_ge&#92;&#92;u00efsoleerd&#92;&quot;:0.0,&#92;&quot;potentieel_isoleerbare_woningen&#92;&quot;:0.0,&#92;&quot;inwoners_per_contour&#92;&quot;:150477.05556497088,&#92;&quot;prijs_onbebouwde_bebouwbare_percelen&#92;&quot;:839387.3004666666,&#92;&quot;prijs_onbebouwde_onbebouwbare_percelen&#92;&quot;:395410.76086956525,&#92;&quot;prijs_bewoonde_niet_ge&#92;&#92;u00efsoleerde_woning&#92;&quot;:253425.9985755418,&#92;&quot;prijs_bewoonde_ge&#92;&#92;u00efsoleerde_woning&#92;&quot;:253425.9985755418},{&#92;&quot;db_ondergrens&#92;&quot;:49,&#92;&quot;onbebouwde_bebouwbare_percelen&#92;&quot;:0.0,&#92;&quot;onbebouwde_onbebouwbare_percelen&#92;&quot;:0.0,&#92;&quot;bewoonde_niet_ge&#92;&#92;u00efsoleerde_woning&#92;&quot;:38865.311814987836,&#92;&quot;bewoonde_ge&#92;&#92;u00efsoleerde_woning&#92;&quot;:9716.327953746959,&#92;&quot;nieuwe_woning&#92;&quot;:0.0,&#92;&quot;perceel_eigendom_overheid&#92;&quot;:0.0,&#92;&quot;woning_eigendom_overheid&#92;&quot;:0.0,&#92;&quot;bebouwbare_percelen_woongebied(5jr)&#92;&quot;:0.0,&#92;&quot;niet_bebouwbare_percelen_woongebied_schrapping(5jr)&#92;&quot;:2.8,&#92;&quot;alle_transacties_percelen&#92;&quot;:946.0,&#92;&quot;alle_verkopen_onbebouwde_bebouwbare_percelen&#92;&quot;:946.0,&#92;&quot;alle_transacties_woningen&#92;&quot;:323712.0,&#92;&quot;alle_verkopen_woningen&#92;&quot;:323712.0,&#92;&quot;vergunde_wooneenheden_nieuwbouw&#92;&quot;:151.65551553695363,&#92;&quot;gem_wooneenheden_per_vergunning&#92;&quot;:0.9422874267589032,&#92;&quot;vergunningen_kwetsbare_groep&#92;&quot;:2.779503836087644,&#92;&quot;renovatie_totaal&#92;&quot;:82462.87860073564,&#92;&quot;R+&#92;&quot;:0.0,&#92;&quot;R&#92;&#92;u2212&#92;&quot;:0.0,&#92;&quot;nieuwbouw_ge&#92;&#92;u00efsoleerd&#92;&quot;:0.0,&#92;&quot;nieuwbouw_niet_ge&#92;&#92;u00efsoleerd&#92;&quot;:0.0,&#92;&quot;potentieel_isoleerbare_woningen&#92;&quot;:0.0,&#92;&quot;inwoners_per_contour&#92;&quot;:129698.39042899715,&#92;&quot;prijs_onbebouwde_bebouwbare_percelen&#92;&quot;:839387.3004666666,&#92;&quot;prijs_onbebouwde_onbebouwbare_percelen&#92;&quot;:395410.76086956525,&#92;&quot;prijs_bewoonde_niet_ge&#92;&#92;u00efsoleerde_woning&#92;&quot;:269134.1909171648,&#92;&quot;prijs_bewoonde_ge&#92;&#92;u00efsoleerde_woning&#92;&quot;:269134.1909171648},{&#92;&quot;db_ondergrens&#92;&quot;:50,&#92;&quot;onbebouwde_bebouwbare_percelen&#92;&quot;:0.0,&#92;&quot;onbebouwde_onbebouwbare_percelen&#92;&quot;:0.0,&#92;&quot;bewoonde_niet_ge&#92;&#92;u00efsoleerde_woning&#92;&quot;:29869.631773210436,&#92;&quot;bewoonde_ge&#92;&#92;u00efsoleerde_woning&#92;&quot;:7467.407943302609,&#92;&quot;nieuwe_woning&#92;&quot;:0.0,&#92;&quot;perceel_eigendom_overheid&#92;&quot;:0.0,&#92;&quot;woning_eigendom_overheid&#92;&quot;:0.0,&#92;&quot;bebouwbare_percelen_woongebied(5jr)&#92;&quot;:0.0,&#92;&quot;niet_bebouwbare_percelen_woongebied_schrapping(5jr)&#92;&quot;:4.2,&#92;&quot;alle_transacties_percelen&#92;&quot;:637.0,&#92;&quot;alle_verkopen_onbebouwde_bebouwbare_percelen&#92;&quot;:637.0,&#92;&quot;alle_transacties_woningen&#92;&quot;:294072.0,&#92;&quot;alle_verkopen_woningen&#92;&quot;:294072.0,&#92;&quot;vergunde_wooneenheden_nieuwbouw&#92;&quot;:173.98558106656031,&#92;&quot;gem_wooneenheden_per_vergunning&#92;&quot;:0.9422874267589032,&#92;&quot;vergunningen_kwetsbare_groep&#92;&quot;:2.443812276452744,&#92;&quot;renovatie_totaal&#92;&quot;:106215.84992754548,&#92;&quot;R+&#92;&quot;:0.0,&#92;&quot;R&#92;&#92;u2212&#92;&quot;:0.0,&#92;&quot;nieuwbouw_ge&#92;&#92;u00efsoleerd&#92;&quot;:0.0,&#92;&quot;nieuwbouw_niet_ge&#92;&#92;u00efsoleerd&#92;&quot;:0.0,&#92;&quot;potentieel_isoleerbare_woningen&#92;&quot;:0.0,&#92;&quot;inwoners_per_contour&#92;&quot;:109321.63908375251,&#92;&quot;prijs_onbebouwde_bebouwbare_percelen&#92;&quot;:839387.3004666666,&#92;&quot;prijs_onbebouwde_onbebouwbare_percelen&#92;&quot;:395410.76086956525,&#92;&quot;prijs_bewoonde_niet_ge&#92;&#92;u00efsoleerde_woning&#92;&quot;:278161.7116511789,&#92;&quot;prijs_bewoonde_ge&#92;&#92;u00efsoleerde_woning&#92;&quot;:278161.7116511789},{&#92;&quot;db_ondergrens&#92;&quot;:51,&#92;&quot;onbebouwde_bebouwbare_percelen&#92;&quot;:0.0,&#92;&quot;onbebouwde_onbebouwbare_percelen&#92;&quot;:0.0,&#92;&quot;bewoonde_niet_ge&#92;&#92;u00efsoleerde_woning&#92;&quot;:19893.968657783746,&#92;&quot;bewoonde_ge&#92;&#92;u00efsoleerde_woning&#92;&quot;:4973.492164445936,&#92;&quot;nieuwe_woning&#92;&quot;:0.0,&#92;&quot;perceel_eigendom_overheid&#92;&quot;:0.0,&#92;&quot;woning_eigendom_overheid&#92;&quot;:0.0,&#92;&quot;bebouwbare_percelen_woongebied(5jr)&#92;&quot;:0.0,&#92;&quot;niet_bebouwbare_percelen_woongebied_schrapping(5jr)&#92;&quot;:2.8,&#92;&quot;alle_transacties_percelen&#92;&quot;:486.0,&#92;&quot;alle_verkopen_onbebouwde_bebouwbare_percelen&#92;&quot;:486.0,&#92;&quot;alle_transacties_woningen&#92;&quot;:240301.0,&#92;&quot;alle_verkopen_woningen&#92;&quot;:240301.0,&#92;&quot;vergunde_wooneenheden_nieuwbouw&#92;&quot;:161.37788082358506,&#92;&quot;gem_wooneenheden_per_vergunning&#92;&quot;:0.9422874267589032,&#92;&quot;vergunningen_kwetsbare_groep&#92;&quot;:3.206179040460718,&#92;&quot;renovatie_totaal&#92;&quot;:98286.14887578352,&#92;&quot;R+&#92;&quot;:0.0,&#92;&quot;R&#92;&#92;u2212&#92;&quot;:0.0,&#92;&quot;nieuwbouw_ge&#92;&#92;u00efsoleerd&#92;&quot;:0.0,&#92;&quot;nieuwbouw_niet_ge&#92;&#92;u00efsoleerd&#92;&quot;:0.0,&#92;&quot;potentieel_isoleerbare_woningen&#92;&quot;:0.0,&#92;&quot;inwoners_per_contour&#92;&quot;:72053.30076199316,&#92;&quot;prijs_onbebouwde_bebouwbare_percelen&#92;&quot;:839387.3004666666,&#92;&quot;prijs_onbebouwde_onbebouwbare_percelen&#92;&quot;:395410.76086956525,&#92;&quot;prijs_bewoonde_niet_ge&#92;&#92;u00efsoleerde_woning&#92;&quot;:288730.52199407393,&#92;&quot;prijs_bewoonde_ge&#92;&#92;u00efsoleerde_woning&#92;&quot;:288730.52199407393},{&#92;&quot;db_ondergrens&#92;&quot;:52,&#92;&quot;onbebouwde_bebouwbare_percelen&#92;&quot;:0.0,&#92;&quot;onbebouwde_onbebouwbare_percelen&#92;&quot;:0.0,&#92;&quot;bewoonde_niet_ge&#92;&#92;u00efsoleerde_woning&#92;&quot;:17374.98678149194,&#92;&quot;bewoonde_ge&#92;&#92;u00efsoleerde_woning&#92;&quot;:4343.746695372985,&#92;&quot;nieuwe_woning&#92;&quot;:0.0,&#92;&quot;perceel_eigendom_overheid&#92;&quot;:0.0,&#92;&quot;woning_eigendom_overheid&#92;&quot;:0.0,&#92;&quot;bebouwbare_percelen_woongebied(5jr)&#92;&quot;:0.0,&#92;&quot;niet_bebouwbare_percelen_woongebied_schrapping(5jr)&#92;&quot;:1.4,&#92;&quot;alle_transacties_percelen&#92;&quot;:434.0,&#92;&quot;alle_verkopen_onbebouwde_bebouwbare_percelen&#92;&quot;:434.0,&#92;&quot;alle_transacties_woningen&#92;&quot;:232153.0,&#92;&quot;alle_verkopen_woningen&#92;&quot;:232153.0,&#92;&quot;vergunde_wooneenheden_nieuwbouw&#92;&quot;:123.68807116805205,&#92;&quot;gem_wooneenheden_per_vergunning&#92;&quot;:0.9422874267589032,&#92;&quot;vergunningen_kwetsbare_groep&#92;&quot;:2.7722852513925273,&#92;&quot;renovatie_totaal&#92;&quot;:77988.51536047063,&#92;&quot;R+&#92;&quot;:0.0,&#92;&quot;R&#92;&#92;u2212&#92;&quot;:0.0,&#92;&quot;nieuwbouw_ge&#92;&#92;u00efsoleerd&#92;&quot;:0.0,&#92;&quot;nieuwbouw_niet_ge&#92;&#92;u00efsoleerd&#92;&quot;:0.0,&#92;&quot;potentieel_isoleerbare_woningen&#92;&quot;:0.0,&#92;&quot;inwoners_per_contour&#92;&quot;:63019.08120621734,&#92;&quot;prijs_onbebouwde_bebouwbare_percelen&#92;&quot;:839387.3004666666,&#92;&quot;prijs_onbebouwde_onbebouwbare_percelen&#92;&quot;:395410.76086956525,&#92;&quot;prijs_bewoonde_niet_ge&#92;&#92;u00efsoleerde_woning&#92;&quot;:307003.3246386134,&#92;&quot;prijs_bewoonde_ge&#92;&#92;u00efsoleerde_woning&#92;&quot;:307003.3246386134},{&#92;&quot;db_ondergrens&#92;&quot;:53,&#92;&quot;onbebouwde_bebouwbare_percelen&#92;&quot;:0.0,&#92;&quot;onbebouwde_onbebouwbare_percelen&#92;&quot;:0.0,&#92;&quot;bewoonde_niet_ge&#92;&#92;u00efsoleerde_woning&#92;&quot;:20983.43278246109,&#92;&quot;bewoonde_ge&#92;&#92;u00efsoleerde_woning&#92;&quot;:5245.858195615272,&#92;&quot;nieuwe_woning&#92;&quot;:0.0,&#92;&quot;perceel_eigendom_overheid&#92;&quot;:0.0,&#92;&quot;woning_eigendom_overheid&#92;&quot;:0.0,&#92;&quot;bebouwbare_percelen_woongebied(5jr)&#92;&quot;:0.0,&#92;&quot;niet_bebouwbare_percelen_woongebied_schrapping(5jr)&#92;&quot;:3.6,&#92;&quot;alle_transacties_percelen&#92;&quot;:335.0,&#92;&quot;alle_verkopen_onbebouwde_bebouwbare_percelen&#92;&quot;:335.0,&#92;&quot;alle_transacties_woningen&#92;&quot;:194258.0,&#92;&quot;alle_verkopen_woningen&#92;&quot;:194258.0,&#92;&quot;vergunde_wooneenheden_nieuwbouw&#92;&quot;:207.33903254012137,&#92;&quot;gem_wooneenheden_per_vergunning&#92;&quot;:0.9422874267589032,&#92;&quot;vergunningen_kwetsbare_groep&#92;&quot;:8.400192849339108,&#92;&quot;renovatie_totaal&#92;&quot;:139449.2655509484,&#92;&quot;R+&#92;&quot;:0.0,&#92;&quot;R&#92;&#92;u2212&#92;&quot;:0.0,&#92;&quot;nieuwbouw_ge&#92;&#92;u00efsoleerd&#92;&quot;:0.0,&#92;&quot;nieuwbouw_niet_ge&#92;&#92;u00efsoleerd&#92;&quot;:0.0,&#92;&quot;potentieel_isoleerbare_woningen&#92;&quot;:0.0,&#92;&quot;inwoners_per_contour&#92;&quot;:81021.0769853059,&#92;&quot;prijs_onbebouwde_bebouwbare_percelen&#92;&quot;:839387.3004666666,&#92;&quot;prijs_onbebouwde_onbebouwbare_percelen&#92;&quot;:395410.76086956525,&#92;&quot;prijs_bewoonde_niet_ge&#92;&#92;u00efsoleerde_woning&#92;&quot;:317556.1915557586,&#92;&quot;prijs_bewoonde_ge&#92;&#92;u00efsoleerde_woning&#92;&quot;:317556.1915557586},{&#92;&quot;db_ondergrens&#92;&quot;:54,&#92;&quot;onbebouwde_bebouwbare_percelen&#92;&quot;:0.0,&#92;&quot;onbebouwde_onbebouwbare_percelen&#92;&quot;:0.0,&#92;&quot;bewoonde_niet_ge&#92;&#92;u00efsoleerde_woning&#92;&quot;:14810.653384554113,&#92;&quot;bewoonde_ge&#92;&#92;u00efsoleerde_woning&#92;&quot;:3702.663346138528,&#92;&quot;nieuwe_woning&#92;&quot;:0.0,&#92;&quot;perceel_eigendom_overheid&#92;&quot;:0.0,&#92;&quot;woning_eigendom_overheid&#92;&quot;:0.0,&#92;&quot;bebouwbare_percelen_woongebied(5jr)&#92;&quot;:0.0,&#92;&quot;niet_bebouwbare_percelen_woongebied_schrapping(5jr)&#92;&quot;:1.4,&#92;&quot;alle_transacties_percelen&#92;&quot;:202.0,&#92;&quot;alle_verkopen_onbebouwde_bebouwbare_percelen&#92;&quot;:202.0,&#92;&quot;alle_transacties_woningen&#92;&quot;:109779.0,&#92;&quot;alle_verkopen_woningen&#92;&quot;:109779.0,&#92;&quot;vergunde_wooneenheden_nieuwbouw&#92;&quot;:182.7967816237657,&#92;&quot;gem_wooneenheden_per_vergunning&#92;&quot;:0.9422874267589032,&#92;&quot;vergunningen_kwetsbare_groep&#92;&quot;:6.481695085033948,&#92;&quot;renovatie_totaal&#92;&quot;:104773.64517082843,&#92;&quot;R+&#92;&quot;:0.0,&#92;&quot;R&#92;&#92;u2212&#92;&quot;:0.0,&#92;&quot;nieuwbouw_ge&#92;&#92;u00efsoleerd&#92;&quot;:0.0,&#92;&quot;nieuwbouw_niet_ge&#92;&#92;u00efsoleerd&#92;&quot;:0.0,&#92;&quot;potentieel_isoleerbare_woningen&#92;&quot;:0.0,&#92;&quot;inwoners_per_contour&#92;&quot;:55338.85510199572,&#92;&quot;prijs_onbebouwde_bebouwbare_percelen&#92;&quot;:839387.3004666666,&#92;&quot;prijs_onbebouwde_onbebouwbare_percelen&#92;&quot;:395410.76086956525,&#92;&quot;prijs_bewoonde_niet_ge&#92;&#92;u00efsoleerde_woning&#92;&quot;:295510.5344433685,&#92;&quot;prijs_bewoonde_ge&#92;&#92;u00efsoleerde_woning&#92;&quot;:295510.5344433685}]&quot;' data-total-rows='30' data-total-columns='27' data-max-columns='50' data-banner-text='&quot;&quot;' data-pagination='true' data-page-size='10' data-field-types='[[&quot;onbebouwde_bebouwbare_percelen&quot;,[&quot;number&quot;,&quot;float64&quot;]],[&quot;onbebouwde_onbebouwbare_percelen&quot;,[&quot;number&quot;,&quot;float64&quot;]],[&quot;bewoonde_niet_ge\u00efsoleerde_woning&quot;,[&quot;number&quot;,&quot;float64&quot;]],[&quot;bewoonde_ge\u00efsoleerde_woning&quot;,[&quot;number&quot;,&quot;float64&quot;]],[&quot;nieuwe_woning&quot;,[&quot;number&quot;,&quot;float64&quot;]],[&quot;perceel_eigendom_overheid&quot;,[&quot;number&quot;,&quot;float64&quot;]],[&quot;woning_eigendom_overheid&quot;,[&quot;number&quot;,&quot;float64&quot;]],[&quot;bebouwbare_percelen_woongebied(5jr)&quot;,[&quot;number&quot;,&quot;float64&quot;]],[&quot;niet_bebouwbare_percelen_woongebied_schrapping(5jr)&quot;,[&quot;number&quot;,&quot;float64&quot;]],[&quot;alle_transacties_percelen&quot;,[&quot;number&quot;,&quot;float64&quot;]],[&quot;alle_verkopen_onbebouwde_bebouwbare_percelen&quot;,[&quot;number&quot;,&quot;float64&quot;]],[&quot;alle_transacties_woningen&quot;,[&quot;number&quot;,&quot;float64&quot;]],[&quot;alle_verkopen_woningen&quot;,[&quot;number&quot;,&quot;float64&quot;]],[&quot;vergunde_wooneenheden_nieuwbouw&quot;,[&quot;number&quot;,&quot;float64&quot;]],[&quot;gem_wooneenheden_per_vergunning&quot;,[&quot;number&quot;,&quot;float64&quot;]],[&quot;vergunningen_kwetsbare_groep&quot;,[&quot;number&quot;,&quot;float64&quot;]],[&quot;renovatie_totaal&quot;,[&quot;number&quot;,&quot;float64&quot;]],[&quot;R+&quot;,[&quot;number&quot;,&quot;float64&quot;]],[&quot;R\u2212&quot;,[&quot;number&quot;,&quot;float64&quot;]],[&quot;nieuwbouw_ge\u00efsoleerd&quot;,[&quot;number&quot;,&quot;float64&quot;]],[&quot;nieuwbouw_niet_ge\u00efsoleerd&quot;,[&quot;number&quot;,&quot;float64&quot;]],[&quot;potentieel_isoleerbare_woningen&quot;,[&quot;number&quot;,&quot;float64&quot;]],[&quot;inwoners_per_contour&quot;,[&quot;number&quot;,&quot;float64&quot;]],[&quot;prijs_onbebouwde_bebouwbare_percelen&quot;,[&quot;number&quot;,&quot;float64&quot;]],[&quot;prijs_onbebouwde_onbebouwbare_percelen&quot;,[&quot;number&quot;,&quot;float64&quot;]],[&quot;prijs_bewoonde_niet_ge\u00efsoleerde_woning&quot;,[&quot;number&quot;,&quot;float64&quot;]],[&quot;prijs_bewoonde_ge\u00efsoleerde_woning&quot;,[&quot;number&quot;,&quot;float64&quot;]]]' data-show-filters='true' data-show-download='true' data-show-column-summaries='true' data-show-data-types='true' data-show-page-size-selector='true' data-show-column-explorer='true' data-show-chart-builder='true' data-row-headers='[[&quot;db_ondergrens&quot;,[&quot;integer&quot;,&quot;int64&quot;]]]' data-hidden-columns='[]' data-has-stable-row-id='false' data-lazy='false' data-preload='false'></marimo-table></marimo-ui-element>"
+          }
+        }
+      ],
+      "console": []
+    },
+    {
+      "id": "VCRE",
+      "code_hash": "8e3cdef53497398ae5723035a245502c",
+      "outputs": [
+        {
+          "type": "data",
+          "data": {
+            "application/json": "{\"geluidscontour\": \"Geluidsband\", \"inwoners_totaal\": \"Inwoners Vlaanderen+Brussel\", \"aantal_woningen_totaal\": \"Woningen totaal\", \"dosis_effect_relatie\": \"Dosis-effect (% ernstig gehinderd)\", \"aantal_onbebouwde_bebouwbare_percelen_totaal_2026\": \"Stock onbeb. bebouwbare percelen (placeholder)\"}"
+          }
+        }
+      ],
+      "console": []
+    },
+    {
+      "id": "hgqU",
+      "code_hash": "1ab2c773ccfd15a1289efbdf44669906",
+      "outputs": [
+        {
+          "type": "data",
+          "data": {
+            "text/markdown": "<span class=\"markdown prose dark:prose-invert contents\"><h3 id=\"checklist-variabelen-flow-2\">Checklist variabelen (FLOW \u00a72)</h3>\n<ol>\n<li><code>onbebouwde_bebouwbare_percelen</code></li>\n<li><code>onbebouwde_onbebouwbare_percelen</code></li>\n<li><code>bewoonde_niet_ge\u00efsoleerde_woning</code></li>\n<li><code>bewoonde_ge\u00efsoleerde_woning</code></li>\n<li>Gemiddeld aantal wooneenheden per vergunningsaanvraag</li>\n<li>Aantal toegekende vergunningen voor kleine woningen</li>\n<li>Aantal toegekende vergunningen voor grote woningen</li>\n<li>Aantal toegekende vergunningen voor kwetsbare groepen</li>\n<li>Aantal toegekende vergunningen voor opsplitsen woningen</li>\n<li>Aantal niet-ge\u00efsoleerde woningen jaarlijks vergund</li>\n<li>Aantal ge\u00efsoleerde woningen jaarlijks vergund</li>\n<li>Aantal jaarlijkse vergunningen renovatie met isolatie</li>\n<li>Aantal jaarlijkse vergunningen renovatie zonder isolatie</li>\n<li>Aantal publieke verkopen van percelen</li>\n<li>Aantal prive en publieke verkopen van percelen</li>\n<li>Aantal publieke verkopen van woningen</li>\n<li>Aantal prive en publieke verkopen van woningen</li>\n<li>Aantal bebouwbare percelen woongebied-aanduiding (laatste 5 jaar)</li>\n<li>Woningen akoestisch isoleerbaar via geluidsbuffers</li>\n<li>Aantal inwoners per contour en per sector</li>\n</ol>\n<span class=\"paragraph\">(Zie <strong>Deel E</strong> hieronder voor de uitgewerkte tabel Vlaanderen/Brussel.)</span></span>"
+          }
+        }
+      ],
+      "console": []
+    },
+    {
+      "id": "PSUk",
+      "code_hash": "f8c3f41f27eb1690ea2a57287b26ff71",
+      "outputs": [
+        {
+          "type": "data",
+          "data": {
+            "text/markdown": "<span class=\"markdown prose dark:prose-invert contents\"><h2 id=\"deel-e-variabelenlijst-berekening-per-regio-vlaanderen-vs-brussel\">Deel E \u2014 Variabelenlijst: berekening per regio (Vlaanderen vs Brussel)</h2>\n<span class=\"paragraph\">Onderstaande tabel volgt de checklist uit FLOW \u00a72. Per variabele: wat we <strong>nu</strong> doen voor Vlaanderen en Brussel, en de status.</span>\n<table>\n<thead>\n<tr>\n<th>#</th>\n<th>Variabele</th>\n<th>Vlaanderen</th>\n<th>Brussel</th>\n<th>Status</th>\n</tr>\n</thead>\n<tbody>\n<tr>\n<td>1</td>\n<td><code>onbebouwde_bebouwbare_percelen</code></td>\n<td>Placeholder <strong>0</strong> (stock ontbreekt)</td>\n<td>Placeholder <strong>0</strong></td>\n<td>Placeholder</td>\n</tr>\n<tr>\n<td>2</td>\n<td><code>onbebouwde_onbebouwbare_percelen</code></td>\n<td>Placeholder <strong>0</strong> (stock ontbreekt)</td>\n<td>Placeholder <strong>0</strong></td>\n<td>Placeholder</td>\n</tr>\n<tr>\n<td>3</td>\n<td><code>bewoonde_niet_ge\u00efsoleerde_woning</code></td>\n<td><code>0.8 * aantal_woningen_vlaanderen</code></td>\n<td><code>0.8 * aantal_woningen_brussel</code> (woningen geschat uit inwoners)</td>\n<td>Placeholder</td>\n</tr>\n<tr>\n<td>4</td>\n<td><code>bewoonde_ge\u00efsoleerde_woning</code></td>\n<td><code>0.2 * aantal_woningen_vlaanderen</code></td>\n<td><code>0.2 * aantal_woningen_brussel</code></td>\n<td>Placeholder</td>\n</tr>\n<tr>\n<td>5</td>\n<td>Gem. wooneenheden per vergunningsaanvraag</td>\n<td><code>Aantal wooneenheden / Aantal projecten</code> per Vlaamse gemeente (omgevingsloket)</td>\n<td>Geen data in huidige vergunningen-CSV (enkel Vlaamse gemeenten)</td>\n<td>Deels</td>\n</tr>\n<tr>\n<td>6</td>\n<td>Vergunningen kleine woningen</td>\n<td>Niet identificeerbaar (geen MER/schaal-split)</td>\n<td>\u2014</td>\n<td>Niet beschikbaar</td>\n</tr>\n<tr>\n<td>7</td>\n<td>Vergunningen grote woningen</td>\n<td>Niet identificeerbaar; <code>verbod_grote_woning</code> active=0</td>\n<td>\u2014</td>\n<td>Beleidskeuze</td>\n</tr>\n<tr>\n<td>8</td>\n<td>Vergunningen kwetsbare groepen</td>\n<td><code>vergunningen_kwetsbare_functies_2026_lang.csv</code>, per gemeente</td>\n<td>Geen</td>\n<td>Deels</td>\n</tr>\n<tr>\n<td>9</td>\n<td>Vergunningen opsplitsen woningen</td>\n<td>Niet in omgevingsloket-data</td>\n<td>\u2014</td>\n<td>Niet beschikbaar</td>\n</tr>\n<tr>\n<td>10</td>\n<td>Niet-ge\u00efsoleerde woningen jaarlijks vergund</td>\n<td>Geen iso-split; indirect via totaal nieuwbouw</td>\n<td>\u2014</td>\n<td>Deels</td>\n</tr>\n<tr>\n<td>11</td>\n<td>Ge\u00efsoleerde woningen jaarlijks vergund</td>\n<td>Zelfde; aannames in flow (<code>isolatievoorschriften_*</code>)</td>\n<td>\u2014</td>\n<td>Deels</td>\n</tr>\n<tr>\n<td>12</td>\n<td>Renovatie met isolatie</td>\n<td><code>Verbouwen of hergebruik</code> niet gesplitst op isolatie</td>\n<td>\u2014</td>\n<td>Deels</td>\n</tr>\n<tr>\n<td>13</td>\n<td>Renovatie zonder isolatie</td>\n<td>Idem; in flows: 50/50 split van totaal renovatie</td>\n<td>\u2014</td>\n<td>Deels</td>\n</tr>\n<tr>\n<td>14</td>\n<td>Publieke verkopen percelen</td>\n<td>50% van transacties <code>industrie_terrein</code> (aannname)</td>\n<td>Zelfde, via NIS-filter Brussel</td>\n<td>Deels</td>\n</tr>\n<tr>\n<td>15</td>\n<td>Priv\u00e9 + publieke verkopen percelen</td>\n<td>Som <code>sum_ParcelsNumber</code> industrie_terrein; landelijk, geen contour</td>\n<td>Idem</td>\n<td>Deels</td>\n</tr>\n<tr>\n<td>16</td>\n<td>Publieke verkopen woningen</td>\n<td>50% van woningen+appartementen (aannname)</td>\n<td>NIS-filter Brussel</td>\n<td>Deels</td>\n</tr>\n<tr>\n<td>17</td>\n<td>Priv\u00e9 + publieke verkopen woningen</td>\n<td>Som transacties woningen+appartementen; landelijk</td>\n<td>Idem</td>\n<td>Deels</td>\n</tr>\n<tr>\n<td>18</td>\n<td>Woongebied-aanduiding (5 jaar)</td>\n<td>Excel-kolom ongewijzigd per contour</td>\n<td>Geen: <strong>0</strong></td>\n<td>OK (Vlaanderen)</td>\n</tr>\n<tr>\n<td>19</td>\n<td>Woningen akoestisch isoleerbaar (geluidsbuffers)</td>\n<td>Nog niet gekoppeld (<code>aanleg_geluidsbuffers</code> rate=0)</td>\n<td>Idem</td>\n<td>Niet berekend</td>\n</tr>\n<tr>\n<td>20</td>\n<td>Inwoners per contour en sector</td>\n<td>Contour: <code>inwoners_vlaanderen</code> + <code>inwoners_brussel</code></td>\n<td>Sector: ruwe <code>raw_brussel_lden</code> (1033 sectoren)</td>\n<td>OK / deels</td>\n</tr>\n</tbody>\n</table>\n<span class=\"paragraph\">Zie de codecel hieronder voor een <strong>samenvattende dataframe</strong> en voorbeeldwaarden uit de tussenstappen.</span></span>"
+          }
+        }
+      ],
+      "console": []
+    },
+    {
+      "id": "mfOT",
+      "code_hash": "6e8b1d6a434f9f8480c6e30d07b6cdeb",
+      "outputs": [
+        {
+          "type": "error",
+          "ename": "exception",
+          "evalue": "An ancestor raised an exception (TypeError): ",
+          "traceback": null
+        }
+      ],
+      "console": []
+    },
+    {
+      "id": "vGiW",
+      "code_hash": "1a6736f171acb595b49a45f0153ac09b",
+      "outputs": [
+        {
+          "type": "data",
+          "data": {
+            "text/markdown": "<span class=\"markdown prose dark:prose-invert contents\"><h2 id=\"deel-d-validatie-consolidatie\">Deel D \u2014 Validatie consolidatie</h2></span>"
+          }
+        }
+      ],
+      "console": []
+    },
+    {
+      "id": "SYQT",
+      "code_hash": "0edb35d680d34337822de588cba2acaf",
+      "outputs": [
+        {
+          "type": "data",
+          "data": {
+            "application/json": "{\"aantal_contourbanden\": 30, \"conversie_aandeel_som_ok\": true, \"vergunningen_niet_toewijsbaar_pct\": null, \"vergunningen_niet_toewijsbaar_eenheden\": \"text/plain+float:3367022.3\", \"vergunningen_niet_toewijsbaar_gemeenten\": 4}"
+          }
+        }
+      ],
+      "console": []
+    },
+    {
+      "id": "bMrW",
+      "code_hash": "689f733889d03376ac885bc57863164e",
+      "outputs": [
+        {
+          "type": "data",
+          "data": {
+            "text/markdown": "<span class=\"markdown prose dark:prose-invert contents\"><span class=\"paragraph\"><strong>Let op:</strong> gemeenten zonder match op <code>T_MUN_NL</code> (bv. fusiegemeenten) blijven in <code>vergunningen_niet_toewijsbaar.parquet</code>. Overige ringgemeenten worden via <code>population 2024 par bout de secteur stat.xlsx</code> naar contour verdeeld.</span></span>"
+          }
+        }
+      ],
+      "console": []
+    }
+  ]
+}

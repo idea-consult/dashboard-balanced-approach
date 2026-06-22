@@ -34,9 +34,33 @@ The application has been restructured into a modular architecture with clear sep
 │   ├── auth.py                 # Authentication logic
 │   └── components.py           # Streamlit UI components
 │
+├── contour/                    # Contour data + flow-rate preparation (see below)
+├── contour_data.ipynb          # Load sources → parquet (STOCKS_EN_FLOWS §2)
+├── contour_flows.ipynb         # Stocks, tellers, flow rates → input/ (STOCKS_EN_FLOWS §4)
+├── contour_legacy.ipynb        # Archived monolithic notebook
 ├── input/                      # CSV input data (see below)
 └── output/                     # Generated CSV outputs (stock, flow logs)
+    └── intermediate/           # Parquet tussenbestanden (contour pipeline)
 ```
+
+## Contour pipeline (`contour/` + notebooks)
+
+Brondata in `data/` wordt via twee notebooks (of `contour.pipeline`) omgezet naar dashboard-inputs:
+
+1. **`contour_data.ipynb`** — inventaris, laden, consolidatie naar `output/intermediate/*.parquet`.
+2. **`contour_flows.ipynb`** — stocks/tellers/flow rates per `measure_id`; export naar `input/lden_contour.csv`, `input/lnight_contour.csv` en bijgewerkte rates in `input/flow_rules.csv`.
+
+| Module | Rol |
+|--------|-----|
+| `contour/loaders.py` | Lezen Excel/CSV bronnen |
+| `contour/consolidate.py` | `contour_lden` / `contour_lnight` master-tabellen |
+| `contour/spatial.py` | Gemeente→dB-contour; stub CaPaKey→contour |
+| `contour/flows.py` | Flow-rate berekening (STOCKS_EN_FLOWS_BEREKENEN.md §4) |
+| `contour/export.py` | Schrijven naar `input/` |
+| `contour/prices.py` | Prijzen per contour uit `transacties_vastgoed/` (vervangt dummy Excel-prijzen) |
+| `contour/pipeline.py` | End-to-end `run_data_pipeline()` / `run_flows_pipeline()` |
+
+Zie [`STOCKS_EN_FLOWS_BEREKENEN.md`](STOCKS_EN_FLOWS_BEREKENEN.md) §6 voor workflow en openstaande blokkades.
 
 ## Input data (`input/`)
 

@@ -23,6 +23,8 @@ FLOW_RULES_FILE = f"{INPUT_DIR}/flow_rules.csv"
 MEASURE_COSTS_FILE = f"{INPUT_DIR}/measure_costs.csv"
 LDEN_CONTOUR_FILE = f"{INPUT_DIR}/lden_contour.csv"
 LNIGHT_CONTOUR_FILE = f"{INPUT_DIR}/lnight_contour.csv"
+LDEN_CONTOUR_REGIONAL_FILE = f"{INPUT_DIR}/lden_contour_regional.csv"
+LNIGHT_CONTOUR_REGIONAL_FILE = f"{INPUT_DIR}/lnight_contour_regional.csv"
 LDEN_ZONES_FILE = f"{INPUT_DIR}/lden_zones.csv"
 LNIGHT_ZONES_FILE = f"{INPUT_DIR}/lnight_zones.csv"
 # Default zones file (Lden)

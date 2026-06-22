@@ -357,21 +357,23 @@ class SimulationEngine:
             return 0.0
 
         zone_mask = self.stock_manager.df_contour["zone"] == zone
-        if "aantal_woningen_totaal" in self.stock_manager.df_contour.columns:
-            woningen_col = "aantal_woningen_totaal"
+        if "inwoners_per_contour" in self.stock_manager.df_contour.columns:
+            weight_col = "inwoners_per_contour"
+        elif "aantal_woningen_totaal" in self.stock_manager.df_contour.columns:
+            weight_col = "aantal_woningen_totaal"
         elif "aantal_woningen" in self.stock_manager.df_contour.columns:
-            woningen_col = "aantal_woningen"
+            weight_col = "aantal_woningen"
         else:
-            woningen_col = "huizen"
-        zone_df = self.stock_manager.df_contour.loc[zone_mask, [price_col, woningen_col]].dropna()
+            weight_col = "huizen"
+        zone_df = self.stock_manager.df_contour.loc[zone_mask, [price_col, weight_col]].dropna()
         if zone_df.empty:
             return 0.0
 
-        woningen_sum = float(zone_df[woningen_col].sum())
-        if woningen_sum <= 0:
+        weight_sum = float(zone_df[weight_col].sum())
+        if weight_sum <= 0:
             return 0.0
 
-        weighted_price = float((zone_df[price_col] * zone_df[woningen_col]).sum() / woningen_sum)
+        weighted_price = float((zone_df[price_col] * zone_df[weight_col]).sum() / weight_sum)
         return float(outflow_absolute) * weighted_price
 
     def get_total_costs(self) -> Tuple[float, float]:
@@ -588,7 +590,7 @@ class SimulationEngine:
             "totaal_gehinderde_personen",
             "totaal_gehinderde_personen_vlaanderen",
             "totaal_gehinderde_personen_brussel",
-            *StockManager.regional_stock_names(),
+            *self.stock_manager.get_simulation_stock_names(),
         ]
 
         for j in range(beginjaar, eindjaar + 1):
