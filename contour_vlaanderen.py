@@ -1,12 +1,16 @@
 import polars as pl
 import streamlit as st
 
+import contour_vlaanderen_grafieken as grafieken
+from contour_vlaanderen_grafieken import TOON_KAARTEN as _DEFAULT_TOON_KAARTEN
 from contour_vlaanderen_grafieken import toon_staafdiagram_per_gewest
 from contour_vlaanderen_kaart import toon_overlap_kaart
 from contour_vlaanderen_kolommen import KOLOM_HERNAMING, toon_kolomdocumentatie
 
 # uv run streamlit run contour_vlaanderen.py
 
+TOON_KAARTEN = False
+grafieken.TOON_KAARTEN = TOON_KAARTEN
 
 st.set_page_config(page_title="Data analyse contour Vlaanderen", layout="wide")
 st.title("Data analyse contour Vlaanderen")
@@ -16,8 +20,9 @@ with st.expander("Kolomoverzicht & uitleg", expanded=False):
     toon_kolomdocumentatie()
 
 st.subheader("Kaart")
-df = pl.read_excel("data/20260619 data vlaanderen 1.xlsx").rename(KOLOM_HERNAMING)
-toon_overlap_kaart(df)
+df = pl.read_excel("data/20260623 data vlaanderen 1.xlsx").rename(KOLOM_HERNAMING)
+if TOON_KAARTEN:
+    toon_overlap_kaart(df)
 
 st.subheader("Data")
 st.caption(f"{df.height:,} rijen · {df.width} kolommen")
@@ -203,8 +208,6 @@ toon_staafdiagram_per_gewest(
 """
 ### Totaal aantal transacties
 Om te berekenen hoeveel woningen kunnen opgekocht worden door voorkooprecht of aankoopbeleid moeten we weten hoeveel er jaarlijks verkocht worden.
-
-hiervoor gebruiken we data over het aantal transacties Vragen aan Gaelle om dit te corrigeren.
 """
 df_huis_transacties = pl.read_csv(
     "data/transacties_vastgoed/transacties_woningen.csv",
@@ -291,12 +294,12 @@ toon_staafdiagram_per_gewest(
 
 """
 ### Aantal transacties van bebouwbare percelen
-Geen info.
+Geen info. Al gevraagd aan Gaëlle.
 """
 
 """
 ### Aantal transacties van onbebouwbare percelen
-Geen info
+Geen info, al gevraagd aan Gaëlle
 """
 
 """
@@ -310,9 +313,171 @@ Geen info
 """
 
 """
-### Vergunningen nieuwbouw
+### Aantal vergunningen nieuwbouw
+Van het departement omgeving kregen we data over het aantal vergunningen per gemeente. We nemen een gemiddelde van de jaren 2021 tot en met 2025.
+
+Het aantal vergunningen per jaar wordt dan toegevoegd aan de originele dataset, deze worden toegewezen op basis van het aantal bebouwbare percelen per statistische sector van een gemeente. Als er bijvoorbeeld 100 vergunningen gemiddeld per jaar zijn in gemeente x en gemeente x is verdeeld in 2 statistische sectoren, met
+- sector 1: 30 bebouwbare percelen
+- sector 2: 20 bebouwbare percelen
+
+Dan wordt van sector 1 gezegd dat het gemiddeld jaarlijks aantal vergunningen 60 bedraagt en sector 2 is dan 40.
 """
+df_vergunningen = pl.read_csv(
+    "data/vergunningen_omgevingsloket_2026_lang.csv", separator=";"
+)
+
+df_vergunningen_nieuwbouw = (
+    df_vergunningen.filter(
+        (pl.col("handeling") == "Nieuwbouw")
+        & pl.col("jaar_indiening").cast(pl.Int64, strict=False).is_between(2021, 2025)
+        & (pl.col("gebouw_functie") == "Totalen")
+        & (pl.col("metriek") == "Aantal wooneenheden")
+        & (~pl.col("gemeente").is_in(["Totalen", "-", "(deels) Niet in Vlaanderen"]))
+    )
+    .group_by("gemeente")
+    .agg((pl.col("waarde").sum() / 5).alias("gemiddeld_per_jaar"))
+    .sort("gemeente")
+)
+st.dataframe(df_vergunningen_nieuwbouw, use_container_width=True)
+
+totaal_percelen_woongebied_gemeente = df.group_by("naam_gemeente_nl").agg(
+    pl.col("aantal_percelen_onbebouwd_woongebied")
+    .fill_null(0)
+    .sum()
+    .alias("totaal_percelen_woongebied_gemeente")
+)
+
+df = (
+    df.join(totaal_percelen_woongebied_gemeente, on="naam_gemeente_nl", how="left")
+    .join(
+        df_vergunningen_nieuwbouw,
+        left_on="naam_gemeente_nl",
+        right_on="gemeente",
+        how="left",
+    )
+    .with_columns(
+        pl.when(pl.col("totaal_percelen_woongebied_gemeente") > 0)
+        .then(
+            pl.col("gemiddeld_per_jaar").fill_null(0)
+            * pl.col("aantal_percelen_onbebouwd_woongebied").fill_null(0)
+            / pl.col("totaal_percelen_woongebied_gemeente")
+        )
+        .otherwise(0.0)
+        .alias("aantal_vergunningen_nieuwbouw")
+    )
+    .drop("totaal_percelen_woongebied_gemeente", "gemiddeld_per_jaar")
+)
+
+toon_staafdiagram_per_gewest(
+    df,
+    kolom="aantal_vergunningen_nieuwbouw",
+    titel="Vergunde wooneenheden nieuwbouw per zone",
+    y_label="Wooneenheden per jaar (gem.)",
+)
 
 """
-### Vergunningen 
+### Vergunningen renovatie
+Dezelfde dataset wordt gebruikt, maar deze keer wordt er gefilterd op "Verbouwen of hergebruik". Het aantal renovaties wordt toegewezen aan elke intersectie adhv het aantal woningen in elke intersectie, zoals in het voorbeeld hierboven, maar met woningen en geen percelen.
 """
+df_vergunningen_renovatie = (
+    df_vergunningen.filter(
+        (pl.col("handeling") == "Verbouwen of hergebruik")
+        & pl.col("jaar_indiening").cast(pl.Int64, strict=False).is_between(2021, 2025)
+        & (pl.col("gebouw_functie") == "Totalen")
+        & (pl.col("metriek") == "Aantal wooneenheden")
+        & (~pl.col("gemeente").is_in(["Totalen", "-", "(deels) Niet in Vlaanderen"]))
+    )
+    .group_by("gemeente")
+    .agg((pl.col("waarde").sum() / 5).alias("gemiddeld_per_jaar"))
+    .sort("gemeente")
+)
+totaal_woningen_per_gemeente = df.group_by("naam_gemeente_nl").agg(
+    pl.col("aantal_woningen")
+    .fill_null(0)
+    .sum()
+    .alias("totaal_aantal_woningen_gemeente")
+)
+
+df = (
+    df.join(totaal_woningen_per_gemeente, on="naam_gemeente_nl", how="left")
+    .join(
+        df_vergunningen_renovatie,
+        left_on="naam_gemeente_nl",
+        right_on="gemeente",
+        how="left",
+    )
+    .with_columns(
+        pl.when(pl.col("totaal_aantal_woningen_gemeente") > 0)
+        .then(
+            pl.col("gemiddeld_per_jaar").fill_null(0)
+            * pl.col("aantal_woningen").fill_null(0)
+            / pl.col("totaal_aantal_woningen_gemeente")
+        )
+        .otherwise(0.0)
+        .alias("aantal_vergunningen_renovatie")
+    )
+    .drop("totaal_aantal_woningen_gemeente", "gemiddeld_per_jaar")
+)
+toon_staafdiagram_per_gewest(
+    df,
+    kolom="aantal_vergunningen_renovatie",
+    titel="Vergunde renovaties per zone per jaar",
+    y_label="Wooneenheden per jaar (gem.)",
+)
+"""
+### Aantal vergunningen kwetsbare groepen
+Hier wordt onderzocht hoeveel vergunde wooneenheden jaarlijks worden toegekend aan kwetsbare groepen. Deze worden toegewezen adhv de onbebouwde percelen per intersectie.
+"""
+df_vergunningen_kwetsbare_groepen = pl.read_csv(
+    "data/vergunningen_kwetsbare_functies_2026_lang.csv", separator=";"
+)
+
+df_vergunningen_kwetsbare_groepen = (
+    df_vergunningen_kwetsbare_groepen.filter(
+        (pl.col("handeling") == "Totalen")
+        & pl.col("jaar_indiening").cast(pl.Int64, strict=False).is_between(2021, 2025)
+        # & (pl.col("gebouw_functie") == "Totalen")
+        & (pl.col("metriek") == "Aantal projecten")
+        & (~pl.col("gemeente").is_in(["Totalen", "-", "(deels) Niet in Vlaanderen"]))
+    )
+    .group_by("gemeente")
+    .agg((pl.col("waarde").sum() / 5).alias("gemiddeld_per_jaar"))
+    .sort("gemeente")
+)
+totaal_percelen_woongebied_gemeente = df.group_by("naam_gemeente_nl").agg(
+    pl.col("aantal_percelen_onbebouwd_woongebied")
+    .fill_null(0)
+    .sum()
+    .alias("totaal_percelen_woongebied_gemeente")
+)
+
+df = (
+    df.join(totaal_percelen_woongebied_gemeente, on="naam_gemeente_nl", how="left")
+    .join(
+        df_vergunningen_kwetsbare_groepen,
+        left_on="naam_gemeente_nl",
+        right_on="gemeente",
+        how="left",
+    )
+    .with_columns(
+        pl.when(pl.col("totaal_percelen_woongebied_gemeente") > 0)
+        .then(
+            pl.col("gemiddeld_per_jaar").fill_null(0)
+            * pl.col("aantal_percelen_onbebouwd_woongebied").fill_null(0)
+            / pl.col("totaal_percelen_woongebied_gemeente")
+        )
+        .otherwise(0.0)
+        .alias("aantal_vergunningen_nieuwbouw")
+    )
+    .drop("totaal_percelen_woongebied_gemeente", "gemiddeld_per_jaar")
+)
+
+toon_staafdiagram_per_gewest(
+    df,
+    kolom="aantal_vergunningen_nieuwbouw",
+    titel="Vergunde wooneenheden nieuwbouw per zone",
+    y_label="Wooneenheden per jaar (gem.)",
+)
+
+
+st.dataframe(df_vergunningen_kwetsbare_groepen)

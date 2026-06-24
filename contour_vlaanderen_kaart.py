@@ -122,6 +122,135 @@ def _kaart_features(df: pl.DataFrame) -> tuple[list[dict], int]:
     return features, overgeslagen
 
 
+def _waarde_naar_kleur(waarde: float, min_val: float, max_val: float) -> list[int]:
+    """Kleurverloop van licht paars (lage waarde) naar donker paars (hoge waarde)."""
+    if max_val <= min_val:
+        t = 0.5 if waarde > 0 else 0.0
+    else:
+        t = max(0.0, min(1.0, (waarde - min_val) / (max_val - min_val)))
+    return [
+        int(232 + (78 - 232) * t),
+        int(223 + (37 - 223) * t),
+        int(240 + (103 - 240) * t),
+        160,
+    ]
+
+
+def _kaart_features_voor_kolom(
+    df: pl.DataFrame,
+    kolom: str,
+    *,
+    geometrie_kolom: str = "geometrie_inter_ss_lden",
+) -> tuple[list[dict], int, float, float]:
+    waarden = df.select(pl.col(kolom).fill_null(0).cast(pl.Float64)).to_series().to_list()
+    min_val = min(waarden) if waarden else 0.0
+    max_val = max(waarden) if waarden else 0.0
+
+    features: list[dict] = []
+    overgeslagen = 0
+    for row in df.iter_rows(named=True):
+        polygonen = _polygonen_voor_geometrie(row[geometrie_kolom])
+        if not polygonen:
+            overgeslagen += 1
+            continue
+        waarde = float(row[kolom] or 0)
+        kleur = _waarde_naar_kleur(waarde, min_val, max_val)
+        for poly in polygonen:
+            ring = poly[0]
+            if len(ring) < 3:
+                continue
+            features.append(
+                {
+                    "polygon": [list(pt) for pt in ring],
+                    "db_lden": row["db_lden"],
+                    "gemeente": row["naam_gemeente_nl"],
+                    "sector": row["naam_sector_nl"],
+                    "regio": row["regio_nl"],
+                    "waarde": waarde,
+                    "kleur": kleur,
+                }
+            )
+    return features, overgeslagen, min_val, max_val
+
+
+def toon_waarde_kaart(
+    df: pl.DataFrame,
+    kolom: str,
+    *,
+    y_label: str = "Waarde",
+    geometrie_kolom: str = "geometrie_inter_ss_lden",
+    waarde_format: str = ",.0f",
+    hoogte: int = 500,
+) -> None:
+    """Toon overlap-polygonen met een kleurschaal op basis van ``kolom``."""
+    if kolom not in df.columns:
+        st.warning(f"Kolom '{kolom}' niet gevonden voor kaartweergave.")
+        return
+    if geometrie_kolom not in df.columns:
+        st.warning("Geometrie ontbreekt; kaart kan niet getoond worden.")
+        return
+
+    features, overgeslagen, min_val, max_val = _kaart_features_voor_kolom(
+        df, kolom, geometrie_kolom=geometrie_kolom
+    )
+
+    if overgeslagen:
+        st.warning(
+            f"{overgeslagen} overlap(s) niet getoond: geometrie ontbreekt of is afgekapt."
+        )
+
+    if not features:
+        st.info("Geen polygonen om te tonen.")
+        return
+
+    midden_lat = sum(pt[1] for f in features for pt in f["polygon"]) / sum(
+        len(f["polygon"]) for f in features
+    )
+    midden_lon = sum(pt[0] for f in features for pt in f["polygon"]) / sum(
+        len(f["polygon"]) for f in features
+    )
+
+    st.pydeck_chart(
+        pdk.Deck(
+            map_style="https://basemaps.cartocdn.com/gl/positron-gl-style/style.json",
+            initial_view_state=pdk.ViewState(
+                latitude=midden_lat,
+                longitude=midden_lon,
+                zoom=10,
+                pitch=0,
+            ),
+            layers=[
+                pdk.Layer(
+                    "PolygonLayer",
+                    data=features,
+                    get_polygon="polygon",
+                    get_fill_color="kleur",
+                    get_line_color=[78, 37, 103, 80],
+                    line_width_min_pixels=1,
+                    pickable=True,
+                    stroked=True,
+                    filled=True,
+                ),
+            ],
+            tooltip={
+                "html": (
+                    "<b>{gemeente}</b> — {sector}<br/>"
+                    "<b>dB:</b> {db_lden}<br/>"
+                    f"<b>{y_label}:</b> {{waarde}}<br/>"
+                    "<b>Regio:</b> {regio}"
+                ),
+                "style": {"backgroundColor": "#4E2567", "color": "white"},
+            },
+        ),
+        height=hoogte,
+    )
+
+    st.caption(
+        f"{len(features):,} polygonen · {y_label}: "
+        f"{min_val:{waarde_format}} (licht) → {max_val:{waarde_format}} (donker)"
+    )
+
+
 def toon_overlap_kaart(df: pl.DataFrame) -> None:
     db_waarden = sorted(df["db_lden"].unique().to_list())
     geselecteerde_db = st.multiselect(

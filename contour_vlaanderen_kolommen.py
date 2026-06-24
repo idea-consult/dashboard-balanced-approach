@@ -31,6 +31,18 @@ KOLOM_HERNAMING = {
     "Population attribuée à la section de secteur statistique intersectée avec le contour de bruit": "inwoners_overlap",
     "Population à partir des données transmises par le client ": "inwoners_client",
     "Nombre de bâtiment résidentiel": "aantal_woningen",
+    "Nombre de parcelles non construites en zone résidentielle": "aantal_percelen_onbebouwd_woningzone",
+    "Surface des parcelles non construites en zone résidentielle m²": "oppervlakte_percelen_onbebouwd_woningzone_m2",
+    "Nombre de parcelles non construites en overige woongebieden": "aantal_percelen_onbebouwd_overige_woongebieden",
+    "Nombre de parcelles non construites en woongebied": "aantal_percelen_onbebouwd_woongebied",
+    "Nombre de parcelles non construites en woongebied met landelijk karakter": "aantal_percelen_onbebouwd_woongebied_landelijk",
+    "Nombre de parcelles non construites en woonpark": "aantal_percelen_onbebouwd_woonpark",
+    "Nombre de parcelles non construites en overige woonreserve": "aantal_percelen_onbebouwd_overige_woonreserve",
+    "Surface des parcelles non construites en overige woongebieden m2": "oppervlakte_percelen_onbebouwd_overige_woongebieden_m2",
+    "Surface des parcelles non construites en woongebied m2": "oppervlakte_percelen_onbebouwd_woongebied_m2",
+    "Surface des parcelles non construites en woongebied met landelijk karakter m2": "oppervlakte_percelen_onbebouwd_woongebied_landelijk_m2",
+    "Surface des parcelles non construites en woonpark m2": "oppervlakte_percelen_onbebouwd_woonpark_m2",
+    "Surface des parcelles non construites en overige woonreserve m2": "oppervlakte_percelen_onbebouwd_overige_woonreserve_m2",
 }
 
 KOLOM_GROEPEN = [
@@ -149,6 +161,69 @@ KOLOM_GROEPEN = [
             (
                 "aantal_woningen",
                 "Aantal residentiële gebouwen (woningen) in de overlap tussen sector en contour.",
+            ),
+        ],
+    },
+    {
+        "titel": "Onbebouwde percelen — aantal",
+        "beschrijving": (
+            "Aantal onbebouwde percelen per bestemmingscategorie in de overlap, "
+            "volgens het Vlaamse ruimtelijke ordeningsbeleid (woongebieden)."
+        ),
+        "kolommen": [
+            (
+                "aantal_percelen_onbebouwd_woningzone",
+                "Onbebouwde percelen in de woningzone (zone résidentielle).",
+            ),
+            (
+                "aantal_percelen_onbebouwd_woongebied",
+                "Onbebouwde percelen in woongebied.",
+            ),
+            (
+                "aantal_percelen_onbebouwd_woongebied_landelijk",
+                "Onbebouwde percelen in woongebied met landelijk karakter.",
+            ),
+            (
+                "aantal_percelen_onbebouwd_woonpark",
+                "Onbebouwde percelen in woonpark.",
+            ),
+            (
+                "aantal_percelen_onbebouwd_overige_woongebieden",
+                "Onbebouwde percelen in overige woongebieden.",
+            ),
+            (
+                "aantal_percelen_onbebouwd_overige_woonreserve",
+                "Onbebouwde percelen in overige woonreserve.",
+            ),
+        ],
+    },
+    {
+        "titel": "Onbebouwde percelen — oppervlakte",
+        "beschrijving": "Oppervlakte (m²) van dezelfde onbebouwde percelen per bestemmingscategorie.",
+        "kolommen": [
+            (
+                "oppervlakte_percelen_onbebouwd_woningzone_m2",
+                "Oppervlakte onbebouwde percelen in de woningzone.",
+            ),
+            (
+                "oppervlakte_percelen_onbebouwd_woongebied_m2",
+                "Oppervlakte onbebouwde percelen in woongebied.",
+            ),
+            (
+                "oppervlakte_percelen_onbebouwd_woongebied_landelijk_m2",
+                "Oppervlakte onbebouwde percelen in woongebied met landelijk karakter.",
+            ),
+            (
+                "oppervlakte_percelen_onbebouwd_woonpark_m2",
+                "Oppervlakte onbebouwde percelen in woonpark.",
+            ),
+            (
+                "oppervlakte_percelen_onbebouwd_overige_woongebieden_m2",
+                "Oppervlakte onbebouwde percelen in overige woongebieden.",
+            ),
+            (
+                "oppervlakte_percelen_onbebouwd_overige_woonreserve_m2",
+                "Oppervlakte onbebouwde percelen in overige woonreserve.",
             ),
         ],
     },
