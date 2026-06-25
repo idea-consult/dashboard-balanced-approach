@@ -12,6 +12,17 @@ from pyproj import Transformer
 
 _LAMBERT_NAAR_WGS84 = Transformer.from_crs("EPSG:31370", "EPSG:4326", always_xy=True)
 
+# Duidelijk contrast laag ↔ hoog op kaarten (lichtblauw → koraalrood, cf. Brussel in grafieken)
+_KLEUR_LAAG = (158, 202, 225, 175)
+_KLEUR_HOOG = (221, 91, 97, 210)
+_KLEUR_RAND = [60, 60, 60, 100]
+
+
+def _interpoleer_kleur(t: float) -> list[int]:
+    """Lineair tussen twee contrasterende kleuren (t ∈ [0, 1])."""
+    t = max(0.0, min(1.0, t))
+    return [int(_KLEUR_LAAG[i] + (_KLEUR_HOOG[i] - _KLEUR_LAAG[i]) * t) for i in range(4)]
+
 
 def _parse_ring(data: bytes, offset: int, endian: str, has_z: bool) -> tuple[list[list[float]], int]:
     npts = struct.unpack(endian + "I", data[offset : offset + 4])[0]
@@ -76,14 +87,9 @@ def ewkb_hex_naar_polygonen(hex_geom: str) -> list[list[list[list[float]]]]:
 
 
 def _db_naar_kleur(db: int) -> list[int]:
-    """Kleurverloop van licht paars (lage dB) naar donker paars (hoge dB)."""
+    """Kleurverloop: lage dB = lichtblauw, hoge dB = koraalrood."""
     t = max(0.0, min(1.0, (db - 45) / 30))
-    return [
-        int(166 + (78 - 166) * t),
-        int(139 + (37 - 139) * t),
-        int(184 + (103 - 184) * t),
-        120,
-    ]
+    return _interpoleer_kleur(t)
 
 
 @lru_cache(maxsize=4096)
@@ -123,17 +129,12 @@ def _kaart_features(df: pl.DataFrame) -> tuple[list[dict], int]:
 
 
 def _waarde_naar_kleur(waarde: float, min_val: float, max_val: float) -> list[int]:
-    """Kleurverloop van licht paars (lage waarde) naar donker paars (hoge waarde)."""
+    """Kleurverloop: lage waarde = lichtblauw, hoge waarde = koraalrood."""
     if max_val <= min_val:
         t = 0.5 if waarde > 0 else 0.0
     else:
         t = max(0.0, min(1.0, (waarde - min_val) / (max_val - min_val)))
-    return [
-        int(232 + (78 - 232) * t),
-        int(223 + (37 - 223) * t),
-        int(240 + (103 - 240) * t),
-        160,
-    ]
+    return _interpoleer_kleur(t)
 
 
 def _kaart_features_voor_kolom(
@@ -173,6 +174,35 @@ def _kaart_features_voor_kolom(
     return features, overgeslagen, min_val, max_val
 
 
+def tel_overgeslagen_overlaps(
+    df: pl.DataFrame,
+    *,
+    geometrie_kolom: str = "geometrie_inter_ss_lden",
+) -> int:
+    """Tel intersecties waarvan de geometrie niet op de kaart getoond kan worden."""
+    if geometrie_kolom not in df.columns:
+        return 0
+    overgeslagen = 0
+    for geom in df[geometrie_kolom].to_list():
+        if not _polygonen_voor_geometrie(geom or ""):
+            overgeslagen += 1
+    return overgeslagen
+
+
+def toon_geometrie_waarschuwing(
+    df: pl.DataFrame,
+    *,
+    geometrie_kolom: str = "geometrie_inter_ss_lden",
+) -> None:
+    """Toon waarschuwing over ontbrekende/afgekapte geometrie één keer bovenaan de pagina."""
+    overgeslagen = tel_overgeslagen_overlaps(df, geometrie_kolom=geometrie_kolom)
+    if overgeslagen:
+        st.warning(
+            f"{overgeslagen} overlap(s) niet getoond op kaarten: geometrie ontbreekt of is "
+            "afgekapt (bv. Excel-limiet 32.765 tekens per cel)."
+        )
+
+
 def toon_waarde_kaart(
     df: pl.DataFrame,
     kolom: str,
@@ -190,14 +220,9 @@ def toon_waarde_kaart(
         st.warning("Geometrie ontbreekt; kaart kan niet getoond worden.")
         return
 
-    features, overgeslagen, min_val, max_val = _kaart_features_voor_kolom(
+    features, _, min_val, max_val = _kaart_features_voor_kolom(
         df, kolom, geometrie_kolom=geometrie_kolom
     )
-
-    if overgeslagen:
-        st.warning(
-            f"{overgeslagen} overlap(s) niet getoond: geometrie ontbreekt of is afgekapt."
-        )
 
     if not features:
         st.info("Geen polygonen om te tonen.")
@@ -225,7 +250,7 @@ def toon_waarde_kaart(
                     data=features,
                     get_polygon="polygon",
                     get_fill_color="kleur",
-                    get_line_color=[78, 37, 103, 80],
+                    get_line_color=_KLEUR_RAND,
                     line_width_min_pixels=1,
                     pickable=True,
                     stroked=True,
@@ -247,7 +272,7 @@ def toon_waarde_kaart(
 
     st.caption(
         f"{len(features):,} polygonen · {y_label}: "
-        f"{min_val:{waarde_format}} (licht) → {max_val:{waarde_format}} (donker)"
+        f"{min_val:{waarde_format}} (blauw, laag) → {max_val:{waarde_format}} (rood, hoog)"
     )
 
 
@@ -261,13 +286,7 @@ def toon_overlap_kaart(df: pl.DataFrame) -> None:
     )
 
     gefilterd = df.filter(pl.col("db_lden").is_in(geselecteerde_db))
-    features, overgeslagen = _kaart_features(gefilterd)
-
-    if overgeslagen:
-        st.warning(
-            f"{overgeslagen} overlap(s) niet getoond: geometrie ontbreekt of is afgekapt "
-            "(Excel-limiet 32.765 tekens per cel)."
-        )
+    features, _ = _kaart_features(gefilterd)
 
     if not features:
         st.info("Geen polygonen om te tonen met dit filter.")
@@ -282,7 +301,8 @@ def toon_overlap_kaart(df: pl.DataFrame) -> None:
 
     st.caption(
         f"{len(features):,} polygonen getoond "
-        f"(van {df.height:,} overlaps · filter: {len(geselecteerde_db)} dB-banden)"
+        f"(van {df.height:,} overlaps · filter: {len(geselecteerde_db)} dB-banden) · "
+        "kleur: laag dB = blauw, hoog dB = rood"
     )
 
     st.pydeck_chart(
@@ -300,7 +320,7 @@ def toon_overlap_kaart(df: pl.DataFrame) -> None:
                     data=features,
                     get_polygon="polygon",
                     get_fill_color="kleur",
-                    get_line_color=[78, 37, 103],
+                    get_line_color=_KLEUR_RAND,
                     line_width_min_pixels=1,
                     pickable=True,
                     stroked=True,
