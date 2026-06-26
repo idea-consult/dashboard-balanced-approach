@@ -1,4 +1,4 @@
-"""Helpteksten voor maatregelen, incl. flow-regels uit flow_rules.csv."""
+"""Helpteksten voor maatregelen, incl. flow-regels uit flow_size.csv (zelfde bron als simulatie)."""
 
 from __future__ import annotations
 
@@ -11,13 +11,16 @@ FLOW_MODE_TITLES = {
     "transfer": "Transfer",
 }
 
+# Percentages in tooltips: gewogen gemiddelde uit flow_size.csv (per LDEN-band).
+FLOW_RATE_HELP_DECIMALS = 4
+
 
 def _stock_label(stock_name: str) -> str:
     return str(stock_name).replace("_", " ")
 
 
 def _format_flow_rate(rate: float) -> str:
-    return f"{format_number(float(rate) * 100, decimals=1)} %"
+    return f"{format_number(float(rate) * 100, decimals=FLOW_RATE_HELP_DECIMALS)} %"
 
 
 def _rate_phrase(rate: float) -> str:
@@ -102,6 +105,14 @@ def format_flow_rule_block(row: pd.Series, *, rule_index: int | None = None) -> 
         _active_scenario(mode, inflow, outflow, active),
         "",
         "#### Technische parameters",
+        (
+            "De percentages komen uit **`input/flow_size.csv`**: per LDEN-band (1 dB) is "
+            "teller ÷ noemer berekend in de voorbereidende analyse. Hier tonen we het "
+            "**gewogen gemiddelde over alle bands**, gewogen naar de noemer-stock van de flow "
+            "(bv. bewoonde woningen of bebouwbare percelen). De simulatie past per band de "
+            "**band-specifieke** rate toe; onderstaande waarden zijn een samenvatting."
+        ),
+        "",
         f"- **Flow-modus:** {mode_title}",
         f"- **Flow baseline** (maatregel uit): {_format_flow_rate(baseline)}",
         f"- **Flow actief** (maatregel aan): {_format_flow_rate(active)}",
@@ -130,7 +141,9 @@ def format_flow_help_section(flow_rules: pd.DataFrame) -> str:
     ]
     intro = (
         "Onderstaande uitleg beschrijft hoe deze maatregel jaarlijks stocks aanpast in de "
-        "simulatie. Selecteer zones in de sidebar om de maatregel actief te maken."
+        "simulatie. Selecteer zones in de sidebar om de maatregel actief te maken. "
+        "De getoonde flow-percentages zijn gewogen gemiddelden uit `flow_size.csv`; zie "
+        "*Technische parameters* voor de berekeningswijze."
     )
     return intro + "\n\n" + "\n\n".join(blocks)
 

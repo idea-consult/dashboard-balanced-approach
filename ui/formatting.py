@@ -15,7 +15,7 @@ ALTAIR_EURO_FORMAT = "$,.2f"
 
 def format_number(value: Number, *, decimals: int = 2) -> str:
     """Format a number as 1.000.000,00 (dot thousands, comma decimals)."""
-    if value is None or (isinstance(value, float) and math.isnan(value)):
+    if value is None or (isinstance(value, float) and (math.isnan(value) or math.isinf(value))):
         return ""
 
     num = float(value)

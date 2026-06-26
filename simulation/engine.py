@@ -10,7 +10,7 @@ from models.simulation_input_loader import (
     load_simulation_inputs,
     resolve_regional_flow_targets,
 )
-from simulation.state import SimulationOutputs, SimulationState
+from simulation.state import SimulationOutputs, SimulationState, FlowRule
 from simulation.helpers import calculate_leefbaarheidspunten_for_contour
 from config import (
     OUTPUT_DIR,
@@ -89,6 +89,11 @@ class SimulationEngine:
     def run_simulation_state(self, state: SimulationState) -> SimulationState:
         """Mutate simulation state only (no file writes / UI side effects)."""
         self.stock_manager.preload_contour_year_columns(state.eindjaar)
+        if state.uses_band_simulation:
+            return self._run_band_simulation_state(state)
+        return self._run_zone_simulation_state(state)
+
+    def _run_zone_simulation_state(self, state: SimulationState) -> SimulationState:
         for jaar in range(state.beginjaar, state.eindjaar):
             year_idx = state.year_to_idx[jaar]
             next_year_idx = state.year_to_idx[jaar + 1]
@@ -98,85 +103,104 @@ class SimulationEngine:
                     year_idx, zone_idx, :
                 ]
                 for rule in state.flow_rules_by_zone[zone]:
-                    inflow_targets = resolve_regional_flow_targets(
-                        rule.inflow_stock, state.stock_to_idx
-                    )
-                    outflow_targets = resolve_regional_flow_targets(
-                        rule.outflow_stock, state.stock_to_idx
-                    )
-                    if not inflow_targets or not outflow_targets:
-                        continue
-                    flow_rate = (
-                        rule.flow_rate_active if rule.active else rule.flow_rate_baseline
-                    )
-                    total_outflow_absolute = 0.0
-                    log_inflow_orig = 0.0
-                    log_inflow_new = 0.0
-                    log_outflow_orig = 0.0
-                    log_outflow_new = 0.0
+                    self._apply_flow_rule(state, rule, jaar, next_year_idx, zone_idx, zone)
+        return state
 
-                    for inflow_name, outflow_name in zip(inflow_targets, outflow_targets):
-                        inflow_idx = state.stock_to_idx[inflow_name]
-                        outflow_idx = state.stock_to_idx[outflow_name]
-                        inflow_stock_value = state.sim_state[
-                            next_year_idx, zone_idx, inflow_idx
-                        ]
-                        outflow_stock_value = state.sim_state[
-                            next_year_idx, zone_idx, outflow_idx
-                        ]
-                        flow_absolute = inflow_stock_value * flow_rate
-                        if rule.flow_mode == "growth":
-                            new_inflow = inflow_stock_value + flow_absolute
-                            new_outflow = (
-                                new_inflow
-                                if outflow_idx == inflow_idx
-                                else outflow_stock_value
-                            )
-                            outflow_absolute = flow_absolute
-                        else:
-                            new_inflow = inflow_stock_value - flow_absolute
-                            if new_inflow < 0:
-                                raise ValueError(
-                                    f"Future inflow stock value is negative for {inflow_name} in {zone} in {jaar}, using {rule.measure_id}."
-                                )
-                            new_outflow = outflow_stock_value + flow_absolute
-                            outflow_absolute = flow_absolute
-
-                        total_outflow_absolute += outflow_absolute
-                        log_inflow_orig += inflow_stock_value
-                        log_inflow_new += new_inflow
-                        log_outflow_orig += outflow_stock_value
-                        log_outflow_new += new_outflow
-
-                        state.sim_state[next_year_idx, zone_idx, inflow_idx] = new_inflow
-                        if outflow_idx != inflow_idx:
-                            state.sim_state[next_year_idx, zone_idx, outflow_idx] = new_outflow
-
-                    if rule.active:
-                        row_cost = self._calculate_row_cost(
-                            zone, rule.cost_stock, total_outflow_absolute
-                        )
-                        state.totale_kost_overheid += row_cost * rule.rel_cost_overheid
-                        state.totale_kost_prive += row_cost * rule.rel_cost_prive
-                    state.flow_log_rows.append(
-                        {
-                            "zone": zone,
-                            "jaar": jaar,
-                            "naam_flow": rule.measure_id,
-                            "maatregel_toegepast": rule.active,
-                            "flow_rate": flow_rate,
-                            "flow_mode": rule.flow_mode,
-                            "inflow_stock_name": rule.inflow_stock,
-                            "orig_future_inflow_stock_value": log_inflow_orig,
-                            "new_future_inflow_stock_value": log_inflow_new,
-                            "delta_inflow": log_inflow_new - log_inflow_orig,
-                            "outflow_stock_name": rule.outflow_stock,
-                            "orig_future_outflow_stock_value": log_outflow_orig,
-                            "new_future_outflow_stock_value": log_outflow_new,
-                            "delta_outflow": log_outflow_new - log_outflow_orig,
-                        }
+    def _run_band_simulation_state(self, state: SimulationState) -> SimulationState:
+        for jaar in range(state.beginjaar, state.eindjaar):
+            year_idx = state.year_to_idx[jaar]
+            next_year_idx = state.year_to_idx[jaar + 1]
+            for band in state.bands:
+                band_idx = state.band_to_idx[band]
+                state.sim_state[next_year_idx, band_idx, :] = state.sim_state[
+                    year_idx, band_idx, :
+                ]
+                for rule in state.flow_rules_by_band[band]:
+                    zone = state.band_to_zone[band]
+                    self._apply_flow_rule(
+                        state, rule, jaar, next_year_idx, band_idx, zone, band=band
                     )
         return state
+
+    def _apply_flow_rule(
+        self,
+        state: SimulationState,
+        rule: FlowRule,
+        jaar: int,
+        next_year_idx: int,
+        spatial_idx: int,
+        zone: str,
+        band: int | None = None,
+    ) -> None:
+        inflow_targets = resolve_regional_flow_targets(rule.inflow_stock, state.stock_to_idx)
+        outflow_targets = resolve_regional_flow_targets(rule.outflow_stock, state.stock_to_idx)
+        if not inflow_targets or not outflow_targets:
+            return
+        flow_rate = rule.flow_rate_active if rule.active else rule.flow_rate_baseline
+        total_outflow_absolute = 0.0
+        log_inflow_orig = 0.0
+        log_inflow_new = 0.0
+        log_outflow_orig = 0.0
+        log_outflow_new = 0.0
+
+        for inflow_name, outflow_name in zip(inflow_targets, outflow_targets):
+            inflow_idx = state.stock_to_idx[inflow_name]
+            outflow_idx = state.stock_to_idx[outflow_name]
+            inflow_stock_value = float(
+                np.nan_to_num(state.sim_state[next_year_idx, spatial_idx, inflow_idx], nan=0.0)
+            )
+            outflow_stock_value = float(
+                np.nan_to_num(state.sim_state[next_year_idx, spatial_idx, outflow_idx], nan=0.0)
+            )
+            if rule.flow_mode == "growth":
+                flow_absolute = inflow_stock_value * flow_rate
+                new_inflow = inflow_stock_value + flow_absolute
+                new_outflow = (
+                    new_inflow if outflow_idx == inflow_idx else outflow_stock_value
+                )
+                outflow_absolute = flow_absolute
+            else:
+                available = max(inflow_stock_value, 0.0)
+                flow_absolute = min(available * flow_rate, available)
+                new_inflow = available - flow_absolute
+                new_outflow = outflow_stock_value + flow_absolute
+                outflow_absolute = flow_absolute
+
+            total_outflow_absolute += outflow_absolute
+            log_inflow_orig += inflow_stock_value
+            log_inflow_new += new_inflow
+            log_outflow_orig += outflow_stock_value
+            log_outflow_new += new_outflow
+
+            state.sim_state[next_year_idx, spatial_idx, inflow_idx] = new_inflow
+            if outflow_idx != inflow_idx:
+                state.sim_state[next_year_idx, spatial_idx, outflow_idx] = new_outflow
+
+        if rule.active:
+            row_cost = self._calculate_row_cost(
+                zone, rule.cost_stock, total_outflow_absolute, db_ondergrens=band
+            )
+            state.totale_kost_overheid += row_cost * rule.rel_cost_overheid
+            state.totale_kost_prive += row_cost * rule.rel_cost_prive
+        log_row = {
+            "zone": zone,
+            "jaar": jaar,
+            "naam_flow": rule.measure_id,
+            "maatregel_toegepast": rule.active,
+            "flow_rate": flow_rate,
+            "flow_mode": rule.flow_mode,
+            "inflow_stock_name": rule.inflow_stock,
+            "orig_future_inflow_stock_value": log_inflow_orig,
+            "new_future_inflow_stock_value": log_inflow_new,
+            "delta_inflow": log_inflow_new - log_inflow_orig,
+            "outflow_stock_name": rule.outflow_stock,
+            "orig_future_outflow_stock_value": log_outflow_orig,
+            "new_future_outflow_stock_value": log_outflow_new,
+            "delta_outflow": log_outflow_new - log_outflow_orig,
+        }
+        if band is not None:
+            log_row["db_ondergrens"] = band
+        state.flow_log_rows.append(log_row)
 
     def build_outputs(self, state: SimulationState) -> SimulationOutputs:
         """Build output bundle from simulation state."""
@@ -189,15 +213,18 @@ class SimulationEngine:
             stock_names=state.stock_names,
             beginjaar=state.beginjaar,
             eindjaar=state.eindjaar,
+            bands=state.bands,
         )
 
     def persist_outputs(self, outputs: SimulationOutputs) -> None:
         """Persist output bundle into stock manager and CSV files."""
+        bands = tuple(outputs.bands) if outputs.bands else None
         self._flush_sim_state_to_stock_manager(
             sim_state=outputs.sim_state,
             stock_names=list(outputs.stock_names),
             beginjaar=outputs.beginjaar,
             eindjaar=outputs.eindjaar,
+            bands=bands,
         )
         self._flow_log_rows = list(outputs.flow_log_rows)
         self._totale_kost_overheid = outputs.kost_overheid
@@ -208,6 +235,7 @@ class SimulationEngine:
 
         log_path = os.path.join(OUTPUT_DIR, "flow_log.csv")
         fieldnames = [
+            "db_ondergrens",
             "zone",
             "jaar",
             "naam_flow",
@@ -224,11 +252,13 @@ class SimulationEngine:
             "delta_outflow",
         ]
         with open(log_path, "w", newline="", encoding="utf-8") as f:
-            writer = csv.DictWriter(f, fieldnames=fieldnames, delimiter=";")
+            writer = csv.DictWriter(
+                f, fieldnames=fieldnames, delimiter=";", extrasaction="ignore"
+            )
             writer.writeheader()
             writer.writerows(self._flow_log_rows)
 
-        self._write_flow_log_zone(log_path, fieldnames)
+        self._write_flow_log_zone(log_path, [c for c in fieldnames if c != "db_ondergrens"])
 
     def _flush_sim_state_to_stock_manager(
         self,
@@ -236,8 +266,22 @@ class SimulationEngine:
         stock_names: List[str],
         beginjaar: int,
         eindjaar: int,
+        *,
+        bands: Tuple[int, ...] | None = None,
     ) -> None:
-        """Write simulated per-zone stock totals back into StockManager."""
+        """Write simulated stock totals back into StockManager."""
+        if bands:
+            for year_offset, jaar in enumerate(range(beginjaar, eindjaar + 1)):
+                for band_idx, band in enumerate(bands):
+                    for stock_idx, stock_name in enumerate(stock_names):
+                        self.stock_manager.set_aantal_for_band(
+                            stock_name,
+                            jaar,
+                            band,
+                            float(sim_state[year_offset, band_idx, stock_idx]),
+                        )
+            return
+
         for year_offset, jaar in enumerate(range(beginjaar, eindjaar + 1)):
             for zone_idx, zone in enumerate(self.zones):
                 for stock_idx, stock_name in enumerate(stock_names):
@@ -348,13 +392,25 @@ class SimulationEngine:
             writer.writeheader()
             writer.writerows(sorted_rows)
 
-    def _calculate_row_cost(self, zone: str, kost_stock: str, outflow_absolute: float) -> float:
+    def _calculate_row_cost(
+        self,
+        zone: str,
+        kost_stock: str,
+        outflow_absolute: float,
+        db_ondergrens: int | None = None,
+    ) -> float:
         if kost_stock == "-" or not kost_stock:
             return 0.0
 
         price_col = self._price_column_by_stock.get(kost_stock)
         if not price_col or price_col not in self.stock_manager.df_contour.columns:
             return 0.0
+
+        if db_ondergrens is not None:
+            price = float(self.stock_manager.df_contour.loc[int(db_ondergrens), price_col])
+            if np.isnan(price) or np.isinf(price):
+                return 0.0
+            return float(outflow_absolute) * price
 
         zone_mask = self.stock_manager.df_contour["zone"] == zone
         if "inwoners_per_contour" in self.stock_manager.df_contour.columns:
@@ -408,7 +464,17 @@ class SimulationEngine:
                     personen_vlaanderen = 0.0
                     personen_brussel = 0.0
                 else:
-                    inwoners_per_huis = contour_df["gemiddeld_aantal_inwoners_per_huis"]
+                    has_regional_inw = (
+                        "gemiddeld_aantal_inwoners_per_huis_vlaanderen" in contour_df.columns
+                    )
+                    if has_regional_inw:
+                        gem_inw_vl = contour_df["gemiddeld_aantal_inwoners_per_huis_vlaanderen"]
+                        gem_inw_br = contour_df["gemiddeld_aantal_inwoners_per_huis_brussel"]
+                        inwoners_per_huis = contour_df["gemiddeld_aantal_inwoners_per_huis"]
+                    else:
+                        inwoners_per_huis = contour_df["gemiddeld_aantal_inwoners_per_huis"]
+                        gem_inw_vl = inwoners_per_huis
+                        gem_inw_br = inwoners_per_huis
                     dosis_effect_relatie = contour_df["dosis_effect_relatie"]
 
                     personen_zonder_isolatie = float(
@@ -443,7 +509,7 @@ class SimulationEngine:
                                 contour_df["bewoonde_niet_geïsoleerde_woning_vlaanderen"]
                                 + contour_df["bewoonde_geïsoleerde_woning_vlaanderen"]
                             )
-                            * inwoners_per_huis
+                            * gem_inw_vl
                             * dosis_effect_relatie
                         ).sum()
                     )
@@ -453,7 +519,7 @@ class SimulationEngine:
                                 contour_df["bewoonde_niet_geïsoleerde_woning_brussel"]
                                 + contour_df["bewoonde_geïsoleerde_woning_brussel"]
                             )
-                            * inwoners_per_huis
+                            * gem_inw_br
                             * dosis_effect_relatie
                         ).sum()
                     )
@@ -463,7 +529,7 @@ class SimulationEngine:
                                 contour_df["bewoonde_niet_geïsoleerde_woning_vlaanderen"]
                                 + contour_df["bewoonde_geïsoleerde_woning_vlaanderen"]
                             )
-                            * inwoners_per_huis
+                            * gem_inw_vl
                         ).sum()
                     )
                     personen_brussel = float(
@@ -472,11 +538,11 @@ class SimulationEngine:
                                 contour_df["bewoonde_niet_geïsoleerde_woning_brussel"]
                                 + contour_df["bewoonde_geïsoleerde_woning_brussel"]
                             )
-                            * inwoners_per_huis
+                            * gem_inw_br
                         ).sum()
                     )
 
-                totaal_gehinderde_personen = personen_zonder_isolatie + personen_met_isolatie
+                totaal_gehinderde_personen = personen_vlaanderen + personen_brussel
                 aantal_ernstig_gehinderden = ernstig_vlaanderen + ernstig_brussel
 
                 self.stock_manager.set_aantal(

@@ -22,6 +22,7 @@ class FlowRule:
     rel_cost_overheid: float
     rel_cost_prive: float
     priority: int = 100
+    db_ondergrens: int | None = None
 
 
 @dataclass
@@ -33,14 +34,24 @@ class SimulationState:
     zones: Tuple[str, ...]
     stock_names: Tuple[str, ...]
     sim_state: np.ndarray
-    zone_to_idx: Dict[str, int]
     stock_to_idx: Dict[str, int]
     year_to_idx: Dict[int, int]
-    flow_rules_by_zone: Dict[str, List[FlowRule]]
     flow_log_rows: List[Dict[str, object]] = field(default_factory=list)
     totale_kost_overheid: float = 0.0
     totale_kost_prive: float = 0.0
     timings: Dict[str, float] = field(default_factory=dict)
+    # Band-level simulation (Lden real data)
+    bands: Tuple[int, ...] = ()
+    band_to_idx: Dict[int, int] = field(default_factory=dict)
+    band_to_zone: Dict[int, str] = field(default_factory=dict)
+    flow_rules_by_band: Dict[int, List[FlowRule]] = field(default_factory=dict)
+    # Zone-level simulation (legacy)
+    zone_to_idx: Dict[str, int] = field(default_factory=dict)
+    flow_rules_by_zone: Dict[str, List[FlowRule]] = field(default_factory=dict)
+
+    @property
+    def uses_band_simulation(self) -> bool:
+        return bool(self.bands)
 
 
 @dataclass
@@ -55,3 +66,4 @@ class SimulationOutputs:
     stock_names: Tuple[str, ...]
     beginjaar: int
     eindjaar: int
+    bands: Tuple[int, ...] = ()

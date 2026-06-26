@@ -1,3 +1,4 @@
+
 import polars as pl
 import streamlit as st
 
@@ -7,7 +8,11 @@ from contour_vlaanderen_kaart import toon_geometrie_waarschuwing, toon_overlap_k
 from contour_vlaanderen_kolommen import KOLOM_HERNAMING, toon_kolomdocumentatie
 from contour_vlaanderen_transacties import (
     APPARTEMENT_TRANSACTIE_HERNAMING,
+    PERCEEL_TRANSACTIE_HERNAMING,
+    PERCEEL_TRANSACTIE_SEGMENTEN,
     WONING_TRANSACTIE_HERNAMING,
+    aggregeer_transacties_naar_sector,
+    toon_perceel_transactie_kolomdocumentatie,
     toon_transactie_kolomdocumentatie,
 )
 from contour_vlaanderen_vergunningen import (
@@ -30,9 +35,27 @@ Volgende termen zijn belangrijk voor de analyse:
 |Contour| Dit zijn de Decibelcontouren die verkregen werden van Brussels airport company. Deze zijn op een schaal van 1Db en omringen de luchthaven. één zone betekent dat hetzelfde geluidsniveau wordt geregistreerd daar.|
 |Statistische sector| Dit zijn statistische regios waarop informatie normaal gesproken wordt geregistreerd.|
 |Intersectie| Dit is de term die wij geven aan de overlap van een contour en een statistische sector. Deze zijn dus steeds kleinere zones dan een statistische sector en ook steeds kleiner dan de contouren.|
+
+Dit script bouwt variabele voor variabele een dataset op intersectieniveau op. Elke sectie
+voegt kolommen toe aan `df`; het eindresultaat wordt weggeschreven naar `data_2/data_2.csv`
+voor de flow-analyse in `contour_analyse_2.py`.
 """
 st.caption("Sector–contour-overlappen rond de luchthaven (LDEN, Vlaanderen + Brussel)")
 
+"""
+## Inladen basisbestand
+
+#### Bron
+`data_1/20260624 data vlaanderen 1 lden.csv` — overlap-tabel sector × LDEN-contour.
+
+#### Bewerkingen
+1. **Inlezen** met Europese CSV-instellingen: `;` als scheidingsteken, `,` als decimaalteken.
+2. **Hernoemen** van kolommen via `KOLOM_HERNAMING` (leesbare Python-namen).
+3. Optioneel: kaart en kolomoverzicht tonen (toggle *Toon kaarten*).
+
+#### Output
+`df` met één rij per intersectie; geometry en administratieve sleutels blijven behouden.
+"""
 # Europese CSV: puntkomma als scheidingsteken, komma als decimaalteken
 df = pl.read_csv(
     "data_1/20260624 data vlaanderen 1 lden.csv",
@@ -58,10 +81,20 @@ st.caption(f"{df.height:,} rijen · {df.width} kolommen")
 
 """
 ## Basisdata
-### Inwoners
-De inwoners van Vlaanderen werden op basis van gegevens van het departement Omgeving berekend. Deze gegevens zijn op het niveau van de adressen verkregen en verwerkt tot een inonweraantal van een overlap tussen een statistische sector en 1 db contour.
 
-Voor Brussel is er geen data beschikbaar op het niveau van de adressen. Hierdoor werd de data gebruikt van de statistische sectoren van Brussel. Deze data op sectorniveau werd dan via overlap op basis van oppervlakte met de db contouren berekend.
+### Inwoners
+
+#### Bron
+- **Vlaanderen:** `inwoners_client` — adresniveau, toegekend aan overlap (Departement Omgeving).
+- **Brussel:** `inwoners_overlap` — sectorniveau, naar overlap gespreid op oppervlakte.
+- **Overig (Waals Gewest):** `inwoners_overlap`.
+
+#### Bewerkingen
+1. Nieuwe kolom `inwoners` via `pl.when` op `regio_nl`.
+2. Per gewest de meest geschikte bronkolom kiezen (geen herberekening, wel harmonisatie).
+
+#### Visualisatie
+Staafdiagram per LDEN-band, opgesplitst naar Vlaanderen vs. Brussel (som per band).
 """
 df = df.with_columns(
     inwoners=pl.when(pl.col("regio_nl") == "Vlaams Gewest")
@@ -80,7 +113,18 @@ toon_staafdiagram_per_gewest(
 
 """
 ### Aantal inwoners per woning
-Voor Vlaanderen weten we exact hoeveel inwoners er zijn per woning. Voor Brussel weten we dat niet, omdat er geen data beschikbaar is op het niveau van de adressen. We berekenen dus één gemiddelde voor het aantal inwoners per woning, dat we vervolgens gebruiken voor de rest van de analyse.
+
+#### Doel
+Eén referentiewaarde voor Brussel, waar geen woningtelling op adresniveau beschikbaar is.
+
+#### Bewerkingen
+1. Filter `df` op Vlaams Gewest.
+2. **Totaal inwoners** en **totaal woningen** optellen over alle intersecties.
+3. **Delen:** `gemiddelde_inwoners_per_woning = totaal_inwoners / totaal_woningen`.
+4. Waarde tonen in de app (één getal voor heel Vlaanderen in de contour).
+
+#### Gebruik
+Dit gemiddelde wordt in de volgende stap gebruikt om Brusselse woningen te schatten.
 """
 totaal_inwoners_vlaanderen = (
     df.filter(pl.col("regio_nl") == "Vlaams Gewest")
@@ -103,7 +147,17 @@ st.write(
 )
 """
 ### Aantal woningen
-Voor Vlaanderen weten we hoeveel woningen er zijn per adres in de zones. Voor Brussel weten we dat niet, omdat er geen data beschikbaar is op het niveau van de adressen. Om te weten hoeveel woningen er zijn in Brussel, delen we het aantal inwoners door het gemiddelde aantal inwoners per woning.
+
+#### Bron
+- **Vlaanderen:** bestaande kolom `aantal_woningen` (adresniveau).
+- **Brussel:** afgeleid uit inwoners.
+
+#### Bewerkingen
+1. Voor Brussel: `aantal_woningen = inwoners / gemiddelde_inwoners_per_woning`.
+2. Voor overige gewesten: originele `aantal_woningen` behouden.
+
+#### Visualisatie
+Staafdiagram per LDEN-band en gewest.
 """
 
 df = df.with_columns(
@@ -119,7 +173,15 @@ toon_staafdiagram_per_gewest(
 )
 """
 ### Onbebouwde bebouwbare percelen
-Deze informatie kregen we op het precieze adresniveau, hiermee berekenden we het aantal percelen per intersectie.
+
+#### Bron
+`aantal_percelen_onbebouwd_woongebied` — gemeten op adresniveau (Vlaanderen).
+
+#### Bewerkingen
+1. Kolom kopiëren naar `onbebouwde_bebouwbare_percelen` (geen transformatie).
+
+#### Visualisatie
+Staafdiagram per LDEN-band en gewest.
 """
 df = df.with_columns(
     onbebouwde_bebouwbare_percelen=pl.col("aantal_percelen_onbebouwd_woongebied")
@@ -132,7 +194,16 @@ toon_staafdiagram_per_gewest(
 )
 """
 ### Onbebouwde onbebouwbare percelen
-Momenteel geen data over onbebouwde onbebouwbare percelen, dus we nemen als placeholder 3 maal zoveel onbebouwde onbebouwbare percelen.
+
+#### Bron
+Geen directe meting — **placeholder**.
+
+#### Bewerkingen
+1. `onbebouwde_onbebouwbare_percelen = aantal_percelen_onbebouwd_woongebied × 3`.
+
+#### Opmerking
+Factor 3 is een tijdelijke schatting tot echte stockdata beschikbaar is; beïnvloedt o.a.
+woongebiedverbod-flows in analyse 2.
 """
 df = df.with_columns(
     onbebouwde_onbebouwbare_percelen=pl.col("aantal_percelen_onbebouwd_woongebied")
@@ -146,11 +217,18 @@ toon_staafdiagram_per_gewest(
 )
 """
 ### Bewoonde_niet_geïsoleerde_woning
-Er is geen gedetailleerde isolatiedata per woning beschikbaar. We gebruiken daarom vaste aannames per gewest:
-- **Vlaanderen:** 80% van de bewoonde woningen is niet-geïsoleerd
-- **Brussel:** 95% van de bewoonde woningen is niet-geïsoleerd (expert opinion)
 
-De input kan op adresniveau precies zijn, maar voor het dashboard aggregeren we naar contour–sector-overlappen. Voor deze verdeling maakt die aggregatie weinig verschil.
+#### Bron
+Geen isolatieregister per woning — **gewestaannames** (placeholder).
+
+#### Bewerkingen
+1. `bewoonde_niet_geïsoleerde_woning = aantal_woningen × aandeel` per `regio_nl`:
+   - Vlaanderen: **80%**
+   - Brussel: **95%** (expert opinion)
+   - Overig: **80%**
+
+#### Visualisatie
+Staafdiagram per LDEN-band en gewest.
 """
 df = df.with_columns(
     bewoonde_niet_geïsoleerde_woning=pl.when(
@@ -169,9 +247,15 @@ toon_staafdiagram_per_gewest(
 )
 """
 ### Bewoonde_geïsoleerde_woning
-Aanvullend op de verdeling hierboven:
-- **Vlaanderen:** 20% geïsoleerd
-- **Brussel:** 5% geïsoleerd
+
+#### Bewerkingen
+1. Complement van de verdeling hierboven op `aantal_woningen`:
+   - Vlaanderen: **20%**
+   - Brussel: **5%**
+   - Overig: **20%**
+
+#### Opmerking
+Niet-geïsoleerd + geïsoleerd = totaal `aantal_woningen` per intersectie.
 """
 df = df.with_columns(
     bewoonde_geïsoleerde_woning=pl.when(
@@ -190,32 +274,51 @@ toon_staafdiagram_per_gewest(
 )
 """
 ### Nieuwe woning
-Interne dashboardvariabele (tussenstock nieuwbouw in de simulator). Geen brondata in deze
-analyse — de waarde blijft steeds 0. Nieuwbouw per gewest wordt berekend onder
-**Aantal vergunningen nieuwbouw**.
+
+#### Bewerkingen
+1. `nieuwe_woning = 0` voor alle intersecties.
+
+#### Opmerking
+Tussenstock voor de simulator; nieuwbouwvolume zit in `aantal_vergunningen_nieuwbouw`.
 """
 df = df.with_columns(nieuwe_woning=pl.lit(0.0))
 """
 ### Perceel eigendom overheid
-Interne dashboardvariabele; geen brondata beschikbaar, dus steeds 0.
+
+#### Bewerkingen
+1. `perceel_eigendom_overheid = 0` — interne simulatorstock, nog niet gevuld vanuit data.
 """
 df = df.with_columns(perceel_eigendom_overheid=pl.lit(0))
 """
 ### Woning eigendom overheid
-De variabele woning_eigendom_overheid is gewoon een interne variabele die we gebruiken voor het dashboard, hierdoor is dit steeds 0.
+
+#### Bewerkingen
+1. `woning_eigendom_overheid = 0` — doelstock voor aankoop/voorkooprecht/onteigening flows.
 """
 df = df.with_columns(woning_eigendom_overheid=pl.lit(0))
 
 """
-### Aantal onbebouwbare percelen die bebouwbaar zijn geworden jaarlijks
-Om het effect van een woongebiedverbod te weten te komen, is het belangrijk om te weten hoeveel percelen die onbebouwbaar zijn, bebouwbaar gemaakt worden door het aanduiden van woongebied. We nemen een gemiddelde over de periode 2021-2026 voor elke db contour en we verdelen dit over elke inter_ss_lden. We delen dus het aantal percelen door het totaal aantal vierkante meter per db contour en we vermenigvuldigen dit met "oppervlakte_overlap_m2" van df.
-Kolommen van df_bebouwbaar_onbebouwbaar:
+### Woongebied-mutaties (onbebouwbaar ↔ bebouwbaar)
 
-- "db lden"
-- "aantal percelen niet bebouwbaar naar bebouwbaar"
-- "aantal percelen bebouwbaar naar niet bebouwbaar"
+Jaarlijkse planologische verschuivingen tussen onbebouwbaar en bebouwbare percelen.
 
-Het gewestelijk bestemmingsplan van Brussel ligt hoofdzakelijk vast, behalve bij demografisch gewestelijk plan. Normaal gezien wordt er geen woongebied bijgemaakt. Dit betekent dat er geen extra gebieden bebouwbaar gemaakt worden in Brussel.
+#### Bron
+- Excel `data_1/20260622 data vlaanderen 2 bebouwbaar en onbebouwbaar.xlsx`, blad `lden`:
+  jaarlijks gemiddelde 2021–2026 per LDEN-band.
+- Oppervlakte-intersecties uit `df` (alleen Vlaanderen).
+
+#### Bewerkingen
+1. **Oppervlakte per band:** som `oppervlakte_overlap_m2` per `db_lden` (filter Vlaams Gewest)
+   → `totaal_overlap_m2_vla`.
+2. **Join** `oppervlakte_per_db` en mutatietabel op `db_lden` aan `df`.
+3. **Proportionele verdeling** per intersectie (Vlaanderen):
+   - `onbebouwbaar_naar_bebouwbaar = bandtotaal / totaal_overlap_m2_vla × oppervlakte_overlap_m2`
+   - `bebouwbaar_naar_onbebouwbaar` idem met andere teller.
+4. **Brussel en Waals Gewest:** beide kolommen = `0` (geen woongebied-creatie in bron).
+5. Tijdelijke Excel-kolommen verwijderen uit `df`.
+
+#### Visualisatie
+Twee staafdiagrammen: onbebouwbaar→bebouwbaar en bebouwbaar→onbebouwbaar per gewest.
 """
 df_bebouwbaar_onbebouwbaar = pl.read_excel(
     "data_1/20260622 data vlaanderen 2 bebouwbaar en onbebouwbaar.xlsx",
@@ -262,10 +365,10 @@ toon_staafdiagram_per_gewest(
     y_label="Aantal percelen",
 )
 """
-### Aantal bebouwbaar naar onbebouwbaar per db contour
-Jaarlijks worden er ook percelen die bebouwbaar zijn,  onbebouwbaar gemaakt. Dzelfde methode als hierboven wordt toegepast om dit te berekenen.
+### Bebouwbaar naar onbebouwbaar
 
-Er is geen data van Brussel hierover te vinden.
+Zelfde berekening als hierboven; kolom `bebouwbaar_naar_onbebouwbaar` is al aangemaakt.
+Alleen visualisatie in deze stap.
 """
 toon_staafdiagram_per_gewest(
     df,
@@ -276,54 +379,43 @@ toon_staafdiagram_per_gewest(
 
 """
 ### Totaal aantal transacties van woningen
-Om te berekenen hoeveel woningen kunnen opgekocht worden door voorkooprecht of aankoopbeleid moeten we weten hoeveel er jaarlijks verkocht worden.
 
-**Brondata:** `data_1/transacties_vastgoed/20260624 transacties_woningen.csv` en
-`… transacties_appartementen.csv` (puntkomma-gescheiden). Elke rij is één CaPaKey.
+#### Doel
+Jaarlijks transactievolume en prijs per intersectie — input voor aankoopbeleid, voorkooprecht
+en prijsanalyses.
 
-**Gemeten vs. ingevulde prijzen**
+#### Brondata
+`data_1/transacties_vastgoed/20260624 transacties_woningen.csv` en
+`… transacties_appartementen.csv` (puntkomma; één rij = één CaPaKey).
 
-Per segment (woning en appartement) zijn er twee soorten prijskolommen:
+#### Prijzen: gemeten vs. ingevuld
+| Suffix | Betekenis |
+|--------|-----------|
+| `_gemeten` | Mediaan uit voldoende transacties (GDPR-publicatie) |
+| `_ingevuld` | GIS-buren voor sectoren met te weinig transacties |
 
-| Suffix in hernoemde kolom | Betekenis |
-|---------------------------|-----------|
-| `_gemeten` | Mediaanprijs **rechtstreeks** uit transacties in de statistische sector. Alleen beschikbaar waar voldoende transacties zijn om de sector GDPR-proof te publiceren. |
-| `_ingevuld` | **Aangevulde** prijs voor sectoren met te weinig transacties: berekend via *closest neighbours* in GIS (gemiddelde van naburige sectoren). Kolom `*_status` geeft aan of een waarde gemeten of ingevuld is. |
+We gebruiken steeds **ingevulde P50** (`*_prijs_p50_ingevuld`); transactietelling blijft werkelijk volume.
 
-In de berekening hieronder gebruiken we steeds de **ingevulde** P50-prijs
-(`huis_prijs_p50_ingevuld`, `appartement_prijs_p50_ingevuld`), zodat elke CaPaKey een
-bruikbare prijs heeft. Het aantal transacties (`huis_aantal_transacties`,
-`appartement_aantal_transacties`) blijft het werkelijke volume en kan 0 zijn.
+#### Bewerkingen — CaPaKey-niveau
+1. **Inlezen** beide CSV's; kolommen hernoemen.
+2. **Full join** woningen + appartementen op `capakey` (geen verlies bij één segment).
+3. **Transacties:** `aantal_woning_transacties_per_jaar = huis + appartement` (null → 0).
+4. **Prijs per CaPaKey:**
+   - Met transacties: transactiegewogen gemiddelde P50 huis/appartement.
+   - Zonder transacties: `mean_horizontal` van beide P50 (voorkomt NaN in prijsgrafiek).
 
-Na inlezen worden bronkolommen hernoemd (zie expander *Transactiekolommen*).
+#### Bewerkingen — sectorniveau
+5. `nis_sector` = `capakey` zonder trailing `-`.
+6. **Aggregeren** per sector: som transacties; sectorprijs = transactiegewogen gemiddelde
+   CaPaKey-prijzen (of gewoon gemiddelde bij 0 transacties).
 
-**Stap 1 — CaPaKey:** woningen en appartementen worden samengevoegd met een `full` join op
-`capakey`, zodat percelen die maar in één segment voorkomen niet verloren gaan.
+#### Bewerkingen — intersectieniveau
+7. `nis_sector` in `df` normaliseren (zelfde strip).
+8. **`wijs_proportioneel_toe`:** sectorale transacties verdelen over intersecties
+   proportioneel naar `aantal_woningen`; sectorprijs wordt doorgegeven (`doorgeef_kolommen`).
 
-**Stap 2 — Aantal transacties per CaPaKey:** som van `huis_aantal_transacties` en
-`appartement_aantal_transacties`.
-
-**Stap 3 — Prijs per CaPaKey:**
-
-- *Met transacties*: gewogen gemiddelde van de ingevulde P50-prijzen, gewicht = aantal
-  transacties per segment.
-- *Zonder transacties*: gemiddelde van `huis_prijs_p50_ingevuld` en
-  `appartement_prijs_p50_ingevuld` (beide kunnen GIS-geschat zijn).
-
-Zonder die fallback ontstaat `0 / 0 = NaN` op percelen met ingevulde prijs maar 0
-transacties. Die NaN-waarden verspreiden zich naar het prijsdiagram (zie hieronder).
-
-**Stap 4 — Statistische sector:** aggregatie per `capakey` zonder trailing `-`. Het
-aantal transacties wordt opgeteld; de sectorprijs is een transactiegewogen gemiddelde van
-de CaPaKey-prijzen, of — als de sector 0 transacties heeft — het gewone gemiddelde van de
-CaPaKey-prijzen in die sector.
-
-**Stap 5 — Intersectie:** via `wijs_proportioneel_toe`: het sectoraal aantal transacties
-wordt verdeeld over contour–sector-overlappen proportioneel naar `aantal_woningen`. De
-sectorprijs wordt ongewijzigd aan elke intersectie in die sector gekoppeld.
-
-Voorbeeld verdeling transacties: sector A heeft 100 transacties en twee intersectiedelen —
-deel 1 met 20 woningen krijgt 40 transacties, deel 2 met 30 woningen krijgt 60.
+#### Visualisatie
+Staafdiagram transacties per jaar per gewest en LDEN-band.
 """
 df_huis_transacties = pl.read_csv(
     "data_1/transacties_vastgoed/20260624 transacties_woningen.csv",
@@ -422,23 +514,20 @@ toon_staafdiagram_per_gewest(
 """
 ### Aantal transacties niet-geïsoleerde en geïsoleerde woningen
 
-Er is geen isolatie-informatie per individuele transactie. We verdelen daarom
-`aantal_woning_transacties_per_jaar` over de twee bewoonde stocktypes met **dezelfde
-gewestaannames** als bij `bewoonde_niet_geïsoleerde_woning` en
-`bewoonde_geïsoleerde_woning`:
+#### Bron
+`aantal_woning_transacties_per_jaar` (vorige sectie) — geen isolatie per transactie.
 
-| Gewest | Niet-geïsoleerd | Geïsoleerd |
-|--------|-----------------|------------|
-| Vlaanderen | 80% | 20% |
-| Brussel | 95% | 5% |
-| Overig | 80% | 20% |
+#### Bewerkingen
+1. Zelfde gewestaandelen als bewoonde stocks vermenigvuldigen met totaal transacties:
+   - Vlaanderen: 80% / 20%
+   - Brussel: 95% / 5%
+2. Twee nieuwe kolommen:
+   - `aantal_transacties_niet_geïsoleerde_woningen`
+   - `aantal_transacties_geïsoleerde_woningen`
+3. Som van beide = totaal transacties per intersectie.
 
-Per intersectie:
-
-    aantal_transacties_niet_geïsoleerde_woningen = transacties × aandeel niet-geïsoleerd
-    aantal_transacties_geïsoleerde_woningen = transacties × aandeel geïsoleerd
-
-De som van beide kolommen is steeds gelijk aan `aantal_woning_transacties_per_jaar`.
+#### Visualisatie
+Twee staafdiagrammen (niet-geïsoleerd / geïsoleerd) per gewest.
 """
 df = df.with_columns(
     aantal_transacties_niet_geïsoleerde_woningen=pl.when(
@@ -470,13 +559,17 @@ toon_staafdiagram_per_gewest(
 )
 """
 ### Gemiddelde prijs van een woning
-Uit dezelfde transactiedata halen we per intersectie de sectorprijs (`gemiddelde_prijs_van_een_woning`).
-Die sectorprijs is gebaseerd op de **ingevulde** P50-prijzen per CaPaKey (GIS-buren waar
-sectoren te weinig transacties hadden voor een GDPR-proof gemeten prijs).
 
-Het staafdiagram toont per LDEN-band het transactiegewogen gemiddelde over alle intersecties
-in dat gewest. Zonder de NaN-fallback bij 0 transacties verdwenen Brusselse contouren 45–60
-uit de grafiek doordat één `NaN`-intersectie de hele band ongeldig maakte.
+#### Bron
+`gemiddelde_prijs_van_een_woning` — al toegekend per intersectie via sectoraggregatie
+(transactiesectie).
+
+#### Bewerkingen
+Geen extra kolomberekening; alleen visualisatie.
+
+#### Visualisatie
+Per LDEN-band: transactiegewogen gemiddelde prijs per gewest
+(`aggregatie="gemiddelde"`, gewicht = `aantal_woning_transacties_per_jaar`).
 """
 toon_staafdiagram_per_gewest(
     df,
@@ -489,53 +582,112 @@ toon_staafdiagram_per_gewest(
 )
 
 """
-### Aantal transacties van bebouwbare percelen
-Geen info. Al gevraagd aan Gaëlle.
-"""
+### Totaal aantal transacties van percelen
 
-"""
-### Aantal transacties van onbebouwbare percelen
-Geen info, al gevraagd aan Gaëlle
-"""
+#### Doel
+Jaarlijks transactievolume en prijs per intersectie voor onbebouwde **bebouwbare** percelen —
+input voor aankoopbeleid, voorkooprecht en prijsanalyses.
 
-"""
-### Gemiddelde prijs van bebouwbare percelen
-Geen info
-"""
+#### Brondata
+`data_1/20260625 data vlaanderen 3 transacties percelen.csv` (tabs gescheiden; één rij per
+CaPaKey). Enkel segment `terrain_batissable` wordt ingelezen.
 
+#### Bewerkingen — CaPaKey-niveau
+1. **Inlezen** met tab als scheidingsteken; enkel bebouwbare kolommen selecteren en hernoemen
+   via `PERCEEL_TRANSACTIE_HERNAMING`.
+2. Transactietelling en P50-prijs per CaPaKey.
+
+#### Bewerkingen — sectorniveau
+3. `nis_sector` = `capakey` zonder trailing `-`.
+4. **Aggregeren** per sector: som transacties; sectorprijs = transactiegewogen gemiddelde
+   CaPaKey-prijzen (of gewoon gemiddelde bij 0 transacties).
+
+#### Bewerkingen — intersectieniveau
+5. **`wijs_proportioneel_toe`:** gewicht `onbebouwde_bebouwbare_percelen`; sectorprijs wordt
+   doorgegeven (`doorgeef_kolommen`).
+
+#### Visualisatie
+Twee staafdiagrammen: transacties en gemiddelde prijs per gewest en LDEN-band.
 """
-### Gemiddelde prijs van bebouwbare percelen
-Geen info
-"""
+df_perceel_transacties = (
+    pl.read_csv(
+        "data_1/20260625 data vlaanderen 3 transacties percelen.csv",
+        separator="\t",
+        encoding="utf-8",
+        infer_schema_length=10000,
+        null_values=[""],
+    )
+    .select(list(PERCEEL_TRANSACTIE_HERNAMING.keys()))
+    .rename(PERCEEL_TRANSACTIE_HERNAMING)
+)
+
+with st.expander("Transactiekolommen (percelen)", expanded=False):
+    toon_perceel_transactie_kolomdocumentatie()
+    st.caption("Hernoemde kolommen")
+    st.write(df_perceel_transacties.columns)
+
+for segment in PERCEEL_TRANSACTIE_SEGMENTEN:
+    df_transacties_sector = aggregeer_transacties_naar_sector(
+        df_perceel_transacties,
+        transactie_kolom=segment["aantal_kolom"],
+        prijs_kolom=segment["prijs_kolom"],
+        transacties_uitvoer=segment["transacties_uitvoer"],
+        prijs_uitvoer=segment["prijs_uitvoer"],
+    )
+    df = wijs_proportioneel_toe(
+        df,
+        df_transacties_sector,
+        groep_kolom="nis_sector",
+        bron_waarde_kolom=segment["transacties_uitvoer"],
+        gewicht_kolom=segment["gewicht_kolom"],
+        uitvoer_kolom=segment["transacties_uitvoer"],
+        doorgeef_kolommen=(segment["prijs_uitvoer"],),
+    )
+    toon_staafdiagram_per_gewest(
+        df,
+        kolom=segment["transacties_uitvoer"],
+        titel=f"Aantal transacties — {segment['label']}",
+        y_label="Aantal transacties",
+    )
+    toon_staafdiagram_per_gewest(
+        df,
+        kolom=segment["prijs_uitvoer"],
+        titel=f"Gemiddelde prijs — {segment['label']}",
+        y_label="Gemiddelde prijs (€)",
+        aggregatie="gemiddelde",
+        gewicht_kolom=segment["transacties_uitvoer"],
+        waarde_format=",.0f",
+    )
 
 """
 ### Aantal vergunningen nieuwbouw
 
-**Vlaanderen:** vergunde nieuwbouwooneenheden uit het omgevingsloket (Departement Omgeving).
-Gemiddelde over 2021–2025 per gemeente; toegewezen aan intersecties proportioneel naar
-`onbebouwde_bebouwbare_percelen`. Voorbeeld: 100 vergunningen in gemeente x, sector 1
-heeft 30 onbebouwde woongebied-percelen en sector 2 heeft 20 → 60 + 40 vergunningen.
+#### Bron
+- **Vlaanderen:** `vergunningen_omgevingsloket_2026_lang.csv`, handeling *Nieuwbouw*.
+- **Brussel:** Excel evolutie geregistreerd woningbestand 2021–2025.
 
-**Brussel:** geen omgevingsloket-data beschikbaar. We gebruiken het geregistreerd woningbestand
-per gemeente (2021–2025) als proxy voor nieuwbouw. Gemiddelde jaarlijkse groei = telkens het
-verschil tussen twee opeenvolgende jaren, gemiddeld over vier stappen:
-2022 − 2021, 2023 − 2022, 2024 − 2023, 2025 − 2024. Die groei wijzen we toe aan intersecties
-proportioneel naar `aantal_woningen` binnen dezelfde gemeente.
+#### Bewerkingen — Vlaanderen
+1. Kolom `aantal_vergunningen_nieuwbouw` initialiseren op 0.
+2. **`vergunningen_gemiddeld_per_gemeente`:** gemiddeld aantal wooneenheden/jaar 2021–2025 per gemeente.
+3. **`wijs_proportioneel_toe`** op Vlaamse intersecties:
+   - groep: `naam_gemeente_nl`
+   - gewicht: `onbebouwde_bebouwbare_percelen`
+   - conservatie: som per gemeente = bronwaarde (getest in pytest).
 
-Op gewestniveau komen er zo gemiddeld **~4.050 geregistreerde wooneenheden per jaar** bij in
-heel het Brussels Hoofdstedelijk Gewest (19 gemeenten). In onze contour vallen **17 Brusselse
-gemeenten**; daar is de gemiddelde groei **~3.360 wooneenheden per jaar** (Elsene en Ukkel
-zitten niet in de overlap-dataset).
+#### Bewerkingen — Brussel
+4. Per gemeente: jaarlijkse groei = gemiddelde van vier jaar-op-jaar verschillen (2021→2025).
+5. Groei toewijzen via `wijs_proportioneel_toe` met gewicht `aantal_woningen`.
+6. Totalen tonen: heel gewest (19 gem.) vs. contour (17 gem.).
 
-**Conservatie (Vlaanderen):** als je alle toegewezen vergunningen per intersectie optelt, kom je per gemeente (met minstens één onbebouwd woongebied-perceel in de contour) opnieuw uit bij het oorspronkelijke gemeentegemiddelde. Dit wordt gecontroleerd in `tests/test_vergunningen_toewijzing.py`.
+#### Bewerkingen — afronding
+7. **`pl.concat`:** Vlaanderen + Brussel + overige gewesten (0 vergunningen).
 
-**Uitzondering — gemeenten zonder woongebied-percelen in de contour:** drie gemeenten staan wel in de vergunningendata, maar hebben 0 onbebouwde woongebied-percelen in onze overlap-dataset. Daar kan niet proportioneel naar verdeeld worden; zij krijgen 0 toegewezen vergunningen op intersectieniveau, hoewel het gemeentegemiddelde in de brondata > 0 is:
-- Hoeilaart (0,4 wooneenheden/jaar gem.)
-- Tielt-Winge (0,4 wooneenheden/jaar gem.)
-- Kapelle-op-den-Bos (6,4 wooneenheden/jaar gem.)
+#### Uitzondering
+Gemeenten met vergunningen in bron maar **0** onbebouwde woongebied-percelen in de contour
+(Hoeilaart, Tielt-Winge, Kapelle-op-den-Bos) krijgen 0 toegewezen op intersectieniveau.
 
-Dit is geen fout in de toewijzingslogica, maar een ontbrekende gewichtenkolom (`onbebouwde_bebouwbare_percelen`) voor die gemeenten binnen de contour.
-
+#### Visualisatie
+Staafdiagram vergunde wooneenheden nieuwbouw per gewest.
 """
 df = df.with_columns(aantal_vergunningen_nieuwbouw=pl.lit(0.0))
 
@@ -634,18 +786,24 @@ toon_staafdiagram_per_gewest(
 
 """
 ### Jaarlijks aantal vergunningen voor renovatie
-Dezelfde dataset wordt gebruikt, maar deze keer wordt er gefilterd op "Verbouwen of hergebruik".
 
-**Vlaanderen:** toewijzing aan intersecties proportioneel naar `aantal_woningen` (zelfde logica
-als bij nieuwbouw, maar met woningen als gewicht).
+#### Bron
+Zelfde omgevingsloket-CSV; handeling *Verbouwen of hergebruik*.
 
-**Brussel:** geen renovatievergunningen beschikbaar op gemeenteniveau. We schatten renovaties
-via het Vlaamse gemiddelde:
+#### Bewerkingen — Vlaanderen
+1. `aantal_vergunningen_renovatie` initialiseren op 0.
+2. Gemeentegemiddelde berekenen (`vergunningen_gemiddeld_per_gemeente`).
+3. **`wijs_proportioneel_toe`** met gewicht `aantal_woningen` (niet onbebouwde percelen).
+4. **Ratio berekenen:** totaal renovaties VL / totaal woningen VL in contour.
 
-    renovaties per woning per jaar = (som toegewezen renovaties Vlaanderen)
-                                   / (som woningen Vlaanderen in contour)
+#### Bewerkingen — Brussel
+5. Geen renovatiebron → `aantal_vergunningen_renovatie = aantal_woningen × ratio_Vlaanderen`.
 
-Elke Brusselse intersectie krijgt: `aantal_woningen × dat gemiddelde`.
+#### Bewerkingen — afronding
+6. **`pl.concat`:** Vlaanderen + Brussel + overige (0).
+
+#### Visualisatie
+Staafdiagram vergunde renovaties per gewest.
 """
 df = df.with_columns(aantal_vergunningen_renovatie=pl.lit(0.0))
 
@@ -699,9 +857,25 @@ toon_staafdiagram_per_gewest(
 )
 """
 ### Aantal vergunningen kwetsbare groepen
-Hier wordt onderzocht hoeveel vergunde wooneenheden jaarlijks worden toegekend aan kwetsbare groepen. Deze worden toegewezen adhv de onbebouwde percelen per intersectie.
 
-Voor brussel is er geen informatie beschikbaar voor het aantal vergunningen met kwetsbare groepen, hierdoor nemen we het gemiddeld aantal vergunningen voor kwetsbare groepen tov nieuwbouwvergunningen van vlaanderen om dan dit aantal te vermenigvuldigen met het aantal nieuwbouwvergunningen in brussel.
+#### Bron
+- **Vlaanderen:** `vergunningen_kwetsbare_functies_2026_lang.csv` (aantal projecten/jaar).
+- **Brussel:** geen directe data — proxy via Vlaamse ratio.
+
+#### Bewerkingen — Vlaanderen
+1. Gemeentegemiddelde projecten (`vergunningen_gemiddeld_per_gemeente`, metriek *Aantal projecten*).
+2. **`wijs_proportioneel_toe`** met gewicht `aantal_percelen_onbebouwd_woongebied`.
+
+#### Bewerkingen — Brussel
+3. **Ratio VL:** som kwetsbare groepen / som nieuwbouw (Vlaanderen, contour).
+4. Brusselse intersecties: `aantal_vergunningen_kwetsbare_groepen =
+   aantal_vergunningen_nieuwbouw × ratio` (via `pl.when` op `regio_nl`).
+
+#### Opmerking
+We tellen **projecten**, niet wooneenheden per project.
+
+#### Visualisatie
+Staafdiagram per gewest.
 """
 df_vergunningen_kwetsbare_groepen = pl.read_csv(
     "data_1/vergunningen_kwetsbare_functies_2026_lang.csv", separator=";"
@@ -762,7 +936,13 @@ toon_staafdiagram_per_gewest(
 
 """
 ### Jaarlijks aantal renovaties met akoestische isolatie
-We schatten in dat 20% van de renovaties die jaarlijks gebeuren zijn om akoestisch te isoleren.
+
+#### Bewerkingen
+1. `jaarlijks_aantal_vergunningen_met_isolatie = aantal_vergunningen_renovatie × 0,20`
+   (**placeholder:** 20% van renovaties met akoestische isolatie).
+
+#### Visualisatie
+Staafdiagram per gewest.
 """
 df = df.with_columns(
     jaarlijks_aantal_vergunningen_met_isolatie=pl.col("aantal_vergunningen_renovatie")
@@ -776,7 +956,13 @@ toon_staafdiagram_per_gewest(
 )
 """
 ### Jaarlijks aantal renovaties zonder akoestische isolatie
-We schatten in dat 20% van de renovaties die jaarlijks gebeuren zijn om akoestisch te isoleren.
+
+#### Bewerkingen
+1. `jaarlijks_aantal_vergunningen_zonder_isolatie = aantal_vergunningen_renovatie × 0,80`
+   (complement van 20% met isolatie).
+
+#### Visualisatie
+Staafdiagram per gewest.
 """
 df = df.with_columns(
     jaarlijks_aantal_vergunningen_zonder_isolatie=pl.col(
@@ -793,8 +979,16 @@ toon_staafdiagram_per_gewest(
 
 df.write_csv("data_2/data_2.csv")
 """
-# Vragen
-- Voor kwetsbare groepen weten we hoeveel projecten er zijn, maar weten we eigenlijk niet hoeveel wooneenheden of mensen hierin zitten. Hoe berekenen we dit?
-- Voor onbebouwde onbebouwbare percelen hebben we momenteel nog geen data, dus er is een placeholder in de plaats waarbij we driemaal het aantal onbebouwde bebouwbare percelen nemen.
-- Momenteel vertrekken we vanuit onbebouwde bebouwbare percelen om bij de flow te zeggen dat meer wooneenheden enkel hieruit ontstaan, dat is misschien zo in vlaanderen, maar in brussel zijn er weinig lege percelen. In brussel is het naar mijn aanname couranter dat
+## Export
+
+#### Bewerkingen
+1. Volledige `df` wegschrijven naar `data_2/data_2.csv` — input voor `contour_analyse_2.py`.
+
+# Openstaande vragen
+
+- Kwetsbare groepen: aantal **projecten** bekend, wooneenheden per project niet.
+- Onbebouwde onbebouwbare percelen = 3× placeholder.
+- Nieuwbouw in Brussel via woningbestand-groei; in Vlaanderen via woongebied-percelen — asymmetrie
+  met weinig lege percelen in Brussel.
+- Perceeltransacties: enkel `terrain_batissable` (bebouwbaar); prijs = P50 zonder GIS-imputatie.
 """

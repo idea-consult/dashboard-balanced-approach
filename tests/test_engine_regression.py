@@ -2,8 +2,9 @@
 
 import unittest
 from pathlib import Path
-import pandas as pd
+
 import numpy as np
+import pandas as pd
 
 from config import (
     BEGINJAAR,
@@ -11,12 +12,12 @@ from config import (
     MEASURES_FILE,
     FLOW_RULES_FILE,
     MEASURE_COSTS_FILE,
-    LDEN_CONTOUR_FILE,
+    FLOW_SIZE_FILE,
     LDEN_ZONES_FILE,
     OUTPUT_FLOW_LOG_ZONE_FILE,
+    STOCK_PRICES_FILE,
+    STOCKS_FILE,
 )
-from contour.export import export_lden_contour, export_lden_contour_regional
-from contour.consolidate import bouw_lden, bouw_lden_regional
 from models.stock_manager import StockManager
 from models.measure_selection_manager import MeasureSelectionManager
 from simulation.engine import SimulationEngine
@@ -26,13 +27,18 @@ from simulation.state import FlowRule, SimulationState
 class TestEngineRegression(unittest.TestCase):
     """Ensure split pipeline and wrapper produce stable outputs."""
 
-    @classmethod
-    def setUpClass(cls) -> None:
-        export_lden_contour(bouw_lden())
-        export_lden_contour_regional(bouw_lden_regional())
-
     def _build_engine(self) -> tuple[SimulationEngine, MeasureSelectionManager]:
-        stock_manager = StockManager(LDEN_CONTOUR_FILE, LDEN_ZONES_FILE, BEGINJAAR)
+        measure_ids = tuple(
+            pd.read_csv(MEASURES_FILE, usecols=["measure_id"])["measure_id"].astype(str)
+        )
+        stock_manager = StockManager.from_lden_analysis(
+            stocks_file=STOCKS_FILE,
+            flow_size_file=FLOW_SIZE_FILE,
+            stock_prices_file=STOCK_PRICES_FILE,
+            zones_file=LDEN_ZONES_FILE,
+            beginjaar=BEGINJAAR,
+            measure_ids=measure_ids,
+        )
         selection_manager = MeasureSelectionManager(
             zones_file=LDEN_ZONES_FILE,
             measures_file=MEASURES_FILE,
@@ -55,7 +61,7 @@ class TestEngineRegression(unittest.TestCase):
         engine_a, _ = self._build_engine()
         engine_a.run_simulation(BEGINJAAR, EINDJAAR)
         flow_a = pd.DataFrame(engine_a._flow_log_rows).sort_values(
-            by=["zone", "jaar", "naam_flow", "inflow_stock_name", "outflow_stock_name"]
+            by=["db_ondergrens", "jaar", "naam_flow", "inflow_stock_name", "outflow_stock_name"]
         )
 
         engine_b, selection_manager_b = self._build_engine()
@@ -68,7 +74,7 @@ class TestEngineRegression(unittest.TestCase):
         outputs = engine_b.build_outputs(state)
         engine_b.persist_outputs(outputs)
         flow_b = pd.DataFrame(engine_b._flow_log_rows).sort_values(
-            by=["zone", "jaar", "naam_flow", "inflow_stock_name", "outflow_stock_name"]
+            by=["db_ondergrens", "jaar", "naam_flow", "inflow_stock_name", "outflow_stock_name"]
         )
 
         self.assertEqual(len(flow_a), len(flow_b))
@@ -82,7 +88,11 @@ class TestEngineRegression(unittest.TestCase):
             "delta_outflow",
         ]
         for col in numeric_cols:
-            max_diff = float((flow_a[col].reset_index(drop=True) - flow_b[col].reset_index(drop=True)).abs().max())
+            max_diff = float(
+                (flow_a[col].reset_index(drop=True) - flow_b[col].reset_index(drop=True))
+                .abs()
+                .max()
+            )
             self.assertLessEqual(max_diff, 1e-9, f"Mismatch in {col}: {max_diff}")
 
         self.assertAlmostEqual(engine_a.get_total_costs()[0], engine_b.get_total_costs()[0], places=9)
@@ -123,7 +133,7 @@ class TestEngineRegression(unittest.TestCase):
             },
         )
 
-        new_state = engine.run_simulation_state(state)
+        new_state = engine._run_zone_simulation_state(state)
         result = float(new_state.sim_state[new_state.year_to_idx[2027], 0, 0])
         self.assertAlmostEqual(result, 110.0, places=9)
 
@@ -177,3 +187,19 @@ class TestEngineRegression(unittest.TestCase):
                 totaal = stock_manager.get_aantal("totaal_gehinderde_personen", jaar, zone)
                 self.assertAlmostEqual(totaal, vlaanderen + brussel, places=3)
 
+    def test_active_measure_costs_are_finite(self):
+        engine, selection_manager = self._build_engine()
+        selection_manager.set_selected_zones(
+            "aankoopbeleid_niet_geïsoleerde_woningen", ("A",)
+        )
+        selected = [
+            (name, selection_manager.get_selected_zones(str(name)))
+            for name in selection_manager.get_measure_descriptions().index
+        ]
+        state = engine.load_inputs(BEGINJAAR, EINDJAAR, selected)
+        state = engine.run_simulation_state(state)
+        outputs = engine.build_outputs(state)
+
+        self.assertFalse(np.isnan(outputs.kost_overheid))
+        self.assertFalse(np.isnan(outputs.kost_prive))
+        self.assertGreater(outputs.kost_overheid, 0.0)

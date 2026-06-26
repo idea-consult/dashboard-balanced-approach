@@ -30,7 +30,7 @@ class TestMeasureHelp(unittest.TestCase):
         self.assertIn("niet geselecteerd", text)
         self.assertIn("wel geselecteerd", text)
         self.assertIn("onbebouwde bebouwbare percelen", text)
-        self.assertIn("1,0 %", text)
+        self.assertIn("1,0000 %", text)
 
     def test_measure_help_via_manager(self):
         manager = MeasureSelectionManager(
@@ -43,7 +43,8 @@ class TestMeasureHelp(unittest.TestCase):
         self.assertIn("### Uitleg", help_text)
         self.assertIn("zorgt ervoor dat de stock groeit", help_text)
         self.assertIn("niet geselecteerd", help_text)
-        self.assertIn("0,0 %", help_text)
+        self.assertIn("0,0000 %", help_text)
+        self.assertIn("gewogen gemiddelden", help_text)
 
     def test_combine_without_flow_rules(self):
         result = combine_measure_help("Alleen uitleg", pd.DataFrame())

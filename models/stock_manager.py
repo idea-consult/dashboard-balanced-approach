@@ -9,6 +9,7 @@ import pandas as pd
 from typing import Dict, List, Tuple
 
 from config import OUTPUT_STOCK_FILE
+from models.lden_data_loader import LdenLoadedData, load_lden_data
 
 try:
     from contour.schema import (
@@ -118,6 +119,54 @@ class StockManager:
                 return stock_name[: -len(suffix)], regio
         return stock_name, None
 
+    @classmethod
+    def from_lden_analysis(
+        cls,
+        *,
+        stocks_file: str,
+        flow_size_file: str,
+        stock_prices_file: str,
+        zones_file: str,
+        beginjaar: int,
+        measure_ids: Tuple[str, ...],
+    ) -> StockManager:
+        """Factory: echte Lden-data uit contour_analyse_1/2 exports."""
+        loaded = load_lden_data(
+            stocks_file=stocks_file,
+            flow_size_file=flow_size_file,
+            stock_prices_file=stock_prices_file,
+            zones_file=zones_file,
+            measure_ids=measure_ids,
+        )
+        return cls._from_loaded_lden(loaded, zones_file, beginjaar)
+
+    @classmethod
+    def _from_loaded_lden(
+        cls, loaded: LdenLoadedData, zones_file: str, beginjaar: int
+    ) -> StockManager:
+        manager = cls.__new__(cls)
+        manager.beginjaar = beginjaar
+        manager._has_regional_layer = True
+        manager._lden_band_mode = True
+        manager._flow_rates_by_band = loaded.flow_rates_by_band
+        manager.bands = loaded.bands
+        manager.band_to_zone = loaded.band_to_zone
+
+        manager.df_zones = pd.read_csv(zones_file)
+        manager.df_zones = manager.df_zones.dropna(subset=["zone"]).reset_index(drop=True)
+        manager.df_zones = manager.df_zones.sort_values("min dBel", ascending=False).reset_index(
+            drop=True
+        )
+
+        manager._flow_schema = True
+        manager.df_contour = loaded.df_contour.copy()
+        manager.stock_columns = {}
+        manager._bases_with_regional_columns = set()
+        manager._pending_contour_columns = {}
+        manager._register_initial_stock_columns()
+        manager.df_stock = manager._build_aggregated_stock_table()
+        return manager
+
     def __init__(
         self,
         contour_file: str,
@@ -127,6 +176,10 @@ class StockManager:
     ):
         self.beginjaar = beginjaar
         self._has_regional_layer = False
+        self._lden_band_mode = False
+        self._flow_rates_by_band: Dict[int, Dict[str, Tuple[float, float]]] = {}
+        self.bands: Tuple[int, ...] = ()
+        self.band_to_zone: Dict[int, str] = {}
         self.df_zones = pd.read_csv(zones_file)
         self.df_zones = self.df_zones.dropna(subset=["zone"]).reset_index(drop=True)
         self.df_zones = self.df_zones.sort_values("min dBel", ascending=False).reset_index(
@@ -412,6 +465,35 @@ class StockManager:
     def get_zones(self) -> Tuple[str, ...]:
         return tuple(self.df_zones["zone"].astype(str).tolist())
 
+    def get_bands(self) -> Tuple[int, ...]:
+        if self._lden_band_mode:
+            return self.bands
+        return tuple(self.df_contour.index.astype(int).tolist())
+
+    def get_flow_rates_for_band(
+        self, db_ondergrens: int
+    ) -> Dict[str, Tuple[float, float]]:
+        return self._flow_rates_by_band.get(int(db_ondergrens), {})
+
+    def get_aantal_for_band(self, naam: str, jaar: int, db_ondergrens: int) -> float:
+        if naam not in self.stock_columns or jaar not in self.stock_columns[naam]:
+            return 0.0
+        col = self._ensure_stock_year_column(naam, jaar)
+        value = float(self.df_contour.loc[int(db_ondergrens), col])
+        return 0.0 if pd.isna(value) else value
+
+    def set_aantal_for_band(
+        self, naam: str, jaar: int, db_ondergrens: int, aantal: float
+    ) -> None:
+        col = self._ensure_stock_year_column(naam, jaar)
+        self.df_contour.loc[int(db_ondergrens), col] = float(aantal)
+        zone = str(self.df_contour.loc[int(db_ondergrens), "zone"])
+        zone_mask = self.df_contour["zone"] == zone
+        self.df_stock.loc[(naam, jaar, zone), "aantal"] = float(
+            self.df_contour.loc[zone_mask, col].sum()
+        )
+        self.df_stock.sort_index(inplace=True)
+
     def get_default_leefbaarheidspunten_weights(self) -> Dict[str, Dict[str, float]]:
         required = {"leefbaarheidspunten_geïsoleerd", "leefbaarheidspunten_niet_geïsoleerd"}
         missing = sorted(required - set(self.df_zones.columns))
@@ -458,12 +540,26 @@ class StockManager:
             niet_br = self.df_contour.loc[zone_mask, col_niet_br].astype(float)
             iso_vl = self.df_contour.loc[zone_mask, col_iso_vl].astype(float)
             iso_br = self.df_contour.loc[zone_mask, col_iso_br].astype(float)
-            if "gemiddeld_aantal_inwoners_per_huis" in self.df_contour.columns:
+            if "gemiddeld_aantal_inwoners_per_huis_vlaanderen" in self.df_contour.columns:
+                gem_inw_vl = self.df_contour.loc[
+                    zone_mask, "gemiddeld_aantal_inwoners_per_huis_vlaanderen"
+                ].astype(float)
+                gem_inw_br = self.df_contour.loc[
+                    zone_mask, "gemiddeld_aantal_inwoners_per_huis_brussel"
+                ].astype(float)
+                gem_inw = self.df_contour.loc[
+                    zone_mask, "gemiddeld_aantal_inwoners_per_huis"
+                ].astype(float)
+            elif "gemiddeld_aantal_inwoners_per_huis" in self.df_contour.columns:
                 gem_inw = self.df_contour.loc[zone_mask, "gemiddeld_aantal_inwoners_per_huis"].astype(
                     float
                 )
+                gem_inw_vl = gem_inw
+                gem_inw_br = gem_inw
             else:
                 gem_inw = pd.Series(2.5, index=niet_vl.index)
+                gem_inw_vl = gem_inw
+                gem_inw_br = gem_inw
             dosis = self._dosis_effect_series(zone_mask)
             return pd.DataFrame(
                 {
@@ -474,6 +570,8 @@ class StockManager:
                     "bewoonde_niet_geïsoleerde_woning": niet_vl + niet_br,
                     "bewoonde_geïsoleerde_woning": iso_vl + iso_br,
                     "gemiddeld_aantal_inwoners_per_huis": gem_inw.fillna(2.5),
+                    "gemiddeld_aantal_inwoners_per_huis_vlaanderen": gem_inw_vl.fillna(2.5),
+                    "gemiddeld_aantal_inwoners_per_huis_brussel": gem_inw_br.fillna(2.5),
                     "dosis_effect_relatie": dosis,
                 }
             )

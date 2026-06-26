@@ -27,6 +27,9 @@ LDEN_CONTOUR_REGIONAL_FILE = f"{INPUT_DIR}/lden_contour_regional.csv"
 LNIGHT_CONTOUR_REGIONAL_FILE = f"{INPUT_DIR}/lnight_contour_regional.csv"
 LDEN_ZONES_FILE = f"{INPUT_DIR}/lden_zones.csv"
 LNIGHT_ZONES_FILE = f"{INPUT_DIR}/lnight_zones.csv"
+STOCKS_FILE = f"{INPUT_DIR}/stocks.csv"
+FLOW_SIZE_FILE = f"{INPUT_DIR}/flow_size.csv"
+STOCK_PRICES_FILE = f"{INPUT_DIR}/stock_prices.csv"
 # Default zones file (Lden)
 ZONES_FILE = LDEN_ZONES_FILE
 OUTPUT_STOCK_FILE = f"{OUTPUT_DIR}/stock.csv"

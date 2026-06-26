@@ -6,6 +6,8 @@ import pandas as pd
 import os
 from typing import Dict
 
+from config import FLOW_SIZE_FILE
+from models.flow_help_rates import apply_flow_size_rates_to_rules
 from models.stock_manager import StockManager
 from models.measure_selection_manager import MeasureSelectionManager
 from models.validation import validate_measure_combinations
@@ -48,15 +50,23 @@ def _legenda_labels_en_kleuren(
 
 
 def _measure_help(
-    measure_selection_manager: MeasureSelectionManager, measure_id: str
+    measure_selection_manager: MeasureSelectionManager,
+    measure_id: str,
+    flow_size: pd.DataFrame | None = None,
 ) -> str:
     descriptions = measure_selection_manager.get_measure_descriptions()
     base_help = str(descriptions.at[measure_id, "help"])
     flow_rules = measure_selection_manager.get_flow_rules_for_measure(measure_id)
+    if flow_size is not None:
+        flow_rules = apply_flow_size_rates_to_rules(flow_rules, flow_size)
     return combine_measure_help(base_help, flow_rules)
 
 
-def render_sidebar_controls(measure_selection_manager: MeasureSelectionManager, zones):
+def render_sidebar_controls(
+    measure_selection_manager: MeasureSelectionManager,
+    zones,
+    stock_manager: StockManager | None = None,
+):
     """
     Render sidebar controls for measure selection.
 
@@ -66,6 +76,10 @@ def render_sidebar_controls(measure_selection_manager: MeasureSelectionManager, 
     df_beschrijving_maatregelen = measure_selection_manager.get_measure_descriptions()
     hidden_measures = measure_selection_manager.get_hidden_measures()
     grouped_measures = measure_selection_manager.get_measure_groups()
+
+    flow_size = None
+    if stock_manager is not None and stock_manager._lden_band_mode:
+        flow_size = pd.read_csv(FLOW_SIZE_FILE)
 
     with st.sidebar:
         for entry_kind, entry_key in measure_selection_manager.get_ui_sidebar_entries():
@@ -89,7 +103,7 @@ def render_sidebar_controls(measure_selection_manager: MeasureSelectionManager, 
                     )
                 )
                 combined_help = "\n\n---\n\n".join(
-                    _measure_help(measure_selection_manager, measure)
+                    _measure_help(measure_selection_manager, measure, flow_size)
                     for measure in measure_names
                 )
                 group_label = group_id.replace("_", " ").capitalize()
@@ -112,7 +126,7 @@ def render_sidebar_controls(measure_selection_manager: MeasureSelectionManager, 
             selected = st.segmented_control(
                 label=df_beschrijving_maatregelen.at[maatregel, "naam_mooi"],
                 options=zones,
-                help=_measure_help(measure_selection_manager, maatregel),
+                help=_measure_help(measure_selection_manager, maatregel, flow_size),
                 selection_mode="multi",
                 default=measure_selection_manager.get_selected_zones(maatregel),
                 key=f"seg_{maatregel}",

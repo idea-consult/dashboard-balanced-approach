@@ -45,68 +45,24 @@ def _flow_rate_chart_data(
     measure_id: str,
     *,
     db_kolom: str = "db_lden",
-    aggregatie: str = "contour",
-    teller_baseline_kolom: str | None = None,
-    teller_active_kolom: str | None = None,
-    noemer_kolom: str | None = None,
 ) -> pl.DataFrame:
-    """Bereid data voor op flow-rate staafdiagrammen per LDEN-band.
+    """Zet flow-rate kolommen om naar lang formaat voor het staafdiagram.
 
-    ``aggregatie='contour'`` (standaard): ``sum(teller) / sum(noemer)`` per band. Dit is de
-    contour-flow rate die het dashboard gebruikt. Niet verwarren met ``gemiddelde`` van de
-    per-intersectie ``{measure_id}_baseline`` / ``*_active`` kolommen — dat geeft uitbijters
-    wanneer sommige intersecties een kleine noemer hebben (bv. voorkooprecht db 45).
-
-    Vereist bij ``contour``: ``teller_active_kolom`` en ``noemer_kolom``; optioneel
-    ``teller_baseline_kolom`` als baseline niet altijd 0 is.
+    Verwacht één rij per LDEN-band met ``{measure_id}_baseline`` en ``*_active``.
+    Geen aggregatie — die gebeurt in ``contour_analyse_2.py`` vóór de flow-berekening.
     """
     baseline_kolom, active_kolom = _flow_kolommen(measure_id)
     for kolom in (baseline_kolom, active_kolom):
         if kolom not in df.columns:
             raise ValueError(f"Kolom '{kolom}' ontbreekt in df")
 
-    if aggregatie == "contour":
-        if not teller_active_kolom or not noemer_kolom:
-            raise ValueError(
-                "aggregatie='contour' vereist teller_active_kolom en noemer_kolom"
-            )
-        agg_exprs = [
-            pl.col(teller_active_kolom).sum().alias("_teller_active"),
-            pl.col(noemer_kolom).sum().alias("_noemer"),
-        ]
-        if teller_baseline_kolom:
-            agg_exprs.append(pl.col(teller_baseline_kolom).sum().alias("_teller_baseline"))
-        agg = df.group_by(db_kolom).agg(*agg_exprs)
-        if teller_baseline_kolom:
-            agg = agg.with_columns(
-                pl.when(pl.col("_noemer") > 0)
-                .then(pl.col("_teller_baseline") / pl.col("_noemer"))
-                .otherwise(0.0)
-                .alias("baseline"),
-            )
-        else:
-            agg = agg.with_columns(pl.lit(0.0).alias("baseline"))
-        agg = agg.with_columns(
-            pl.when(pl.col("_noemer") > 0)
-            .then(pl.col("_teller_active") / pl.col("_noemer"))
-            .otherwise(0.0)
-            .alias("active"),
-        ).select(db_kolom, "baseline", "active")
-    elif aggregatie == "gemiddelde":
-        agg = df.group_by(db_kolom).agg(
-            pl.col(baseline_kolom).fill_nan(None).mean().alias("baseline"),
-            pl.col(active_kolom).fill_nan(None).mean().alias("active"),
-        )
-    elif aggregatie == "som":
-        agg = df.group_by(db_kolom).agg(
-            pl.col(baseline_kolom).fill_nan(0.0).sum().alias("baseline"),
-            pl.col(active_kolom).fill_nan(0.0).sum().alias("active"),
-        )
-    else:
-        raise ValueError("aggregatie moet 'contour', 'gemiddelde' of 'som' zijn")
-
     lang = (
-        agg.unpivot(
+        df.select(
+            db_kolom,
+            pl.col(baseline_kolom).fill_nan(0.0).alias("baseline"),
+            pl.col(active_kolom).fill_nan(0.0).alias("active"),
+        )
+        .unpivot(
             on=["baseline", "active"],
             index=db_kolom,
             variable_name="toestand",
@@ -128,7 +84,7 @@ def _flow_rate_chart_data(
 
     return (
         skelet.join(lang.select(db_kolom, "toestand", "waarde"), on=[db_kolom, "toestand"], how="left")
-        .with_columns(pl.col("waarde").fill_nan(0.0).fill_null(0.0))
+        .with_columns(pl.col("waarde").fill_null(0.0))
         .sort(db_kolom, "toestand")
     )
 
@@ -138,23 +94,15 @@ def staafdiagram_flow_rate(
     measure_id: str,
     *,
     titel: str,
-    y_label: str,
+    y_label: str = "Flow rate (%)",
     db_kolom: str = "db_lden",
     hoogte: int = 360,
-    aggregatie: str = "contour",
-    teller_baseline_kolom: str | None = None,
-    teller_active_kolom: str | None = None,
-    noemer_kolom: str | None = None,
-    waarde_format: str = ".3f",
+    waarde_format: str = ".1%",
 ) -> alt.Chart:
     chart_data = _flow_rate_chart_data(
         df,
         measure_id,
         db_kolom=db_kolom,
-        aggregatie=aggregatie,
-        teller_baseline_kolom=teller_baseline_kolom,
-        teller_active_kolom=teller_active_kolom,
-        noemer_kolom=noemer_kolom,
     )
     return (
         alt.Chart(chart_data.to_pandas())
@@ -166,7 +114,12 @@ def staafdiagram_flow_rate(
                 sort=_LDEN_BANDEN,
             ),
             xOffset="toestand:N",
-            y=alt.Y("waarde:Q", title=y_label, stack=None),
+            y=alt.Y(
+                "waarde:Q",
+                title=y_label,
+                stack=None,
+                axis=alt.Axis(format=waarde_format),
+            ),
             color=alt.Color(
                 "toestand:N",
                 title="Toestand",
@@ -188,22 +141,16 @@ def toon_flow_rate_staafdiagram(
     measure_id: str,
     *,
     titel: str | None = None,
-    y_label: str = "Flow rate",
+    y_label: str = "Flow rate (%)",
     db_kolom: str = "db_lden",
     hoogte: int = 360,
-    aggregatie: str = "contour",
-    teller_baseline_kolom: str | None = None,
-    teller_active_kolom: str | None = None,
-    noemer_kolom: str | None = None,
-    waarde_format: str = ".3f",
+    waarde_format: str = ".1%",
 ) -> None:
-    """Staafdiagram per LDEN-band: baseline vs. active voor één maatregel (geen gewest-split).
+    """Staafdiagram per LDEN-band: baseline vs. active (geen gewest-split).
 
-    Bij vooraf geaggregeerde data (één rij per band, zoals in ``contour_analyse_2.py``):
-    ``aggregatie='gemiddelde'``.
-
-    Bij intersectiedata: ``aggregatie='contour'`` met teller- en noemerkolommen
-    (``sum(teller) / sum(noemer)`` per band).
+    ``df`` moet één rij per band bevatten met ``{measure_id}_baseline`` en ``*_active``.
+    Waarden zijn fracties (0–1); as en tooltip tonen percentages.
+    Aggregatie gebeurt buiten deze functie (``contour_analyse_2.py``).
     """
     chart_titel = titel or measure_id.replace("_", " ").capitalize()
     chart = staafdiagram_flow_rate(
@@ -213,10 +160,6 @@ def toon_flow_rate_staafdiagram(
         y_label=y_label,
         db_kolom=db_kolom,
         hoogte=hoogte,
-        aggregatie=aggregatie,
-        teller_baseline_kolom=teller_baseline_kolom,
-        teller_active_kolom=teller_active_kolom,
-        noemer_kolom=noemer_kolom,
         waarde_format=waarde_format,
     )
     st.altair_chart(chart, use_container_width=True)

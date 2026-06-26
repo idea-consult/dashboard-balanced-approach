@@ -1,7 +1,8 @@
-"""Kolommapping en documentatie voor vastgoedtransacties (woningen / appartementen)."""
+"""Kolommapping en documentatie voor vastgoedtransacties (woningen, appartementen, percelen)."""
 
 from __future__ import annotations
 
+import polars as pl
 import streamlit as st
 
 WONING_TRANSACTIE_HERNAMING = {
@@ -33,6 +34,27 @@ APPARTEMENT_TRANSACTIE_HERNAMING = {
     "Appartment_avg_PriceP50_source_CS01012024": "appartement_prijs_p50_bron_capakey",
     "Appartment_avg_PriceP50_distance_m": "appartement_prijs_p50_afstand_buur_m",
 }
+
+PERCEEL_TRANSACTIE_HERNAMING = {
+    "NISCode": "capakey",
+    "terrain_batissable_sum_ParcelsNumber": "bebouwbaar_aantal_transacties",
+    "terrain_batissable_avg_PriceP25": "bebouwbaar_prijs_p25_gemeten",
+    "terrain_batissable_avg_PriceP50": "bebouwbaar_prijs_p50_gemeten",
+    "terrain_batissable_avg_PriceP75": "bebouwbaar_prijs_p75_gemeten",
+    "terrain_batissable_avg_ParcelsAreaP50": "bebouwbaar_oppervlakte_p50_m2",
+    "terrain_batissable_average_price_m2": "bebouwbaar_prijs_per_m2_gemeten",
+}
+
+PERCEEL_TRANSACTIE_SEGMENTEN = (
+    {
+        "aantal_kolom": "bebouwbaar_aantal_transacties",
+        "prijs_kolom": "bebouwbaar_prijs_p50_gemeten",
+        "transacties_uitvoer": "aantal_bebouwbare_perceel_transacties_per_jaar",
+        "prijs_uitvoer": "gemiddelde_prijs_bebouwbaar_perceel",
+        "gewicht_kolom": "onbebouwde_bebouwbare_percelen",
+        "label": "bebouwbare percelen (terrain bâtissable)",
+    },
+)
 
 TRANSACTIE_KOLOM_UITLEG = [
     (
@@ -72,6 +94,46 @@ TRANSACTIE_KOLOM_UITLEG = [
     ),
 ]
 
+PERCEEL_TRANSACTIE_KOLOM_UITLEG = [
+    (
+        "terrain_batissable",
+        "Onbebouwd **bebouwbaar** woongebied-perceel; komt overeen met de stock "
+        "`onbebouwde_bebouwbare_percelen`. Segmenten voor onbebouwbare percelen "
+        "(`terrain_non_batissable`, …) worden niet ingelezen.",
+    ),
+    (
+        "*_prijs_p50_gemeten",
+        "Mediaanprijs (P50) per CaPaKey op basis van transacties in de statistische sector. "
+        "Geen aparte GIS-ingevulde kolom in deze bron — ontbrekende waarden blijven leeg.",
+    ),
+]
+
+
+def aggregeer_transacties_naar_sector(
+    df_capakey: pl.DataFrame,
+    *,
+    transactie_kolom: str,
+    prijs_kolom: str,
+    transacties_uitvoer: str,
+    prijs_uitvoer: str,
+) -> pl.DataFrame:
+    """Aggregeer CaPaKey-transacties naar statistische sector (zelfde logica als woningen)."""
+    return (
+        df_capakey.with_columns(
+            pl.col("capakey").str.strip_chars_end("-").alias("nis_sector"),
+            pl.col(transactie_kolom).fill_null(0).alias("_transacties"),
+            pl.col(prijs_kolom).alias("_prijs"),
+        )
+        .group_by("nis_sector")
+        .agg(
+            pl.col("_transacties").sum().alias(transacties_uitvoer),
+            pl.when(pl.col("_transacties").sum() > 0)
+            .then((pl.col("_prijs") * pl.col("_transacties")).sum() / pl.col("_transacties").sum())
+            .otherwise(pl.col("_prijs").mean())
+            .alias(prijs_uitvoer),
+        )
+    )
+
 
 def toon_transactie_kolomdocumentatie() -> None:
     """Toon kolomuitleg voor de transactie-CSV's in Streamlit."""
@@ -82,4 +144,15 @@ def toon_transactie_kolomdocumentatie() -> None:
         "aangevuld voor sectoren met te weinig transacties."
     )
     for naam, uitleg in TRANSACTIE_KOLOM_UITLEG:
+        st.markdown(f"**{naam}** — {uitleg}")
+
+
+def toon_perceel_transactie_kolomdocumentatie() -> None:
+    """Toon kolomuitleg voor de perceeltransactie-CSV in Streamlit."""
+    st.markdown(
+        "Perceeltransacties staan per CaPaKey in één bestand; we importeren enkel "
+        "**bebouwbaar** woongebied (`terrain_batissable`). De analyse gebruikt mediaanprijs "
+        "P50 (`*_avg_PriceP50`)."
+    )
+    for naam, uitleg in PERCEEL_TRANSACTIE_KOLOM_UITLEG:
         st.markdown(f"**{naam}** — {uitleg}")
