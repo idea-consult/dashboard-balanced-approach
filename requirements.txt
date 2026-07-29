@@ -6,6 +6,9 @@ pandas
 polars
 pyarrow
 pydeck
+pygwalker
 pyproj
+sqlalchemy
 streamlit
+typst
 vl-convert-python

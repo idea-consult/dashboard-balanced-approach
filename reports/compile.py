@@ -8,8 +8,6 @@ import tempfile
 from pathlib import Path
 from typing import Any
 
-import typst
-
 from models.measure_selection_manager import MeasureSelectionManager
 from models.scenario_manager import NONE_SCENARIO_ID, NONE_SCENARIO_LABEL
 from models.stock_manager import StockManager
@@ -28,6 +26,14 @@ def compile_simulation_report(
     scenario_label: str | None = None,
 ) -> bytes:
     """Build chart PNGs + JSON context and compile Typst to PDF bytes."""
+    try:
+        import typst
+    except ImportError as exc:
+        raise ImportError(
+            "Het pakket 'typst' is niet geïnstalleerd. "
+            "Voeg typst toe aan de deployment-dependencies om PDF-rapporten te genereren."
+        ) from exc
+
     template_src = TEMPLATES_DIR / "simulatierapport.typ"
     if not template_src.exists():
         raise FileNotFoundError(f"Typst-template ontbreekt: {template_src}")
