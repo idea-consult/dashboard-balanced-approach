@@ -4,12 +4,17 @@ from __future__ import annotations
 
 import altair as alt
 
+from reports.brand import CHART_FONT, register_vl_convert_fonts
+
 DUTCH_NUMBER_FORMAT_LOCALE = {
     "decimal": ",",
     "thousands": ".",
     "grouping": [3],
     "currency": ["€ ", ""],
 }
+
+# Ensure PNG export (vl-convert) can embed Aptos on Linux/Render.
+register_vl_convert_fonts()
 
 IDEA_CONSULT_ALTAIR_THEME = {
     "config": {
@@ -22,7 +27,7 @@ IDEA_CONSULT_ALTAIR_THEME = {
             "height": 400,
         },
         "title": {
-            "font": "Segoe UI",
+            "font": CHART_FONT,
             "fontSize": 23,
             "fontWeight": "bold",
             "color": "black",
@@ -31,17 +36,17 @@ IDEA_CONSULT_ALTAIR_THEME = {
             "domainColor": "black",
             "domainWidth": 1,
             "grid": False,
-            "labelFont": "Segoe UI",
+            "labelFont": CHART_FONT,
             "labelFontSize": 13,
             "labelColor": "black",
-            "titleFont": "Segoe UI",
+            "titleFont": CHART_FONT,
             "titleFontSize": 17,
             "titleColor": "black",
         },
         "legend": {
-            "labelFont": "Segoe UI",
+            "labelFont": CHART_FONT,
             "labelFontSize": 17,
-            "titleFont": "Segoe UI",
+            "titleFont": CHART_FONT,
             "titleFontSize": 17,
             "orient": "right",
             "fillColor": "transparent",
@@ -68,8 +73,8 @@ IDEA_CONSULT_ALTAIR_THEME = {
                 "#00989A",
             ]
         },
-        "font": "Segoe UI",
-        "text": {"font": "Segoe UI", "fontSize": 17, "color": "black"},
+        "font": CHART_FONT,
+        "text": {"font": CHART_FONT, "fontSize": 17, "color": "black"},
     }
 }
 

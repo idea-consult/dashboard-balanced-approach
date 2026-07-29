@@ -9,6 +9,7 @@ import pandas as pd
 
 from config import BEGINJAAR, EINDJAAR
 from models.stock_manager import StockManager
+from reports.brand import CHART_FONT, register_vl_convert_fonts
 from ui.components import (
     _CHART_KLEUR_A,
     _CHART_KLEUR_B,
@@ -21,9 +22,21 @@ from ui.components import (
 )
 
 
+def _with_embeddable_fonts(chart: alt.Chart) -> alt.Chart:
+    """Force Aptos on all text layers for headless PNG rendering."""
+    return (
+        chart.configure(font=CHART_FONT)
+        .configure_title(font=CHART_FONT)
+        .configure_axis(labelFont=CHART_FONT, titleFont=CHART_FONT)
+        .configure_legend(labelFont=CHART_FONT, titleFont=CHART_FONT)
+        .configure_text(font=CHART_FONT)
+    )
+
+
 def _save_png(chart: alt.Chart, path: Path) -> Path:
     path.parent.mkdir(parents=True, exist_ok=True)
-    chart.save(str(path), format="png", scale_factor=2)
+    register_vl_convert_fonts()
+    _with_embeddable_fonts(chart).save(str(path), format="png", scale_factor=2)
     return path
 
 

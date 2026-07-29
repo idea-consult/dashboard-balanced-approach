@@ -20,6 +20,7 @@ import idea_consult_altair_theme  # noqa: F401 — Idea Consult-thema + NL getal
 
 from reports.brand import LOGO_PATH
 from ui.auth import check_password
+from ui.fonts import apply_aptos_font
 from ui.navigation import run_app_navigation
 
 st.set_page_config(
@@ -28,6 +29,7 @@ st.set_page_config(
     page_icon=str(LOGO_PATH),
 )
 st.logo(str(LOGO_PATH), size="large")
+apply_aptos_font()
 
 check_password()
 
