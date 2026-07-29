@@ -75,3 +75,18 @@ class TestLdenDataLoader(unittest.TestCase):
         measure_ids = set(pd.read_csv(FLOW_RULES_FILE)["measure_id"].astype(str))
         for band, band_rates in self.loaded.flow_rates_by_band.items():
             self.assertEqual(set(band_rates.keys()), measure_ids, f"band {band}")
+
+    def test_flow_rates_have_no_nan(self) -> None:
+        """NaN rates in flow_size.csv must become 0 so scenario costs stay finite."""
+        import math
+
+        for band, band_rates in self.loaded.flow_rates_by_band.items():
+            for measure_id, (baseline, active) in band_rates.items():
+                self.assertTrue(
+                    math.isfinite(baseline),
+                    f"band {band} {measure_id} baseline={baseline}",
+                )
+                self.assertTrue(
+                    math.isfinite(active),
+                    f"band {band} {measure_id} active={active}",
+                )

@@ -43,6 +43,9 @@ PRICE_COLUMN_ALIASES = {
     "prijs_onbebouwde_onbebouwbare_percelen": "onbebouwde_bebouwbare_percelen_prijs",
 }
 
+OVERLAY_SHARE_COLUMNS = ("share_lnight45", "share_na70")
+OVERLAY_IDS = ("lnight45", "na70")
+
 
 @dataclass(frozen=True)
 class LdenLoadedData:
@@ -135,6 +138,17 @@ def _dosis_effect_series(index: pd.Index) -> pd.Series:
     return pd.Series(0.01 * np.exp(0.08 * (db - 45)), index=index, dtype=float)
 
 
+def _rate_or_zero(value: object) -> float:
+    """Parse a flow rate; treat missing/NaN/inf as 0 (avoids NaN cost totals)."""
+    try:
+        rate = float(value)  # type: ignore[arg-type]
+    except (TypeError, ValueError):
+        return 0.0
+    if not np.isfinite(rate):
+        return 0.0
+    return min(max(rate, 0.0), 1.0)
+
+
 def _parse_flow_rates(
     flow_size_file: str, measure_ids: Tuple[str, ...]
 ) -> Dict[int, Dict[str, Tuple[float, float]]]:
@@ -149,9 +163,9 @@ def _parse_flow_rates(
             prefix = _flow_column_prefix(measure_id)
             bl_col = f"{prefix}_baseline"
             act_col = f"{prefix}_active"
-            baseline = float(row[bl_col]) if bl_col in flow_df.columns else 0.0
-            active = float(row[act_col]) if act_col in flow_df.columns else 0.0
-            band_rates[measure_id] = (min(baseline, 1.0), min(active, 1.0))
+            baseline = _rate_or_zero(row[bl_col]) if bl_col in flow_df.columns else 0.0
+            active = _rate_or_zero(row[act_col]) if act_col in flow_df.columns else 0.0
+            band_rates[measure_id] = (baseline, active)
         rates[db] = band_rates
     return rates
 
@@ -194,6 +208,17 @@ def load_lden_data(
     db_midden = df_contour.index.astype(float) + 0.5
     df_contour["zone"] = db_midden.map(lambda m: _map_midden_to_zone(m, df_zones))
     df_contour = df_contour[df_contour["zone"] != "Onbekend"]
+
+    flow_indexed = flow_size.copy()
+    flow_indexed["db_lden"] = flow_indexed["db_lden"].astype(int)
+    flow_indexed = flow_indexed.set_index("db_lden")
+    for share_col in OVERLAY_SHARE_COLUMNS:
+        if share_col in flow_indexed.columns:
+            df_contour[share_col] = (
+                flow_indexed[share_col].reindex(df_contour.index).fillna(0.0).astype(float)
+            )
+        else:
+            df_contour[share_col] = 0.0
 
     bands = tuple(int(b) for b in sorted(df_contour.index.tolist()))
     band_to_zone = {band: str(df_contour.loc[band, "zone"]) for band in bands}

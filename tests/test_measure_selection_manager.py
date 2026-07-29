@@ -56,15 +56,47 @@ class TestMeasureSelectionManagerConnection(unittest.TestCase):
         keys = [key for _, key in entries]
         self.assertEqual(keys[0], "verkavelingsverbod")
         self.assertEqual(keys[1], "woongebiedverbod")
+        self.assertIn(("group", "woonverdichtingsverbod_woningen"), entries)
         self.assertIn(("group", "aankoopbeleid_woningen"), entries)
+        woonverdichting_idx = keys.index("woonverdichtingsverbod_woningen")
         aankoop_idx = keys.index("aankoopbeleid_woningen")
         voorkoop_idx = keys.index("voorkooprecht_woningen")
         onteigening_idx = keys.index("onteigenen_woningen")
+        self.assertLess(woonverdichting_idx, aankoop_idx)
         self.assertLess(aankoop_idx, voorkoop_idx)
         self.assertLess(voorkoop_idx, onteigening_idx)
         self.assertNotIn("renovatie_zonder_maatregel", keys)
 
+    def test_sidebar_aankoop_sections(self):
+        """Aankoopbeleid/voorkooprecht/onteigening zitten onder sectiekoppen."""
+        starts = self.selection_manager.get_sidebar_section_starts()
+        ends = self.selection_manager.get_sidebar_section_ends()
+        self.assertEqual(
+            starts[("measure", "aankoopbeleid_percelen")], "Aankopen percelen"
+        )
+        self.assertEqual(
+            starts[("group", "aankoopbeleid_woningen")], "Aankopen woningen"
+        )
+        self.assertIn(("measure", "onteigening_percelen"), ends)
+        self.assertIn(("group", "onteigenen_woningen"), ends)
+        self.assertEqual(
+            self.selection_manager.get_sidebar_short_label(
+                "measure", "onteigening_percelen"
+            ),
+            "Aankopen percelen: onteigenen",
+        )
+        self.assertEqual(
+            self.selection_manager.get_sidebar_short_label(
+                "group", "voorkooprecht_woningen"
+            ),
+            "Aankopen woningen: voorkooprecht",
+        )
+        self.assertIsNone(
+            self.selection_manager.get_sidebar_short_label("measure", "verkavelingsverbod")
+        )
+
     def tearDown(self):
         """Reset maatregel_toepassen na elke test."""
         for measure_name in self.selection_manager.get_measure_descriptions().index:
+            self.selection_manager.set_selected_overlay(str(measure_name), None)
             self.selection_manager.set_selected_zones(str(measure_name), ())

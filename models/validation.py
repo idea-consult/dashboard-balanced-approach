@@ -1,7 +1,9 @@
 """Validation rules for incompatible measure combinations."""
 
 from typing import List, Tuple
+
 from models.measure_selection_manager import MeasureSelectionManager
+from models.stock_manager import StockManager
 
 
 # Definieer incompatibele maatregel combinaties
@@ -15,35 +17,54 @@ INCOMPATIBLE_MEASURES = [
     ("aankoopbeleid_percelen", "onteigening_percelen"),
     ("voorkooprecht_percelen", "onteigening_percelen"),
     ("aankoopbeleid_percelen", "voorkooprecht_percelen"),
-    # Isolatievoorschriften en verbod op kleinschalige woningen zijn incompatibel
-    ("isolatievoorschriften_nieuwbouw_naar_niet_geïsoleerde_woning", "verbod_kleine_woning"),
-    ("isolatievoorschriften_nieuwbouw_naar_geïsoleerde_woning", "verbod_kleine_woning"),
+    # Isolatievoorschriften en woningverbod zijn incompatibel
+    ("isolatievoorschriften_nieuwbouw_naar_niet_geïsoleerde_woning", "woningverbod"),
+    ("isolatievoorschriften_nieuwbouw_naar_geïsoleerde_woning", "woningverbod"),
 ]
 
 
+def _measure_covers_zone(
+    measure_selection_manager: MeasureSelectionManager,
+    measure_id: str,
+    zone: str,
+    stock_manager: StockManager | None,
+) -> bool:
+    if measure_selection_manager.is_measure_applied(measure_id, zone):
+        return True
+    overlay = measure_selection_manager.get_selected_overlay(measure_id)
+    if overlay is None or stock_manager is None:
+        return False
+    zone_mask = stock_manager.df_contour["zone"] == zone
+    if not zone_mask.any():
+        return False
+    share_col = f"share_{overlay}"
+    if share_col not in stock_manager.df_contour.columns:
+        return False
+    return float(stock_manager.df_contour.loc[zone_mask, share_col].astype(float).max()) > 0.0
+
+
 def validate_measure_combinations(
-    measure_selection_manager: MeasureSelectionManager, zones: Tuple[str, ...]
+    measure_selection_manager: MeasureSelectionManager,
+    zones: Tuple[str, ...],
+    stock_manager: StockManager | None = None,
 ) -> List[Tuple[str, str, str]]:
     """
-    Valideer of er incompatibele maatregel combinaties zijn per zone.
-    
-    Args:
-        measure_selection_manager: manager om te controleren welke maatregelen actief zijn
-        
+    Valideer incompatibele maatregelcombinaties per zone (incl. overlay-dekking).
+
     Returns:
-        List van tuples (zone, maatregel1, maatregel2) voor elke gevonden conflict
+        List van tuples (zone, maatregel1, maatregel2)
     """
-    conflicts = []
-    
+    conflicts: List[Tuple[str, str, str]] = []
+
     for zone in zones:
-        # Check elke incompatibele combinatie
         for measure1, measure2 in INCOMPATIBLE_MEASURES:
-            if (
-                measure_selection_manager.is_measure_applied(measure1, zone) and
-                measure_selection_manager.is_measure_applied(measure2, zone)
+            if _measure_covers_zone(
+                measure_selection_manager, measure1, zone, stock_manager
+            ) and _measure_covers_zone(
+                measure_selection_manager, measure2, zone, stock_manager
             ):
                 conflicts.append((zone, measure1, measure2))
-    
+
     return conflicts
 
 
@@ -53,27 +74,14 @@ def get_conflict_message(
     measure2: str,
     measure_selection_manager: MeasureSelectionManager,
 ) -> str:
-    """
-    Genereer een gebruiksvriendelijke error message voor een conflict.
-    
-    Args:
-        zone: Zone identifier
-        measure1: Eerste maatregel naam
-        measure2: Tweede maatregel naam
-        measure_selection_manager: manager om mooie namen op te halen
-        
-    Returns:
-        Error message string
-    """
-    # Haal mooie namen op uit beschrijvingen
+    """Genereer een gebruiksvriendelijke error message voor een conflict."""
     try:
         name1 = measure_selection_manager.get_measure_descriptions().at[measure1, "naam_mooi"]
         name2 = measure_selection_manager.get_measure_descriptions().at[measure2, "naam_mooi"]
     except KeyError:
-        # Fallback naar technische naam als beschrijving niet gevonden
         name1 = measure1.replace("_", " ").title()
         name2 = measure2.replace("_", " ").title()
-    
+
     return (
         f"⚠️ Conflict in zone {zone}: '{name1}' en '{name2}' "
         f"kunnen niet tegelijkertijd worden toegepast."

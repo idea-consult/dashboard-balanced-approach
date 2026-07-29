@@ -65,6 +65,54 @@ df = pl.read_csv(
     infer_schema_length=10000,
 ).rename(KOLOM_HERNAMING)
 
+"""
+## Overlap Lnight45 en NA70
+
+#### Bron
+`data_1/intersection lden avec lnight45 et NA70 final.csv` — per Lden-intersectie het
+oppervlakte-aandeel dat ook in Lnight ≥ 45 dB respectievelijk NA70 ligt.
+
+#### Bewerkingen
+1. Inlezen met Europese CSV-instellingen.
+2. Kolommen hernoemen naar `oppervlakte_lnight45_m2`, `pct_lnight45`, `oppervlakte_na70_m2`, `pct_na70`.
+3. Inner join op `id_inter_ss_lden` (1:1 met de Lden-intersecties).
+
+Deze percentages worden later gebruikt om inwoners/stocks te wegen en dekkingsfracties
+per 1 dB-band te berekenen (analyse 2 → `share_lnight45` / `share_na70`).
+"""
+_OVERLAP_HERNAMING = {
+    "surface intersection between statistical sectors and lden noise contour": (
+        "oppervlakte_overlap_lnight_na70_m2"
+    ),
+    "Surface of the polygone in lnight 45": "oppervlakte_lnight45_m2",
+    "Percentage of the surface of the polygone in lnight 45": "pct_lnight45",
+    "Surface of the polygone in NA70": "oppervlakte_na70_m2",
+    "Percentage of the surface of the polygone in NA70": "pct_na70",
+}
+df_overlap = pl.read_csv(
+    "data_1/intersection lden avec lnight45 et NA70 final.csv",
+    separator=";",
+    encoding="utf-8",
+    decimal_comma=True,
+    infer_schema_length=10000,
+).rename(_OVERLAP_HERNAMING)
+df = df.join(
+    df_overlap.select(
+        "id_inter_ss_lden",
+        "oppervlakte_lnight45_m2",
+        "pct_lnight45",
+        "oppervlakte_na70_m2",
+        "pct_na70",
+    ),
+    on="id_inter_ss_lden",
+    how="left",
+).with_columns(
+    pl.col("pct_lnight45").fill_null(0.0),
+    pl.col("pct_na70").fill_null(0.0),
+    pl.col("oppervlakte_lnight45_m2").fill_null(0.0),
+    pl.col("oppervlakte_na70_m2").fill_null(0.0),
+)
+
 if TOON_KAARTEN:
     toon_geometrie_waarschuwing(df)
 
@@ -296,6 +344,34 @@ df = df.with_columns(perceel_eigendom_overheid=pl.lit(0))
 1. `woning_eigendom_overheid = 0` — doelstock voor aankoop/voorkooprecht/onteigening flows.
 """
 df = df.with_columns(woning_eigendom_overheid=pl.lit(0))
+
+"""
+### Gewogen stocks Lnight45 / NA70
+
+Oppervlakte-% uit de overlap-CSV vermenigvuldigd met inwoners en stockkolommen.
+`inwoners_lnight45 = inwoners × pct_lnight45 / 100` (idem voor NA70 en overige stocks).
+"""
+_OVERLAY_WEIGHT_STOCKS = (
+    "inwoners",
+    "aantal_woningen",
+    "onbebouwde_bebouwbare_percelen",
+    "onbebouwde_onbebouwbare_percelen",
+    "bewoonde_niet_geïsoleerde_woning",
+    "bewoonde_geïsoleerde_woning",
+    "nieuwe_woning",
+    "perceel_eigendom_overheid",
+    "woning_eigendom_overheid",
+)
+df = df.with_columns(
+    *[
+        (pl.col(kolom) * pl.col("pct_lnight45") / 100.0).alias(f"{kolom}_lnight45")
+        for kolom in _OVERLAY_WEIGHT_STOCKS
+    ],
+    *[
+        (pl.col(kolom) * pl.col("pct_na70") / 100.0).alias(f"{kolom}_na70")
+        for kolom in _OVERLAY_WEIGHT_STOCKS
+    ],
+)
 
 """
 ### Woongebied-mutaties (onbebouwbaar ↔ bebouwbaar)
@@ -975,6 +1051,214 @@ toon_staafdiagram_per_gewest(
     kolom="jaarlijks_aantal_vergunningen_zonder_isolatie",
     titel="jaarlijks_aantal_vergunningen_zonder_isolatie",
     y_label="Renovaties zonder akoestische isolatie per jaar (gem.)",
+)
+
+"""
+### Jaarlijks aantal sloopvergunningen
+
+Een woning die gesloopt wordt, valt **weg** uit de bewoonde stock. Sloopvergunningen meten
+die uitstroom. We halen de data uit hetzelfde omgevingsloket-bestand als nieuwbouw, maar
+filteren nu op `handeling = "Sloop"`.
+
+#### Bron
+- **Vlaanderen:** `data_1/vergunningen_omgevingsloket_2026_lang.csv`, handeling *Sloop*,
+  metriek *Aantal gebouwen* (elk gesloopt gebouw = verlies van stock).
+- **Brussel:** geen directe sloopdata. **Placeholder:** Vlaamse ratio sloop / woningen
+  toegepast op Brusselse woningstock per intersectie.
+
+#### Bewerkingen — Vlaanderen
+1. Kolom `aantal_vergunningen_sloop` initialiseren op 0.
+2. **`vergunningen_gemiddeld_per_gemeente`:** gemiddeld aantal gesloopte gebouwen/jaar 2021–2025
+   per gemeente (metriek = *Aantal gebouwen*, niet wooneenheden — sloop registreert gebouwen).
+3. **`wijs_proportioneel_toe`** op Vlaamse intersecties:
+   - groep: `naam_gemeente_nl`
+   - gewicht: `aantal_woningen` (sloop evenredig verdeeld naar woningdichtheid).
+
+#### Bewerkingen — Brussel
+4. **Ratio VL:** som sloop / som woningen (Vlaanderen, contour).
+5. Brusselse intersecties: `aantal_vergunningen_sloop = aantal_woningen × ratio_Vlaanderen`.
+
+#### Bewerkingen — afronding
+6. **`pl.concat`:** Vlaanderen + Brussel + overige (0).
+
+#### Opmerking
+De metriek *Aantal gebouwen* telt fysieke gebouwen, niet wooneenheden. Een appartementsgebouw
+dat gesloopt wordt, telt als 1 gebouw maar vertegenwoordigt meerdere wooneenheden. Dit is een
+bekende onderschatting; verfijn wanneer sloopdata per wooneenheid beschikbaar is.
+
+#### Visualisatie
+Staafdiagram per LDEN-band en gewest.
+"""
+df = df.with_columns(aantal_vergunningen_sloop=pl.lit(0.0))
+
+df_vergunningen_sloop = vergunningen_gemiddeld_per_gemeente(
+    df_vergunningen,
+    handeling="Sloop",
+    metriek="Aantal gebouwen",
+    gebouw_functie=None,
+)
+
+df_vla = wijs_proportioneel_toe(
+    df.filter(pl.col("regio_nl") == "Vlaams Gewest"),
+    df_vergunningen_sloop,
+    groep_kolom="naam_gemeente_nl",
+    bron_groep_kolom="gemeente",
+    bron_waarde_kolom="gemiddeld_per_jaar",
+    gewicht_kolom="aantal_woningen",
+    uitvoer_kolom="aantal_vergunningen_sloop",
+)
+
+totaal_sloop_vlaanderen = float(df_vla["aantal_vergunningen_sloop"].sum())
+totaal_woningen_vla_sloop = float(df_vla["aantal_woningen"].sum())
+_ratio_sloop_per_woning = totaal_sloop_vlaanderen / totaal_woningen_vla_sloop
+
+st.write(
+    f"Gemiddeld aantal sloopvergunningen (gebouwen) per jaar in Vlaanderen (contour): "
+    f"**{totaal_sloop_vlaanderen:,.1f}** · "
+    f"ratio sloop/woning: **{_ratio_sloop_per_woning:.5f}**"
+)
+st.info(
+    "⚠️ **Placeholder Brussel:** geen sloopdata beschikbaar voor Brussel. "
+    "Sloopvergunningen voor Brusselse intersecties worden geschat via de Vlaamse ratio "
+    f"sloop/woning ({_ratio_sloop_per_woning:.5f}). Vervang zodra Brusselse sloopdata "
+    "beschikbaar zijn."
+)
+
+df_br = df.filter(
+    pl.col("regio_nl") == "Brussels Hoofdstedelijk Gewest"
+).with_columns(
+    aantal_vergunningen_sloop=pl.col("aantal_woningen") * _ratio_sloop_per_woning
+)
+
+df = pl.concat(
+    [
+        df_vla,
+        df_br,
+        df.filter(
+            ~pl.col("regio_nl").is_in(
+                ["Vlaams Gewest", "Brussels Hoofdstedelijk Gewest"]
+            )
+        ).with_columns(aantal_vergunningen_sloop=pl.lit(0.0)),
+    ]
+)
+
+toon_staafdiagram_per_gewest(
+    df,
+    kolom="aantal_vergunningen_sloop",
+    titel="Gesloopte gebouwen per jaar (sloopvergunningen)",
+    y_label="Gesloopte gebouwen per jaar (gem.)",
+)
+
+"""
+### Jaarlijks aantal nieuwe percelen via verkaveling
+
+Een verkavelingsvergunning splitst één bestaand perceel op in meerdere kleinere percelen.
+Dit vergroot de stock van `onbebouwde_bebouwbare_percelen`. We meten het **aantal
+verkavelingsprojecten** (niet het aantal nieuwe percelen — dat is niet beschikbaar in de data).
+
+#### Bron
+- **Vlaanderen:** `data_1/oud/vergunningen_verkaveling_2026_lang.csv`, handeling *`-`*
+  (pure verkaveling **zonder** sloop-component), metriek *Aantal projecten*.
+- **Brussel:** geen verkavelingsdata. **Placeholder:** 0 (Brussel heeft nauwelijks
+  onbebouwd woongebied).
+
+#### Bewerkingen — Vlaanderen
+1. Kolom `aantal_nieuwe_percelen_verkaveling` initialiseren op 0.
+2. **`vergunningen_gemiddeld_per_gemeente`:** gemiddeld aantal verkavelingsprojecten/jaar
+   2021–2025 per gemeente.
+3. **Placeholder: 5 nieuwe percelen per project** — gemiddeld aantal percelen dat uit één
+   verkavelingsproject voortkomt. Er is **geen officiële registratie** van percelen per
+   project in deze dataset. De factor 5 is een ruwe schatting; verfijn wanneer
+   kadasterdata per verkavelingsproject beschikbaar zijn.
+4. **`wijs_proportioneel_toe`** op Vlaamse intersecties:
+   - groep: `naam_gemeente_nl`
+   - gewicht: `onbebouwde_bebouwbare_percelen`
+
+#### Bewerkingen — Brussel
+5. `aantal_nieuwe_percelen_verkaveling = 0` — Brussel heeft weinig onbebouwd woongebied en
+   geen brondata.
+
+#### Bewerkingen — afronding
+6. **`pl.concat`:** Vlaanderen + Brussel + overige (0).
+
+#### Placeholder-overzicht
+| Parameter | Waarde | Toelichting |
+|-----------|--------|-------------|
+| Percelen per verkavelingsproject | **5** | Gemiddelde schatting; geen brondata per project |
+| Brusselse verkaveling | **0** | Geen data; nauwelijks onbebouwd woongebied |
+
+#### Visualisatie
+Staafdiagram per LDEN-band en gewest.
+"""
+_PERCELEN_PER_VERKAVELINGSPROJECT = 5  # placeholder: geen brondata per project beschikbaar
+
+df = df.with_columns(aantal_nieuwe_percelen_verkaveling=pl.lit(0.0))
+
+df_vergunningen_verkaveling = pl.read_csv(
+    "data_1/oud/vergunningen_verkaveling_2026_lang.csv", separator=";"
+)
+
+df_vergunningen_verk_gem = vergunningen_gemiddeld_per_gemeente(
+    df_vergunningen_verkaveling,
+    handeling="-",
+    metriek="Aantal projecten",
+    gebouw_functie=None,
+)
+
+df_vla = wijs_proportioneel_toe(
+    df.filter(pl.col("regio_nl") == "Vlaams Gewest"),
+    df_vergunningen_verk_gem,
+    groep_kolom="naam_gemeente_nl",
+    bron_groep_kolom="gemeente",
+    bron_waarde_kolom="gemiddeld_per_jaar",
+    gewicht_kolom="onbebouwde_bebouwbare_percelen",
+    uitvoer_kolom="aantal_nieuwe_percelen_verkaveling",
+)
+
+df_vla = df_vla.with_columns(
+    aantal_nieuwe_percelen_verkaveling=pl.col("aantal_nieuwe_percelen_verkaveling")
+    * _PERCELEN_PER_VERKAVELINGSPROJECT
+)
+
+totaal_projecten_verk = float(
+    df_vergunningen_verk_gem["gemiddeld_per_jaar"].sum()
+)
+totaal_percelen_verk = float(df_vla["aantal_nieuwe_percelen_verkaveling"].sum())
+
+st.write(
+    f"Gemiddeld aantal verkavelingsprojecten per jaar in Vlaanderen (contour): "
+    f"**{totaal_projecten_verk:,.1f}** · "
+    f"geschat aantal nieuwe percelen (× {_PERCELEN_PER_VERKAVELINGSPROJECT}): "
+    f"**{totaal_percelen_verk:,.0f}**"
+)
+st.warning(
+    f"⚠️ **Placeholder:** het aantal nieuwe percelen per verkavelingsproject is niet "
+    f"beschikbaar in de brondata. We gebruiken een vaste factor van "
+    f"**{_PERCELEN_PER_VERKAVELINGSPROJECT} percelen per project**. "
+    "Vervang zodra kadaster- of vergunningsdata het werkelijke aantal percelen per "
+    "verkavelingsproject bevatten. "
+    "Brussel = 0 (geen data, nauwelijks onbebouwd woongebied)."
+)
+
+df = pl.concat(
+    [
+        df_vla,
+        df.filter(pl.col("regio_nl") == "Brussels Hoofdstedelijk Gewest").with_columns(
+            aantal_nieuwe_percelen_verkaveling=pl.lit(0.0)
+        ),
+        df.filter(
+            ~pl.col("regio_nl").is_in(
+                ["Vlaams Gewest", "Brussels Hoofdstedelijk Gewest"]
+            )
+        ).with_columns(aantal_nieuwe_percelen_verkaveling=pl.lit(0.0)),
+    ]
+)
+
+toon_staafdiagram_per_gewest(
+    df,
+    kolom="aantal_nieuwe_percelen_verkaveling",
+    titel="Nieuwe percelen via verkaveling per jaar (schatting)",
+    y_label="Nieuwe percelen per jaar (gem., placeholder ×5)",
 )
 
 df.write_csv("data_2/data_2.csv")

@@ -475,6 +475,78 @@ class StockManager:
     ) -> Dict[str, Tuple[float, float]]:
         return self._flow_rates_by_band.get(int(db_ondergrens), {})
 
+    def get_overlay_share(self, db_ondergrens: int, overlay_id: str) -> float:
+        """Inwonersgewogen dekkingsfractie van een overlay op een 1 dB-band."""
+        col = f"share_{overlay_id}"
+        if col not in self.df_contour.columns:
+            return 0.0
+        value = self.df_contour.loc[int(db_ondergrens), col]
+        if pd.isna(value):
+            return 0.0
+        return float(max(0.0, min(1.0, value)))
+
+    def get_overlay_coverage_by_zone(self) -> pd.DataFrame:
+        """Per zone A–F: aandeel inwoners in Lnight45 / NA70 (0–1)."""
+        rows: list[dict[str, float | str]] = []
+        for zone in self.get_zones():
+            zone_mask = self.df_contour["zone"] == zone
+            if not zone_mask.any():
+                rows.append(
+                    {"zone": zone, "share_lnight45": 0.0, "share_na70": 0.0}
+                )
+                continue
+            inwoners = self.df_contour.loc[zone_mask, "inwoners_per_contour"].astype(float)
+            total = float(inwoners.sum())
+            if total <= 0:
+                rows.append(
+                    {"zone": zone, "share_lnight45": 0.0, "share_na70": 0.0}
+                )
+                continue
+            share_ln = float(
+                (
+                    inwoners
+                    * self.df_contour.loc[zone_mask, "share_lnight45"].astype(float)
+                ).sum()
+                / total
+            )
+            share_na = float(
+                (
+                    inwoners
+                    * self.df_contour.loc[zone_mask, "share_na70"].astype(float)
+                ).sum()
+                / total
+            )
+            rows.append(
+                {
+                    "zone": zone,
+                    "share_lnight45": share_ln,
+                    "share_na70": share_na,
+                }
+            )
+        return pd.DataFrame(rows)
+
+    def sum_metric_weighted_by_overlay(
+        self, metric_name: str, jaar: int, overlay_id: str
+    ) -> float:
+        """Som van zone-metric × overlay-share over alle 1 dB-banden."""
+        share_col = f"share_{overlay_id}"
+        if share_col not in self.df_contour.columns:
+            return 0.0
+        total = 0.0
+        for zone in self.get_zones():
+            zone_value = self.get_aantal(metric_name, jaar, zone)
+            zone_mask = self.df_contour["zone"] == zone
+            inwoners = self.df_contour.loc[zone_mask, "inwoners_per_contour"].astype(float)
+            inw_total = float(inwoners.sum())
+            if inw_total <= 0:
+                continue
+            share = float(
+                (inwoners * self.df_contour.loc[zone_mask, share_col].astype(float)).sum()
+                / inw_total
+            )
+            total += zone_value * share
+        return total
+
     def get_aantal_for_band(self, naam: str, jaar: int, db_ondergrens: int) -> float:
         if naam not in self.stock_columns or jaar not in self.stock_columns[naam]:
             return 0.0

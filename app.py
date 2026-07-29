@@ -18,11 +18,17 @@ import streamlit as st
 
 import idea_consult_altair_theme  # noqa: F401 — Idea Consult-thema + NL getalnotatie
 
+from reports.brand import LOGO_PATH
 from ui.auth import check_password
 from ui.navigation import run_app_navigation
 
-check_password()
+st.set_page_config(
+    layout="wide",
+    page_title="Balanced approach — simulator",
+    page_icon=str(LOGO_PATH),
+)
+st.logo(str(LOGO_PATH), size="large")
 
-st.set_page_config(layout="wide", page_title="Balanced approach — simulator")
+check_password()
 
 run_app_navigation()

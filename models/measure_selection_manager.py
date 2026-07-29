@@ -4,7 +4,39 @@ from typing import Literal, Tuple
 import os
 import pandas as pd
 
+from models.lden_data_loader import OVERLAY_IDS
+
 SidebarEntry = tuple[Literal["group", "measure"], str]
+
+# Visuele secties in de sidebar: --- rondom + geprefixte maatregel-labels.
+SIDEBAR_SECTIONS: tuple[dict[str, object], ...] = (
+    {
+        "label": "Aankopen percelen",
+        "members": (
+            ("measure", "aankoopbeleid_percelen"),
+            ("measure", "voorkooprecht_percelen"),
+            ("measure", "onteigening_percelen"),
+        ),
+        "short_labels": {
+            "aankoopbeleid_percelen": "Aankopen percelen: aankoopbeleid",
+            "voorkooprecht_percelen": "Aankopen percelen: voorkooprecht",
+            "onteigening_percelen": "Aankopen percelen: onteigenen",
+        },
+    },
+    {
+        "label": "Aankopen woningen",
+        "members": (
+            ("group", "aankoopbeleid_woningen"),
+            ("group", "voorkooprecht_woningen"),
+            ("group", "onteigenen_woningen"),
+        ),
+        "short_labels": {
+            "aankoopbeleid_woningen": "Aankopen woningen: aankoopbeleid",
+            "voorkooprecht_woningen": "Aankopen woningen: voorkooprecht",
+            "onteigenen_woningen": "Aankopen woningen: onteigenen",
+        },
+    },
+)
 
 
 class MeasureSelectionManager:
@@ -53,6 +85,9 @@ class MeasureSelectionManager:
             .drop(columns=["_k"])
             .assign(maatregel_toepassen=False)
         )
+        self._overlay_by_measure: dict[str, str | None] = {
+            str(name): None for name in self.df_measures.index
+        }
 
     def _validate_normalized_inputs(
         self,
@@ -132,6 +167,25 @@ class MeasureSelectionManager:
         self.df_selection.loc[mask, "maatregel_toepassen"] = self.df_selection.loc[
             mask, "zone"
         ].isin(selected_zones)
+        if selected_zones:
+            self._overlay_by_measure[str(maatregel_naam)] = None
+
+    def get_selected_overlay(self, maatregel_naam: str) -> str | None:
+        return self._overlay_by_measure.get(str(maatregel_naam))
+
+    def set_selected_overlay(
+        self, maatregel_naam: str, overlay_id: str | None
+    ) -> None:
+        key = str(maatregel_naam)
+        if overlay_id is None:
+            self._overlay_by_measure[key] = None
+            return
+        if overlay_id not in OVERLAY_IDS:
+            raise ValueError(f"Onbekende overlay: {overlay_id}")
+        self._overlay_by_measure[key] = overlay_id
+        # Overlay en A–F zijn wederzijds uitsluitend.
+        mask = self._mask_for_measure(maatregel_naam)
+        self.df_selection.loc[mask, "maatregel_toepassen"] = False
 
     def get_measure_descriptions(self) -> pd.DataFrame:
         return self.df_measures.copy()
@@ -142,11 +196,16 @@ class MeasureSelectionManager:
         ]
 
     def is_measure_applied(self, naam: str, zone: str) -> bool:
+        if self.get_selected_overlay(naam) is not None:
+            return False
         mask = self._mask_for_measure(naam) & (self.df_selection["zone"] == zone)
         subset = self.df_selection[mask]
         if subset.empty:
             return False
         return bool(subset["maatregel_toepassen"].any())
+
+    def is_measure_applied_on_overlay(self, naam: str, overlay_id: str) -> bool:
+        return self.get_selected_overlay(naam) == overlay_id
 
     def get_hidden_measures(self) -> set[str]:
         if "hidden_in_ui" not in self.df_measures.columns:
@@ -197,3 +256,40 @@ class MeasureSelectionManager:
             entries.append(("measure", measure_id))
 
         return entries
+
+    def get_sidebar_section_starts(self) -> dict[SidebarEntry, str]:
+        """Map eerste zichtbare entry van een sectie → sectietitel."""
+        entries = set(self.get_ui_sidebar_entries())
+        starts: dict[SidebarEntry, str] = {}
+        for section in SIDEBAR_SECTIONS:
+            members: tuple[SidebarEntry, ...] = section["members"]  # type: ignore[assignment]
+            for member in members:
+                if member in entries:
+                    starts[member] = str(section["label"])
+                    break
+        return starts
+
+    def get_sidebar_section_ends(self) -> set[SidebarEntry]:
+        """Laatste zichtbare entry van elke sectie (voor --- erna)."""
+        entries = set(self.get_ui_sidebar_entries())
+        ends: set[SidebarEntry] = set()
+        for section in SIDEBAR_SECTIONS:
+            members: tuple[SidebarEntry, ...] = section["members"]  # type: ignore[assignment]
+            last_visible: SidebarEntry | None = None
+            for member in members:
+                if member in entries:
+                    last_visible = member
+            if last_visible is not None:
+                ends.add(last_visible)
+        return ends
+
+    def get_sidebar_short_label(self, entry_kind: str, entry_key: str) -> str | None:
+        """Geprefixte label binnen een sidebar-sectie, of None."""
+        entry: SidebarEntry = (entry_kind, entry_key)  # type: ignore[assignment]
+        for section in SIDEBAR_SECTIONS:
+            members: tuple[SidebarEntry, ...] = section["members"]  # type: ignore[assignment]
+            if entry not in members:
+                continue
+            short_labels: dict[str, str] = section["short_labels"]  # type: ignore[assignment]
+            return short_labels.get(entry_key)
+        return None

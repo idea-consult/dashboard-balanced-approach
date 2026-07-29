@@ -1,6 +1,12 @@
 import unittest
 
-from ui.formatting import format_euro, format_integer, format_number, format_percent
+from ui.formatting import (
+    format_euro,
+    format_euro_miljoen,
+    format_integer,
+    format_number,
+    format_percent,
+)
 
 
 class TestFormatting(unittest.TestCase):
@@ -15,6 +21,10 @@ class TestFormatting(unittest.TestCase):
 
     def test_format_euro(self):
         self.assertEqual(format_euro(2500), "€ 2.500,00")
+
+    def test_format_euro_miljoen(self):
+        self.assertEqual(format_euro_miljoen(492_901_354.97), "€ 493 mln")
+        self.assertEqual(format_euro_miljoen(0), "€ 0 mln")
 
     def test_format_percent(self):
         self.assertEqual(format_percent(12.5, decimals=1), "12,5 %")

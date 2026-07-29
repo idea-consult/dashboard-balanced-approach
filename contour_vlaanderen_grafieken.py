@@ -40,6 +40,49 @@ def _flow_kolommen(measure_id: str) -> tuple[str, str]:
     return f"{measure_id}_baseline", f"{measure_id}_active"
 
 
+def _staaf_waarde_labels(
+    chart_data: pl.DataFrame,
+    *,
+    waarde_format: str,
+    groep_kolom: str | None = None,
+    stack: str | None = None,
+    label_grootte: int = 10,
+) -> alt.Chart:
+    """Tekstlabels boven (positief) of onder (negatief) elk niet-nul staafje."""
+    label_data = chart_data.filter(pl.col("waarde") != 0)
+    if label_data.is_empty():
+        return alt.Chart(pl.DataFrame()).mark_point(opacity=0)
+
+    def _text_layer(subset: pl.DataFrame, dy: int, baseline: str) -> alt.Chart:
+        encode: dict = {
+            "x": alt.X("db_band:O", sort=_LDEN_BANDEN),
+            "y": alt.Y("waarde:Q", stack=stack),
+            "text": alt.Text("waarde:Q", format=waarde_format),
+            "color": alt.value("#333333"),
+        }
+        if groep_kolom:
+            encode["xOffset"] = f"{groep_kolom}:N"
+        return (
+            alt.Chart(subset.to_pandas())
+            .mark_text(align="center", size=label_grootte, dy=dy, baseline=baseline)
+            .encode(**encode)
+        )
+
+    positief = label_data.filter(pl.col("waarde") >= 0)
+    negatief = label_data.filter(pl.col("waarde") < 0)
+
+    layers: list[alt.Chart] = []
+    if not positief.is_empty():
+        layers.append(_text_layer(positief, -6, "bottom"))
+    if not negatief.is_empty():
+        layers.append(_text_layer(negatief, 6, "top"))
+
+    chart = layers[0]
+    for layer in layers[1:]:
+        chart = chart + layer
+    return chart
+
+
 def _flow_rate_chart_data(
     df: pl.DataFrame,
     measure_id: str,
@@ -104,7 +147,7 @@ def staafdiagram_flow_rate(
         measure_id,
         db_kolom=db_kolom,
     )
-    return (
+    bars = (
         alt.Chart(chart_data.to_pandas())
         .mark_bar()
         .encode(
@@ -132,8 +175,13 @@ def staafdiagram_flow_rate(
                 alt.Tooltip("waarde:Q", title=y_label, format=waarde_format),
             ],
         )
-        .properties(title=titel, height=hoogte)
     )
+    labels = _staaf_waarde_labels(
+        chart_data,
+        waarde_format=waarde_format,
+        groep_kolom="toestand",
+    )
+    return (bars + labels).properties(title=titel, height=hoogte)
 
 
 def toon_flow_rate_staafdiagram(
@@ -240,7 +288,8 @@ def staafdiagram_per_gewest(
         gewicht_kolom=gewicht_kolom,
     )
     is_gemiddelde = aggregatie == "gemiddelde"
-    encode_y = alt.Y("waarde:Q", title=y_label, stack=None if is_gemiddelde else "zero")
+    stack = None if is_gemiddelde else "zero"
+    encode_y = alt.Y("waarde:Q", title=y_label, stack=stack)
     encode_kwargs: dict = {
         "x": alt.X(
             "db_band:O",
@@ -265,12 +314,14 @@ def staafdiagram_per_gewest(
     else:
         encode_kwargs["order"] = alt.Order("gewest:N", sort="ascending")
 
-    return (
-        alt.Chart(chart_data.to_pandas())
-        .mark_bar()
-        .encode(**encode_kwargs)
-        .properties(title=titel, height=hoogte)
+    bars = alt.Chart(chart_data.to_pandas()).mark_bar().encode(**encode_kwargs)
+    labels = _staaf_waarde_labels(
+        chart_data,
+        waarde_format=waarde_format,
+        groep_kolom="gewest" if is_gemiddelde else None,
+        stack=stack,
     )
+    return (bars + labels).properties(title=titel, height=hoogte)
 
 
 def toon_staafdiagram_per_gewest(

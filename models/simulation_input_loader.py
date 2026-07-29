@@ -1,11 +1,24 @@
 """Build validated simulation inputs/state from CSV files."""
 
 from typing import Dict, Iterable, Tuple
+import math
+
 import pandas as pd
 import numpy as np
 
+from models.lden_data_loader import OVERLAY_IDS
 from models.stock_manager import StockManager
 from simulation.state import FlowRule, SimulationState
+
+OverlayId = str | None
+
+
+def _finite_rate(value: float) -> float:
+    """Clamp flow rates to [0, 1]; treat NaN/inf as 0."""
+    rate = float(value)
+    if not math.isfinite(rate):
+        return 0.0
+    return min(max(rate, 0.0), 1.0)
 
 
 def _selected_map_from_iterable(
@@ -14,6 +27,20 @@ def _selected_map_from_iterable(
     if selected_zones is None:
         return {}
     return {name: set(zones) for name, zones in selected_zones}
+
+
+def _overlay_map_from_iterable(
+    selected_overlays: Iterable[tuple[str, OverlayId]] | None,
+) -> Dict[str, OverlayId]:
+    if selected_overlays is None:
+        return {}
+    out: Dict[str, OverlayId] = {}
+    for name, overlay in selected_overlays:
+        if overlay in OVERLAY_IDS:
+            out[str(name)] = str(overlay)
+        else:
+            out[str(name)] = None
+    return out
 
 
 def resolve_regional_flow_targets(
@@ -74,6 +101,26 @@ def _load_rule_templates(
     return merged.sort_values("priority")
 
 
+def _activation_weight_for_measure(
+    *,
+    measure_id: str,
+    zone: str,
+    db_ondergrens: int | None,
+    selected_map: Dict[str, set[str]],
+    overlay_map: Dict[str, OverlayId],
+    stock_manager: StockManager | None,
+) -> float:
+    """1.0 for full zone, overlay share for Lnight45/NA70, else 0."""
+    overlay = overlay_map.get(measure_id)
+    if overlay is not None:
+        if stock_manager is None or db_ondergrens is None:
+            return 0.0
+        return stock_manager.get_overlay_share(db_ondergrens, overlay)
+    if zone in selected_map.get(measure_id, set()):
+        return 1.0
+    return 0.0
+
+
 def _flow_rule_from_row(
     row: pd.Series,
     *,
@@ -81,23 +128,25 @@ def _flow_rule_from_row(
     db_ondergrens: int | None,
     flow_rate_baseline: float,
     flow_rate_active: float,
-    active: bool,
+    activation_weight: float,
 ) -> FlowRule:
+    weight = float(max(0.0, min(1.0, activation_weight)))
     return FlowRule(
         rule_id=str(row["rule_id"]),
         measure_id=str(row["measure_id"]),
         zone=zone,
         inflow_stock=str(row["inflow_stock"]),
         outflow_stock=str(row["outflow_stock"]),
-        flow_rate_baseline=float(flow_rate_baseline),
-        flow_rate_active=float(flow_rate_active),
+        flow_rate_baseline=_finite_rate(flow_rate_baseline),
+        flow_rate_active=_finite_rate(flow_rate_active),
         flow_mode=str(row["flow_mode"]),
-        active=active,
+        active=weight > 0.0,
         cost_stock=str(row.get("kost_stock", "")).strip(),
         rel_cost_overheid=float(row["rel_cost_overheid"]),
         rel_cost_prive=float(row["rel_cost_prive"]),
         priority=int(row["priority"]),
         db_ondergrens=db_ondergrens,
+        activation_weight=weight,
     )
 
 
@@ -106,6 +155,7 @@ def _load_band_rules(
     stock_manager: StockManager,
     merged: pd.DataFrame,
     selected_map: Dict[str, set[str]],
+    overlay_map: Dict[str, OverlayId],
 ) -> Dict[int, list[FlowRule]]:
     by_band: Dict[int, list[FlowRule]] = {}
     for db in stock_manager.get_bands():
@@ -114,7 +164,14 @@ def _load_band_rules(
         rules: list[FlowRule] = []
         for _, row in merged.iterrows():
             measure_id = str(row["measure_id"])
-            active = zone in selected_map.get(measure_id, set())
+            weight = _activation_weight_for_measure(
+                measure_id=measure_id,
+                zone=zone,
+                db_ondergrens=db,
+                selected_map=selected_map,
+                overlay_map=overlay_map,
+                stock_manager=stock_manager,
+            )
             baseline, active_rate = band_rates.get(
                 measure_id,
                 (float(row["flow_rate_baseline"]), float(row["flow_rate_active"])),
@@ -126,7 +183,7 @@ def _load_band_rules(
                     db_ondergrens=db,
                     flow_rate_baseline=baseline,
                     flow_rate_active=active_rate,
-                    active=active,
+                    activation_weight=weight,
                 )
             )
         by_band[db] = rules
@@ -138,12 +195,19 @@ def _load_zone_rules(
     zones: Tuple[str, ...],
     merged: pd.DataFrame,
     selected_map: Dict[str, set[str]],
+    overlay_map: Dict[str, OverlayId],
 ) -> Dict[str, list[FlowRule]]:
     by_zone: Dict[str, list[FlowRule]] = {zone: [] for zone in zones}
     for zone in zones:
         for _, row in merged.iterrows():
             measure_id = str(row["measure_id"])
-            active = zone in selected_map.get(measure_id, set())
+            # Zone-level mode heeft geen overlay-shares; overlay selectie = geen activatie.
+            if overlay_map.get(measure_id):
+                weight = 0.0
+            elif zone in selected_map.get(measure_id, set()):
+                weight = 1.0
+            else:
+                weight = 0.0
             by_zone[zone].append(
                 _flow_rule_from_row(
                     row,
@@ -151,7 +215,7 @@ def _load_zone_rules(
                     db_ondergrens=None,
                     flow_rate_baseline=float(row["flow_rate_baseline"]),
                     flow_rate_active=float(row["flow_rate_active"]),
-                    active=active,
+                    activation_weight=weight,
                 )
             )
     return by_zone
@@ -166,9 +230,11 @@ def load_simulation_inputs(
     flow_rules_file: str,
     measure_costs_file: str,
     selected_zones: Iterable[tuple[str, Tuple[str, ...]]] | None = None,
+    selected_overlays: Iterable[tuple[str, OverlayId]] | None = None,
 ) -> SimulationState:
     """Load and validate all simulation inputs into a SimulationState."""
     selected_map = _selected_map_from_iterable(selected_zones)
+    overlay_map = _overlay_map_from_iterable(selected_overlays)
     merged = _load_rule_templates(flow_rules_file, measure_costs_file)
 
     stock_names = stock_manager.get_simulation_stock_names()
@@ -188,6 +254,7 @@ def load_simulation_inputs(
             stock_manager=stock_manager,
             merged=merged,
             selected_map=selected_map,
+            overlay_map=overlay_map,
         )
         return SimulationState(
             beginjaar=beginjaar,
@@ -214,6 +281,7 @@ def load_simulation_inputs(
         zones=zones,
         merged=merged,
         selected_map=selected_map,
+        overlay_map=overlay_map,
     )
     return SimulationState(
         beginjaar=beginjaar,

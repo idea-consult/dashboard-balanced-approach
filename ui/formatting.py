@@ -43,6 +43,13 @@ def format_euro(value: Number) -> str:
     return f"€ {format_number(value)}"
 
 
+def format_euro_miljoen(value: Number, *, decimals: int = 0) -> str:
+    """Format a monetary value in millions of euros, e.g. € 493 mln."""
+    if value is None or (isinstance(value, float) and (math.isnan(value) or math.isinf(value))):
+        return ""
+    return f"€ {format_number(float(value) / 1_000_000, decimals=decimals)} mln"
+
+
 def format_percent(value: Number, *, decimals: int = 0) -> str:
     """Format a percentage with Dutch number style, e.g. 12,5 %."""
     return f"{format_number(value, decimals=decimals)} %"

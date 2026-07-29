@@ -1,0 +1,34 @@
+scenario_id,scenario_label,priority,measure_id,zones,overlay
+minimaal,Minimaal ambitieniveau,1,woongebiedverbod,A;B;C,
+minimaal,Minimaal ambitieniveau,1,woningverbod,A;B,
+minimaal,Minimaal ambitieniveau,1,verbod_kwetsbare_groep,A;B,
+minimaal,Minimaal ambitieniveau,1,woonverdichtingsverbod_niet_geïsoleerde_woningen,A;B,
+minimaal,Minimaal ambitieniveau,1,woonverdichtingsverbod_geïsoleerde_woningen,A;B,
+minimaal,Minimaal ambitieniveau,1,verplicht_isoleren_renovatie,A;B,
+hoger_ruimtelijk_rendement,Studie hoger ruimtelijk rendement,2,woongebiedverbod,A;B;C,
+hoger_ruimtelijk_rendement,Studie hoger ruimtelijk rendement,2,woningverbod,A;B;C,
+hoger_ruimtelijk_rendement,Studie hoger ruimtelijk rendement,2,verbod_kwetsbare_groep,A;B;C,
+hoger_ruimtelijk_rendement,Studie hoger ruimtelijk rendement,2,woonverdichtingsverbod_niet_geïsoleerde_woningen,A;B;C,
+hoger_ruimtelijk_rendement,Studie hoger ruimtelijk rendement,2,woonverdichtingsverbod_geïsoleerde_woningen,A;B;C,
+hoger_ruimtelijk_rendement,Studie hoger ruimtelijk rendement,2,verplicht_isoleren_renovatie,A;B;C,
+hoger_ruimtelijk_rendement,Studie hoger ruimtelijk rendement,2,aankoopbeleid_percelen,A,
+hoger_ruimtelijk_rendement,Studie hoger ruimtelijk rendement,2,aankoopbeleid_niet_geïsoleerde_woningen,A,
+hoger_ruimtelijk_rendement,Studie hoger ruimtelijk rendement,2,aankoopbeleid_geïsoleerde_woningen,A,
+kleine_nachtzone,Studie hoger ruimtelijk rendement + kleinste nachtzone,3,woongebiedverbod,,na70
+kleine_nachtzone,Studie hoger ruimtelijk rendement + kleinste nachtzone,3,woningverbod,,na70
+kleine_nachtzone,Studie hoger ruimtelijk rendement + kleinste nachtzone,3,verbod_kwetsbare_groep,,na70
+kleine_nachtzone,Studie hoger ruimtelijk rendement + kleinste nachtzone,3,woonverdichtingsverbod_niet_geïsoleerde_woningen,,na70
+kleine_nachtzone,Studie hoger ruimtelijk rendement + kleinste nachtzone,3,woonverdichtingsverbod_geïsoleerde_woningen,,na70
+kleine_nachtzone,Studie hoger ruimtelijk rendement + kleinste nachtzone,3,verplicht_isoleren_renovatie,A;B;C,
+kleine_nachtzone,Studie hoger ruimtelijk rendement + kleinste nachtzone,3,aankoopbeleid_percelen,A,
+kleine_nachtzone,Studie hoger ruimtelijk rendement + kleinste nachtzone,3,aankoopbeleid_niet_geïsoleerde_woningen,A,
+kleine_nachtzone,Studie hoger ruimtelijk rendement + kleinste nachtzone,3,aankoopbeleid_geïsoleerde_woningen,A,
+maximaal,Maximaal ambitieniveau,4,woongebiedverbod,,lnight45
+maximaal,Maximaal ambitieniveau,4,woningverbod,,lnight45
+maximaal,Maximaal ambitieniveau,4,verbod_kwetsbare_groep,,lnight45
+maximaal,Maximaal ambitieniveau,4,woonverdichtingsverbod_niet_geïsoleerde_woningen,,lnight45
+maximaal,Maximaal ambitieniveau,4,woonverdichtingsverbod_geïsoleerde_woningen,,lnight45
+maximaal,Maximaal ambitieniveau,4,verplicht_isoleren_renovatie,,lnight45
+maximaal,Maximaal ambitieniveau,4,aankoopbeleid_percelen,A,
+maximaal,Maximaal ambitieniveau,4,aankoopbeleid_niet_geïsoleerde_woningen,A,
+maximaal,Maximaal ambitieniveau,4,aankoopbeleid_geïsoleerde_woningen,A,

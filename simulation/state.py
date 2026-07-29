@@ -23,6 +23,7 @@ class FlowRule:
     rel_cost_prive: float
     priority: int = 100
     db_ondergrens: int | None = None
+    activation_weight: float = 1.0
 
 
 @dataclass

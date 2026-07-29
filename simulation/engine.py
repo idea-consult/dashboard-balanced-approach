@@ -64,7 +64,13 @@ class SimulationEngine:
             (name, self.measure_selection_manager.get_selected_zones(str(name)))
             for name in self.measure_selection_manager.get_measure_descriptions().index
         ]
-        state = self.load_inputs(beginjaar, eindjaar, selected_zones)
+        selected_overlays = [
+            (name, self.measure_selection_manager.get_selected_overlay(str(name)))
+            for name in self.measure_selection_manager.get_measure_descriptions().index
+        ]
+        state = self.load_inputs(
+            beginjaar, eindjaar, selected_zones, selected_overlays=selected_overlays
+        )
         state = self.run_simulation_state(state)
         outputs = self.build_outputs(state)
         self.persist_outputs(outputs)
@@ -74,6 +80,7 @@ class SimulationEngine:
         beginjaar: int,
         eindjaar: int,
         selected_zones: List[tuple[str, Tuple[str, ...]]] | None = None,
+        selected_overlays: List[tuple[str, str | None]] | None = None,
     ) -> SimulationState:
         """Load validated inputs into a single SimulationState."""
         return load_simulation_inputs(
@@ -84,6 +91,7 @@ class SimulationEngine:
             flow_rules_file=self.flow_rules_file,
             measure_costs_file=self.measure_costs_file,
             selected_zones=selected_zones,
+            selected_overlays=selected_overlays,
         )
 
     def run_simulation_state(self, state: SimulationState) -> SimulationState:
@@ -136,8 +144,12 @@ class SimulationEngine:
         outflow_targets = resolve_regional_flow_targets(rule.outflow_stock, state.stock_to_idx)
         if not inflow_targets or not outflow_targets:
             return
-        flow_rate = rule.flow_rate_active if rule.active else rule.flow_rate_baseline
+        weight = float(rule.activation_weight) if rule.active else 0.0
+        flow_rate = rule.flow_rate_baseline + weight * (
+            rule.flow_rate_active - rule.flow_rate_baseline
+        )
         total_outflow_absolute = 0.0
+        total_cost_units = 0.0
         log_inflow_orig = 0.0
         log_inflow_new = 0.0
         log_outflow_orig = 0.0
@@ -152,6 +164,9 @@ class SimulationEngine:
             outflow_stock_value = float(
                 np.nan_to_num(state.sim_state[next_year_idx, spatial_idx, outflow_idx], nan=0.0)
             )
+            available = max(inflow_stock_value, 0.0)
+            # |baseline − effectief| × stock: aankoop = outflow; verbod = verhinderde eenheden
+            total_cost_units += available * abs(rule.flow_rate_baseline - flow_rate)
             if rule.flow_mode == "growth":
                 flow_absolute = inflow_stock_value * flow_rate
                 new_inflow = inflow_stock_value + flow_absolute
@@ -160,7 +175,6 @@ class SimulationEngine:
                 )
                 outflow_absolute = flow_absolute
             else:
-                available = max(inflow_stock_value, 0.0)
                 flow_absolute = min(available * flow_rate, available)
                 new_inflow = available - flow_absolute
                 new_outflow = outflow_stock_value + flow_absolute
@@ -176,9 +190,9 @@ class SimulationEngine:
             if outflow_idx != inflow_idx:
                 state.sim_state[next_year_idx, spatial_idx, outflow_idx] = new_outflow
 
-        if rule.active:
+        if weight > 0:
             row_cost = self._calculate_row_cost(
-                zone, rule.cost_stock, total_outflow_absolute, db_ondergrens=band
+                zone, rule.cost_stock, total_cost_units, db_ondergrens=band
             )
             state.totale_kost_overheid += row_cost * rule.rel_cost_overheid
             state.totale_kost_prive += row_cost * rule.rel_cost_prive
@@ -186,7 +200,7 @@ class SimulationEngine:
             "zone": zone,
             "jaar": jaar,
             "naam_flow": rule.measure_id,
-            "maatregel_toegepast": rule.active,
+            "maatregel_toegepast": weight > 0,
             "flow_rate": flow_rate,
             "flow_mode": rule.flow_mode,
             "inflow_stock_name": rule.inflow_stock,

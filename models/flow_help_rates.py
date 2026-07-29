@@ -11,8 +11,7 @@ NOEMER_BY_MEASURE: dict[str, str] = {
     "woongebiedverbod": "onbebouwde_onbebouwbare_percelen",
     "aankoopbeleid_percelen": "onbebouwde_bebouwbare_percelen",
     "voorkooprecht_percelen": "onbebouwde_bebouwbare_percelen",
-    "verbod_kleine_woning": "onbebouwde_bebouwbare_percelen",
-    "verbod_grote_woning": "onbebouwde_bebouwbare_percelen",
+    "woningverbod": "onbebouwde_bebouwbare_percelen",
     "verbod_kwetsbare_groep": "onbebouwde_bebouwbare_percelen",
     "woonverdichtingsverbod_niet_geïsoleerde_woningen": "bewoonde_niet_geïsoleerde_woning",
     "woonverdichtingsverbod_geïsoleerde_woningen": "bewoonde_geïsoleerde_woning",
@@ -50,8 +49,8 @@ def summarize_measure_rates(flow_size: pd.DataFrame, measure_id: str) -> tuple[f
     if bl_col not in flow_size.columns or act_col not in flow_size.columns:
         return 0.0, 0.0
 
-    baseline_s = flow_size[bl_col]
-    active_s = flow_size[act_col]
+    baseline_s = flow_size[bl_col].astype(float).fillna(0.0)
+    active_s = flow_size[act_col].astype(float).fillna(0.0)
     noemer_col = NOEMER_BY_MEASURE.get(measure_id)
     if noemer_col and noemer_col in flow_size.columns:
         weight = flow_size[noemer_col]

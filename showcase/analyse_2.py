@@ -149,23 +149,14 @@ Gedwongen onteigening van onbebouwde bebouwbare percelen.
     },
     {
         "markdown": """
-## verbod_kleine_woning
+## woningverbod
 
-**Baseline (placeholder):** 97% van nieuwbouwvergunningen / bebouwbare percelen.
+**Baseline:** gedeelde nieuwbouwrate =
+nieuwbouw / (niet-geïsoleerde + geïsoleerde woningen + bebouwbare percelen).
 
-**Active:** `0`.
+**Active:** `0`. Transfer: percelen → `nieuwe_woning`.
 """,
-        "measure_id": "verbod_kleine_woning",
-    },
-    {
-        "markdown": """
-## verbod_grote_woning
-
-**Baseline (placeholder):** 3% van nieuwbouwvergunningen / bebouwbare percelen.
-
-**Active:** `0`.
-""",
-        "measure_id": "verbod_grote_woning",
+        "measure_id": "woningverbod",
     },
     {
         "markdown": """
@@ -181,9 +172,9 @@ Gedwongen onteigening van onbebouwde bebouwbare percelen.
         "markdown": """
 ## woonverdichtingsverbod_niet_geïsoleerde_woningen
 
-Beperkt jaarlijkse groei van niet-geïsoleerde bewoonde woningen.
+Growth op niet-geïsoleerde woningen. **Zelfde rate als woningverbod.**
 
-**Baseline** en **active (placeholder):** `0` — referentiemodel suggereert baseline **1%**.
+**Active:** `0`.
 """,
         "measure_id": "woonverdichtingsverbod_niet_geïsoleerde_woningen",
     },
@@ -191,9 +182,9 @@ Beperkt jaarlijkse groei van niet-geïsoleerde bewoonde woningen.
         "markdown": """
 ## woonverdichtingsverbod_geïsoleerde_woningen
 
-Beperkt jaarlijkse groei van geïsoleerde bewoonde woningen.
+Growth op geïsoleerde woningen. **Zelfde rate als woningverbod.**
 
-**Baseline** en **active (placeholder):** `0`.
+**Active:** `0`.
 """,
         "measure_id": "woonverdichtingsverbod_geïsoleerde_woningen",
     },

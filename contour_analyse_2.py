@@ -7,6 +7,32 @@ from contour_vlaanderen_grafieken import (
 )
 
 # uv run streamlit run contour_analyse_2.py --server.port 8502
+
+st.set_page_config(page_title="Contour analyse 2 — flows", layout="wide")
+with st.sidebar:
+    TOON_MAATREGEL_HELP = st.toggle(
+        "Toon maatregel-uitleg",
+        value=False,
+        help="Toont of verbergt de narratieve helptekst (uit measures.csv) onder elke maatregel-titel.",
+    )
+
+_df_measures_help = pl.read_csv("input/measures.csv")
+_MAATREGEL_HELP: dict[str, str] = {
+    str(row["measure_id"]): str(row["help"])
+    for row in _df_measures_help.select("measure_id", "help").iter_rows(named=True)
+}
+
+
+def toon_maatregel_info(*measure_ids: str) -> None:
+    """Toon narratieve UI-help uit measures.csv als st.info (indien toggle aan)."""
+    if not TOON_MAATREGEL_HELP:
+        return
+    for measure_id in measure_ids:
+        help_text = _MAATREGEL_HELP.get(measure_id, "").strip()
+        if help_text:
+            st.info(help_text)
+
+
 df_intersecties = pl.read_csv("data_2/data_2.csv")
 
 """
@@ -26,6 +52,7 @@ Daarna berekenen we flow rates als teller / noemer op die geaggregeerde rij.
 _DB_SOM_KOLOMMEN = [
     "oppervlakte_overlap_m2",
     "inwoners_overlap",
+    "inwoners",
     "onbebouwde_bebouwbare_percelen",
     "onbebouwde_onbebouwbare_percelen",
     "bewoonde_niet_geïsoleerde_woning",
@@ -44,12 +71,18 @@ _DB_SOM_KOLOMMEN = [
     "aantal_vergunningen_kwetsbare_groepen",
     "jaarlijks_aantal_vergunningen_met_isolatie",
     "jaarlijks_aantal_vergunningen_zonder_isolatie",
+    "aantal_vergunningen_sloop",
+    "aantal_nieuwe_percelen_verkaveling",
 ]
 
 df = (
     df_intersecties.group_by("db_lden")
     .agg(
         *[pl.col(kolom).sum() for kolom in _DB_SOM_KOLOMMEN],
+        pl.col("inwoners_lnight45").sum().alias("inwoners_lnight45"),
+        pl.col("inwoners_na70").sum().alias("inwoners_na70"),
+        pl.col("oppervlakte_lnight45_m2").sum().alias("oppervlakte_lnight45_m2"),
+        pl.col("oppervlakte_na70_m2").sum().alias("oppervlakte_na70_m2"),
         (
             pl.col("gemiddelde_prijs_van_een_woning")
             * pl.col("aantal_woning_transacties_per_jaar")
@@ -78,6 +111,18 @@ df = (
         )
         .otherwise(0.0)
         .alias("gemiddelde_prijs_bebouwbaar_perceel"),
+        pl.when(pl.col("inwoners") > 0)
+        .then(pl.col("inwoners_lnight45") / pl.col("inwoners"))
+        .when(pl.col("oppervlakte_overlap_m2") > 0)
+        .then(pl.col("oppervlakte_lnight45_m2") / pl.col("oppervlakte_overlap_m2"))
+        .otherwise(0.0)
+        .alias("share_lnight45"),
+        pl.when(pl.col("inwoners") > 0)
+        .then(pl.col("inwoners_na70") / pl.col("inwoners"))
+        .when(pl.col("oppervlakte_overlap_m2") > 0)
+        .then(pl.col("oppervlakte_na70_m2") / pl.col("oppervlakte_overlap_m2"))
+        .otherwise(0.0)
+        .alias("share_na70"),
     )
     .drop("_prijs_woning_gewogen", "_prijs_bebouwbaar_gewogen")
     .sort("db_lden")
@@ -119,6 +164,13 @@ df_stocks = df_intersecties.select(
         "db_lden",
         "oppervlakte_overlap_m2",
         "aandeel_sector_in_contour",
+        "pct_lnight45",
+        "pct_na70",
+        "oppervlakte_lnight45_m2",
+        "oppervlakte_na70_m2",
+        "inwoners",
+        "inwoners_lnight45",
+        "inwoners_na70",
         "onbebouwde_bebouwbare_percelen",  # stock 1
         "onbebouwde_onbebouwbare_percelen",  # stock 2
         "bewoonde_niet_geïsoleerde_woning",  # stock 3
@@ -132,23 +184,25 @@ df_stocks.write_csv("input/stocks.csv")
 """
 # Flows
 
-Er zijn 27 flows in het huidige dashboard (24/06/2026). Per flow bepalen we een **flow rate**
+Er zijn 25 flows in het huidige dashboard (29/07/2026). Per flow bepalen we een **flow rate**
 in de toestand **baseline** (zonder maatregel) en **active** (maatregel aan). Een flow rate is
 steeds een jaarlijks aandeel: hoeveel van de **noemer-stock** per jaar door de maatregel wordt
 beïnvloed (teller / noemer, uitgedrukt als percentage in de grafiek).
 
 |flow|baseline berekend? | active berekend |
 |---|---|---|
-|verkavelingsverbod| x|x  |
+|slopen_niet_geïsoleerde_woningen| x (altijd actief) | — (0) |
+|slopen_geïsoleerde_woningen| x (altijd actief) | — (0) |
+|verkavelingsverbod| x |x  |
+|natuurlijke_woongebied_schrapping| x (altijd actief) | — (0) |
 |woongebiedverbod|x|x|
 |aankoopbeleid_percelen| x| placeholder |
 |voorkooprecht_percelen|x | placeholder |
 |onteigening_percelen|x |  x|
-|verbod_kleine_woning|placeholder |placeholder  |
-|verbod_grote_woning|placeholder |placeholder  |
+|woningverbod|x | x |
 |verbod_kwetsbare_groep|x | x |
-|woonverdichtingsverbod_niet_geïsoleerde_woningen| placeholder |placeholder  |
-|woonverdichtingsverbod_geïsoleerde_woningen|placeholder |placeholder  |
+|woonverdichtingsverbod_niet_geïsoleerde_woningen|x | x |
+|woonverdichtingsverbod_geïsoleerde_woningen|x | x |
 |aankoopbeleid_niet_geïsoleerde_woningen|x | x |
 |aankoopbeleid_geïsoleerde_woningen|x | x |
 |voorkooprecht_niet_geïsoleerde_woningen|x | x |
@@ -162,10 +216,6 @@ beïnvloed (teller / noemer, uitgedrukt als percentage in de grafiek).
 |gesubsidieerd_isolatieprogramma| placeholder |placeholder  |
 |gestuurd_isolatieprogramma| placeholder |placeholder  |
 |aanleg_geluidsbuffers|placeholder |placeholder  |
-|compensatie_buitenzone|x | x |
-|compensatie_verhuis|x | x |
-|versterken_sociale_cohesie|x | x |
-|vergroenen_leefomgeving|x | x |
 
 ### Overzicht placeholders
 
@@ -176,21 +226,20 @@ brondata ontbreekt. Vervang ze zodra betere cijfers beschikbaar zijn.
 |---|--------|-------------|-------------|
 | 1 | **25%** van bebouwbare perceeltransacties | `aankoopbeleid_percelen` (active), `aankoopbeleid_*_woningen` (active) | Perceel-flows gebruiken echte perceeltransacties; woningflows blijven op woningtransacties. |
 | 2 | **50%** van bebouwbare perceeltransacties | `voorkooprecht_percelen` (active), `voorkooprecht_*_woningen` (active) | Zelfde bron als aankoopbeleid percelen, hoger aandeel (expertenschatting). |
-| 3 | **5%** vaste flow rate (`0,05`) | `onteigening_percelen`, `onteigening_*_woningen` (active) | Jaarlijks aandeel onteigeningen; niet uit transactiedata afgeleid. |
-| 4 | **97%** van nieuwbouwvergunningen | `verbod_kleine_woning` (baseline) | Geen MER-plichtsplitsing per project → 97% van nieuwbouw telt als “kleine woning”. |
-| 5 | **3%** van nieuwbouwvergunningen | `verbod_grote_woning` (baseline) | Complement van rij 4 (97% + 3% = 100%). |
-| 6 | **50%** vaste rate | `isolatievoorschriften_nieuwbouw_naar_niet_geïsoleerde_woning` (baseline) | Aandeel nieuwbouw dat zonder strengere norm naar niet-geïsoleerde stock zou gaan. |
-| 7 | **50%** baseline, **100%** active | `isolatievoorschriften_nieuwbouw_naar_geïsoleerde_woning` | Bij active gaat volledige nieuwbouw naar geïsoleerde stock (placeholder). |
-| 8 | **20%** van renovatievergunningen | `renovatie_zonder_maatregel` (active) | Geschat aandeel renovaties met akoestische isolatie zonder extra maatregel. |
-| 9 | **80%** van renovatievergunningen | `verplicht_isoleren_renovatie` (active) | Geschat aandeel renovaties dat wél (verplicht) isoleert. |
-| 10 | **×2** renovatierate | `gesubsidieerd_isolatieprogramma` (active) | Subsidie verdubbelt isolatiebereidheid t.o.v. basisrenovatiestroom. |
-| 11 | **×4** renovatierate | `gestuurd_isolatieprogramma` (active) | Gestuurd programma: vier keer zoveel isolatie als zonder programma. |
-| 12 | **0** (tijdelijk) | `woonverdichtingsverbod_niet_geïsoleerde_woningen` (baseline + active) | Beide op `0` tot woonverdichtingsdruk per band is becijferd. In het referentiemodel (`contour/flows_per_contour.py`) is baseline **1%** (`0,01`) per jaar op de niet-geïsoleerde stock; active = `0`. |
-| 13 | **0** (tijdelijk) | `woonverdichtingsverbod_geïsoleerde_woningen` (baseline + active) | Zelfde tijdelijke invulling als rij 12, maar op `bewoonde_geïsoleerde_woning` als noemer-stock. |
+| 3 | **100%** vaste flow rate (`1,00`) | `onteigening_percelen`, `onteigening_*_woningen` (active) | Jaarlijks aandeel onteigeningen; niet uit transactiedata afgeleid. |
+| 4 | **50%** (`>55 dB`); **0%** (`≤55 dB`) | `isolatievoorschriften_nieuwbouw_naar_niet_geïsoleerde_woning` (baseline) | Boven 55 dB: helft van nieuwbouw naar niet-geïsoleerd. ≤55 dB: moderne isolatie ⇒ alles akoestisch geïsoleerd (`0`). |
+| 5 | **100%** baseline én active; sequentieel op rest | `isolatievoorschriften_nieuwbouw_naar_geïsoleerde_woning` | Baseline `1,00` van de **resterende** `nieuwe_woning` na de niet-geïsoleerde flow (niet `0,50`: anders blijft 25% over). ≤55 dB: baseline/active beide `1,00` en niet-flow `0`. |
+| 6 | **20%** (`>55 dB`); **100%** (`≤55 dB`) van renovatievergunningen | `renovatie_zonder_maatregel` (active) | ≤55 dB: elke renovatie levert akoestische isolatie (moderne standaard). |
+| 7 | **80%** (`>55 dB`); **100%** (`≤55 dB`) van renovatievergunningen | `verplicht_isoleren_renovatie` (active) | ≤55 dB: verplicht = 100% van renovaties. |
+| 8 | **×2** renovatierate | `gesubsidieerd_isolatieprogramma` (active) | Subsidie verdubbelt isolatiebereidheid t.o.v. basisrenovatiestroom. |
+| 9 | **100%** vaste flow rate (`1,00`) | `gestuurd_isolatieprogramma` (active) | Alle niet-geïsoleerde woningen (niet enkel renovatie); jaarlijks aandeel van de hele stock. |
+| 10 | **25%** van gesloopte gebouwen had woonfunctie | `slopen_*_woningen` (baseline) | Sloopvergunningen registreren gebouwen, niet woonfunctie. Placeholder tot woonfunctie-uitsplitsing beschikbaar is. |
+| 11 | **5 percelen** per verkavelingsproject | `verkavelingsverbod` (baseline) | Aantal nieuwe percelen per verkavelingsproject niet beschikbaar in brondata. Factor 5 is een ruwe schatting. Zie `contour_analyse_1.py`. |
 
 **Input-placeholders uit analyse 1** (beïnvloeden meerdere flows): `onbebouwde_onbebouwbare_percelen`
 = 3× bebouwbare percelen; isolatieverdeling woningen 80/20 (Vlaanderen) en 95/5 (Brussel);
-transacties per isolatietype via dezelfde verdeling; `nieuwe_woning` en overheidseigendom = 0.
+transacties per isolatietype via dezelfde verdeling; `nieuwe_woning` en overheidseigendom = 0;
+sloop in Brussel via Vlaamse ratio sloop/woning; verkaveling in Brussel = 0.
 
 Alle berekeningen hieronder gebruiken `df` (één rij per `db_lden`). Eerst worden tellers en
 noemers per band opgeteld; daarna wordt de flow rate als teller/noemer berekend. De grafiek
@@ -202,78 +251,243 @@ Het resultaat wordt weggeschreven naar `input/flow_size.csv` voor gebruik in de 
 flow_rules = pl.read_csv("input/flow_rules.csv")
 df_flows = df
 """
-## verkavelings_verbod
+## Slopen (niet-geïsoleerd / geïsoleerd)
+"""
+toon_maatregel_info(
+    "slopen_niet_geïsoleerde_woningen",
+    "slopen_geïsoleerde_woningen",
+)
+"""
+Naast nieuwbouw verdwijnen er jaarlijks ook gebouwen door sloop. De sloopvergunningen uit het
+omgevingsloket registreren het **aantal gesloopte gebouwen** (metriek *Aantal gebouwen*), maar
+bevatten **geen woonfunctie-aanduiding** en **geen isolatiestatus**. Niet elk gesloopt gebouw
+was een woning.
 
-Verkavelingsverbod: beperkt de verdichting op onbebouwde bebouwbare percelen.
+#### Flows
 
-**Baseline:** `0` — nog niet gekoppeld aan brondata; geen gemeten verkavelingsdruk in de contour.
+- `slopen_niet_geïsoleerde_woningen` — `transfer` —
+  `bewoonde_niet_geïsoleerde_woning` → `onbebouwde_bebouwbare_percelen`
+- `slopen_geïsoleerde_woningen` — `transfer` —
+  `bewoonde_geïsoleerde_woning` → `onbebouwde_bebouwbare_percelen`
 
-**Active:** `0` — maatregel nog niet uitgewerkt; placeholder tot vergunningen- of planologische
-data beschikbaar zijn.
+Beide flows gebruiken dezelfde rate (isolatie-aandelen heffen op).
+
+#### Placeholder
+
+**25% van de gesloopte gebouwen had een woonfunctie** (`_AANDEEL_SLOOP_WOONFUNCTIE = 0,25`).
+Ruwe schatting tot de sloopdata een woonfunctie-kolom bevatten.
+
+#### Formule
+
+    baseline = (aantal_vergunningen_sloop × 0,25)
+             / (bewoonde_niet_geïsoleerde_woning + bewoonde_geïsoleerde_woning)
+    active   = 0
+
+#### Baseline vs. active
+
+- **Baseline:** natuurlijke jaarlijkse sloopstroom — altijd toegepast (geen beleidskeuze).
+- **Active:** `0` — sloop staat niet als UI-maatregel aan/uit; `hidden_in_ui=True`.
+
+#### Visualisatie
+
+Twee staafdiagrammen per LDEN-band.
+"""
+_AANDEEL_SLOOP_WOONFUNCTIE = 0.25
+
+_sloop_rate = (
+    pl.when(
+        (pl.col("bewoonde_niet_geïsoleerde_woning") + pl.col("bewoonde_geïsoleerde_woning"))
+        > 0
+    )
+    .then(
+        pl.col("aantal_vergunningen_sloop")
+        * _AANDEEL_SLOOP_WOONFUNCTIE
+        / (
+            pl.col("bewoonde_niet_geïsoleerde_woning")
+            + pl.col("bewoonde_geïsoleerde_woning")
+        )
+    )
+    .otherwise(0.0)
+)
+
+df_flows = df_flows.with_columns(
+    _sloop_rate.alias("slopen_niet_geïsoleerde_woningen_baseline"),
+    pl.lit(0.0).alias("slopen_niet_geïsoleerde_woningen_active"),
+    _sloop_rate.alias("slopen_geïsoleerde_woningen_baseline"),
+    pl.lit(0.0).alias("slopen_geïsoleerde_woningen_active"),
+)
+toon_flow_rate_staafdiagram(df_flows, "slopen_niet_geïsoleerde_woningen")
+toon_flow_rate_staafdiagram(df_flows, "slopen_geïsoleerde_woningen")
+
+"""
+## Verkavelingsverbod
+"""
+toon_maatregel_info("verkavelingsverbod")
+"""
+Een verkavelingsvergunning splitst een bestaand perceel op in meerdere kleinere percelen. Dat
+vergroot `onbebouwde_bebouwbare_percelen` en daarmee het potentieel voor nieuwe woningen in de
+geluidszone. Een **verkavelingsverbod** blokkeert die opsplitsing.
+
+#### Flows
+
+- `verkavelingsverbod` — `growth` op `onbebouwde_bebouwbare_percelen`
+  (zelfde stock in/uit: stock += rate × stock)
+
+#### Bron
+
+`aantal_nieuwe_percelen_verkaveling` — berekend in `contour_analyse_1.py`:
+- **Vlaanderen:** gemiddeld aantal verkavelingsprojecten/jaar (2021–2025) uit
+  `vergunningen_verkaveling_2026_lang.csv`, handeling `-` (pure verkaveling zonder sloop).
+- **Placeholder:** 5 nieuwe percelen per project (geen brondata per project).
+- **Brussel:** 0.
+
+#### Formule
+
+    baseline = aantal_nieuwe_percelen_verkaveling / onbebouwde_bebouwbare_percelen
+    active   = 0
+
+#### Baseline vs. active
+
+- **Baseline:** historische verkavelingsdruk zonder verbod (aandeel groei van de perceelstock).
+- **Active:** `0` — het verbod stopt de instroom van nieuwe percelen volledig.
+
+#### Visualisatie
+
+Staafdiagram per LDEN-band: baseline vs. active.
 """
 df_flows = df_flows.with_columns(
-    pl.lit(0).alias("verkavelings_verbod_baseline"),
-    pl.lit(0).alias("verkavelings_verbod_active"),
+    pl.when(pl.col("onbebouwde_bebouwbare_percelen") > 0)
+    .then(
+        pl.col("aantal_nieuwe_percelen_verkaveling")
+        / pl.col("onbebouwde_bebouwbare_percelen")
+    )
+    .otherwise(0.0)
+    .alias("verkavelings_verbod_baseline"),
+    pl.lit(0.0).alias("verkavelings_verbod_active"),
 )
 toon_flow_rate_staafdiagram(df_flows, "verkavelings_verbod")
 """
-## Woongebiedverbod
-
-Transfer van `onbebouwde_onbebouwbare_percelen` naar `onbebouwde_bebouwbare_percelen` (netto
-woongebied-aanduiding) of omgekeerd bij schrapping. Bron: gemiddelde jaarlijkse mutaties
-2021–2026 (Vlaanderen), verdeeld over intersecties in analyse 1; Brussel = 0 mutaties.
-
-**Baseline:** huidige netto woongebied-creatie per jaar, als aandeel van de stock onbebouwbare
-percelen in de band:
-
-    (onbebouwbaar_naar_bebouwbaar − bebouwbaar_naar_onbebouwbaar) / onbebouwde_onbebouwbare_percelen
-
-Vertaalt: “welk deel van de onbebouwbare stock wordt jaarlijks netto bebouwbaar gemaakt?”
-
-**Active:** bij een woongebiedverbod tellen we enkel nog **schrapping** (bebouwbaar → onbebouwbaar):
-
-    bebouwbaar_naar_onbebouwbaar / onbebouwde_onbebouwbare_percelen
-
-Nieuwe woongebied-aanduiding wordt gestopt (netto creatie = 0 onder de maatregel).
-
-Als de noemer 0 is → flow rate 0. Resultaat wordt begrensd tot maximaal 100%.
+## Natuurlijke woongebied-schrapping
 """
+toon_maatregel_info("natuurlijke_woongebied_schrapping")
+"""
+Jaarlijks wordt een deel van het bestaand woongebied **geschrapt** (bebouwbaar → onbebouwbaar).
+Dit is een natuurlijke uitstroom in de referentiesituatie — geen beleidsmaatregel.
 
+#### Flows
+
+- `natuurlijke_woongebied_schrapping` — `transfer` —
+  `onbebouwde_bebouwbare_percelen` → `onbebouwde_onbebouwbare_percelen`
+
+#### Bron
+
+`bebouwbaar_naar_onbebouwbaar` — gemiddelde jaarlijkse mutaties 2021–2026 (Vlaanderen),
+verdeeld over intersecties in `contour_analyse_1.py`; Brussel = 0.
+
+#### Formule
+
+    baseline = bebouwbaar_naar_onbebouwbaar / onbebouwde_bebouwbare_percelen
+    active   = 0
+
+#### Baseline vs. active
+
+- **Baseline:** natuurlijke schrapping — altijd toegepast.
+- **Active:** `0` — niet via UI; `hidden_in_ui=True`.
+
+#### Visualisatie
+
+Staafdiagram per LDEN-band.
+"""
+df_flows = df_flows.with_columns(
+    pl.when(pl.col("onbebouwde_bebouwbare_percelen") > 0)
+    .then(
+        pl.col("bebouwbaar_naar_onbebouwbaar")
+        / pl.col("onbebouwde_bebouwbare_percelen")
+    )
+    .otherwise(0.0)
+    .clip(upper_bound=1.0)
+    .alias("natuurlijke_woongebied_schrapping_baseline"),
+    pl.lit(0.0).alias("natuurlijke_woongebied_schrapping_active"),
+)
+toon_flow_rate_staafdiagram(df_flows, "natuurlijke_woongebied_schrapping")
+
+"""
+## Woongebiedverbod
+"""
+toon_maatregel_info("woongebiedverbod")
+"""
+Verbod op het **bijmaken** van nieuw woongebied. Zonder verbod worden jaarlijks onbebouwbare
+percelen bebouwbaar gemaakt; met verbod stopt die creatie. De omgekeerde richting (schrapping)
+zit in `natuurlijke_woongebied_schrapping`.
+
+#### Flows
+
+- `woongebiedverbod` — `transfer` —
+  `onbebouwde_onbebouwbare_percelen` → `onbebouwde_bebouwbare_percelen`
+
+#### Bron
+
+`onbebouwbaar_naar_bebouwbaar` — gemiddelde jaarlijkse mutaties 2021–2026 (Vlaanderen);
+Brussel = 0.
+
+#### Formule
+
+    baseline = onbebouwbaar_naar_bebouwbaar / onbebouwde_onbebouwbare_percelen
+    active   = 0
+
+(Noemer 0 → rate 0; resultaat begrensd tot max. 100%.)
+
+#### Baseline vs. active
+
+- **Baseline:** historische creatie van nieuw woongebied zonder verbod.
+- **Active:** `0` — het verbod stopt nieuwe aanduiding volledig.
+
+#### Visualisatie
+
+Staafdiagram per LDEN-band.
+"""
 df_flows = df_flows.with_columns(
     pl.when(pl.col("onbebouwde_onbebouwbare_percelen") > 0)
     .then(
-        (
-            pl.col("onbebouwbaar_naar_bebouwbaar")
-            - pl.col("bebouwbaar_naar_onbebouwbaar")
-        )
+        pl.col("onbebouwbaar_naar_bebouwbaar")
         / pl.col("onbebouwde_onbebouwbare_percelen")
     )
     .otherwise(0.0)
     .clip(upper_bound=1.0)
     .alias("woongebiedverbod_baseline"),
-    pl.when(pl.col("onbebouwde_onbebouwbare_percelen") > 0)
-    .then(
-        pl.col("bebouwbaar_naar_onbebouwbaar")
-        / pl.col("onbebouwde_onbebouwbare_percelen")
-    )
-    .otherwise(0.0)
-    .clip(upper_bound=1.0)
-    .alias("woongebiedverbod_active"),
+    pl.lit(0.0).alias("woongebiedverbod_active"),
 )
 toon_flow_rate_staafdiagram(df_flows, "woongebiedverbod")
 """
-## aankoopbeleid_percelen
+## Aankoopbeleid percelen
+"""
+toon_maatregel_info("aankoopbeleid_percelen")
+"""
+Overheid koopt onbebouwde bebouwbare percelen aan om bebouwing in de geluidszone te vermijden.
 
-Overheid koopt onbebouwde bebouwbare percelen aan (stock → `perceel_eigendom_overheid`).
+#### Flows
 
-**Baseline:** `0` — zonder aankoopbeleid vloeien geen percelen naar overheidseigendom.
+- `aankoopbeleid_percelen` — `transfer` —
+  `onbebouwde_bebouwbare_percelen` → `perceel_eigendom_overheid`
 
-**Active (placeholder):** 25% van het jaarlijkse transactievolume op bebouwbare percelen, per
-stock onbebouwde bebouwbare percelen in de band:
+#### Placeholder
 
-    0,25 × aantal_bebouwbare_perceel_transacties_per_jaar / onbebouwde_bebouwbare_percelen
+**25%** van het jaarlijkse bebouwbare-perceeltransactievolume.
 
-Noemer = stock onbebouwde bebouwbare percelen; teller = geschat aantal perceelaankopen per jaar.
+#### Formule
+
+    baseline = 0
+    active   = 0,25 × aantal_bebouwbare_perceel_transacties_per_jaar
+                     / onbebouwde_bebouwbare_percelen
+
+#### Baseline vs. active
+
+- **Baseline:** `0` — zonder aankoopbeleid geen overdracht naar overheid.
+- **Active:** geschatte aankoopintensiteit wanneer het beleid aanstaat.
+
+#### Visualisatie
+
+Staafdiagram per LDEN-band.
 """
 df_flows = df_flows.with_columns(
     pl.lit(0).alias("aankoopbeleid_percelen_baseline"),
@@ -285,18 +499,35 @@ df_flows = df_flows.with_columns(
 )
 toon_flow_rate_staafdiagram(df_flows, "aankoopbeleid_percelen")
 """
-## voorkooprecht_percelen
-
+## Voorkooprecht percelen
+"""
+toon_maatregel_info("voorkooprecht_percelen")
+"""
 Gemeente/regio oefent voorkooprecht uit op onbebouwde bebouwbare percelen.
 
-**Baseline:** `0` — zonder voorkooprecht geen overdracht naar overheid via dit instrument.
+#### Flows
 
-**Active (placeholder):** 50% van het transactievolume op bebouwbare percelen als proxy voor
-percelen die onder voorkooprecht zouden vallen:
+- `voorkooprecht_percelen` — `transfer` —
+  `onbebouwde_bebouwbare_percelen` → `perceel_eigendom_overheid`
 
-    0,5 × aantal_bebouwbare_perceel_transacties_per_jaar / onbebouwde_bebouwbare_percelen
+#### Placeholder
 
-Zelfde bron als aankoopbeleid percelen, maar met hoger aandeel (50% i.p.v. 25%).
+**50%** van het bebouwbare-perceeltransactievolume (hoger aandeel dan aankoopbeleid).
+
+#### Formule
+
+    baseline = 0
+    active   = 0,5 × aantal_bebouwbare_perceel_transacties_per_jaar
+                    / onbebouwde_bebouwbare_percelen
+
+#### Baseline vs. active
+
+- **Baseline:** `0` — zonder voorkooprecht geen overdracht via dit instrument.
+- **Active:** geschatte intensiteit wanneer voorkooprecht actief is.
+
+#### Visualisatie
+
+Staafdiagram per LDEN-band.
 """
 df_flows = df_flows.with_columns(
     pl.lit(0).alias("voorkooprecht_percelen_baseline"),
@@ -309,81 +540,120 @@ df_flows = df_flows.with_columns(
 toon_flow_rate_staafdiagram(df_flows, "voorkooprecht_percelen")
 
 """
-## onteigening_percelen
-
+## Onteigening percelen
+"""
+toon_maatregel_info("onteigening_percelen")
+"""
 Gedwongen onteigening van onbebouwde bebouwbare percelen.
 
-**Baseline:** `0` — geen structurele onteigening in de referentiesituatie.
+#### Flows
 
-**Active (placeholder):** vaste jaarlijkse flow rate van **5%** (`0,05`) voor elke band —
-onafhankelijk van lokale transacties of stockgrootte. Te verfijnen wanneer beleidsdata
-beschikbaar zijn.
+- `onteigening_percelen` — `transfer` —
+  `onbebouwde_bebouwbare_percelen` → `perceel_eigendom_overheid`
+
+#### Placeholder
+
+Vaste jaarlijkse rate **100%** (`1,00`), onafhankelijk van lokale transacties.
+
+#### Formule
+
+    baseline = 0
+    active   = 1,00
+
+#### Baseline vs. active
+
+- **Baseline:** `0` — geen structurele onteigening in de referentiesituatie.
+- **Active:** volledige jaarlijkse onteigeningsrate wanneer het instrument aanstaat.
+
+#### Visualisatie
+
+Staafdiagram per LDEN-band.
 """
 df_flows = df_flows.with_columns(
     pl.lit(0).alias("onteigening_percelen_baseline"),
-    pl.lit(0.05).alias("onteigening_percelen_active"),
+    pl.lit(1.0).alias("onteigening_percelen_active"),
 )
 toon_flow_rate_staafdiagram(df_flows, "onteigening_percelen")
 """
-## verbod_kleine_woning
-
-Beperking op kleine woningen bij nieuwbouw op bebouwbare percelen.
-
-**Baseline (placeholder):** 97% van de nieuwbouwvergunningen per band, gedeeld door het
-aantal onbebouwde bebouwbare percelen — als proxy voor het aandeel nieuwbouw dat onder een
-“kleine woning” valt (geen MER-splitsing in de data):
-
-    0,97 × aantal_vergunningen_nieuwbouw / onbebouwde_bebouwbare_percelen
-
-**Active:** `0` — het verbod stopt de stroom kleine woningen; in deze versie nog niet
-ingevuld met een positieve alternatieve flow.
+## Woningverbod
 """
-df_flows = df_flows.with_columns(
-    (
-        0.97
-        * (
-            pl.col("aantal_vergunningen_nieuwbouw")
-            / pl.col("onbebouwde_bebouwbare_percelen")
-        )
-    ).alias("verbod_kleine_woning_baseline"),
-    pl.lit(0).alias("verbod_kleine_woning_active"),
+toon_maatregel_info("woningverbod")
+"""
+Verbod op het bouwen van nieuwe woningen op onbebouwde (bebouwbare) percelen. De rate is
+**gedeeld** met woonverdichtingsverbod (zie hieronder), zodat bands met weinig percelen geen
+opgeblazen rate krijgen.
+
+#### Flows
+
+- `woningverbod` — `transfer` —
+  `onbebouwde_bebouwbare_percelen` → `nieuwe_woning`
+  (absolute transfer ≈ rate × percelen)
+
+#### Formule
+
+    rate = aantal_vergunningen_nieuwbouw
+         / (bewoonde_niet_geïsoleerde_woning
+            + bewoonde_geïsoleerde_woning
+            + onbebouwde_bebouwbare_percelen)
+    baseline = rate
+    active   = 0
+
+Samen met verdichting (`rate × woningen`) benadert dit het aantal nieuwbouwvergunningen.
+
+#### Baseline vs. active
+
+- **Baseline:** historische nieuwbouw op onbebouwde percelen zonder verbod.
+- **Active:** `0` — het verbod stopt die nieuwbouwstroom volledig.
+
+#### Visualisatie
+
+Staafdiagram per LDEN-band.
+"""
+_nieuwbouw_noemer = (
+    pl.col("bewoonde_niet_geïsoleerde_woning")
+    + pl.col("bewoonde_geïsoleerde_woning")
+    + pl.col("onbebouwde_bebouwbare_percelen")
 )
-toon_flow_rate_staafdiagram(df_flows, "verbod_kleine_woning")
-
-"""
-## verbod_grote_woning
-
-Beperking op grote woningen bij nieuwbouw (complement van verbod kleine woning).
-
-**Baseline (placeholder):** 3% van de nieuwbouwvergunningen per band, per bebouwbare perceel:
-
-    0,03 × aantal_vergunningen_nieuwbouw / onbebouwde_bebouwbare_percelen
-
-**Active:** `0` — onder het verbod verdwijnt deze stroom (nog niet vervangen door andere flow).
-"""
-df_flows = df_flows.with_columns(
-    (
-        0.03
-        * (
-            pl.col("aantal_vergunningen_nieuwbouw")
-            / pl.col("onbebouwde_bebouwbare_percelen")
-        )
-    ).alias("verbod_grote_woning_baseline"),
-    pl.lit(0).alias("verbod_grote_woning_active"),
+_nieuwbouw_rate = (
+    pl.when(_nieuwbouw_noemer > 0)
+    .then(pl.col("aantal_vergunningen_nieuwbouw") / _nieuwbouw_noemer)
+    .otherwise(0.0)
 )
-toon_flow_rate_staafdiagram(df_flows, "verbod_grote_woning")
+df_flows = df_flows.with_columns(
+    _nieuwbouw_rate.alias("woningverbod_baseline"),
+    pl.lit(0.0).alias("woningverbod_active"),
+)
+toon_flow_rate_staafdiagram(df_flows, "woningverbod")
 
 """
-## verbod_kwetsbare_groep
+## Verbod kwetsbare groepen
+"""
+toon_maatregel_info("verbod_kwetsbare_groep")
+"""
+Verbod op nieuwbouw voor kwetsbare groepen (bv. scholen) op bebouwbare percelen.
 
-Nieuwbouw voor kwetsbare groepen op bebouwbare percelen.
+#### Flows
 
-**Baseline:** gemeten verhouding kwetsbare-groepenvergunningen tot bebouwbare percelen in de
-band (data uit analyse 1, Vlaanderen + Brusselse proxy):
+- `verbod_kwetsbare_groep` — `transfer` —
+  `onbebouwde_bebouwbare_percelen` → `nieuwe_woning`
 
-    aantal_vergunningen_kwetsbare_groepen / onbebouwde_bebouwbare_percelen
+#### Bron
 
-**Active:** `0` — het verbod zet deze nieuwbouwstroom uit.
+`aantal_vergunningen_kwetsbare_groepen` — analyse 1 (Vlaanderen + Brusselse proxy).
+
+#### Formule
+
+    baseline = aantal_vergunningen_kwetsbare_groepen / onbebouwde_bebouwbare_percelen
+    active   = 0
+
+#### Baseline vs. active
+
+- **Baseline:** historische nieuwbouwstroom voor kwetsbare functies zonder verbod.
+- **Active:** `0` — het verbod zet die stroom uit.
+
+#### Visualisatie
+
+Staafdiagram per LDEN-band.
 """
 df_flows = df_flows.with_columns(
     (
@@ -394,51 +664,95 @@ df_flows = df_flows.with_columns(
 )
 toon_flow_rate_staafdiagram(df_flows, "verbod_kwetsbare_groep")
 """
-## woonverdichtingsverbod_niet_geïsoleerde_woningen
+## Woonverdichtingsverbod (niet-geïsoleerd / geïsoleerd)
+"""
+toon_maatregel_info(
+    "woonverdichtingsverbod_niet_geïsoleerde_woningen",
+    "woonverdichtingsverbod_geïsoleerde_woningen",
+)
+"""
+Beperkt jaarlijkse groei door woonverdichting op bestaande woningen. Zelfde **gedeelde
+nieuwbouwrate** als `woningverbod` (zie hierboven).
 
-Beperkt jaarlijkse groei (woonverdichting) van niet-geïsoleerde bewoonde woningen. Noemer-stock:
-`bewoonde_niet_geïsoleerde_woning`.
+#### Flows
 
-**Baseline (placeholder):** `0` — tijdelijk geen gemeten verdedigingsdruk in de contour. Ter
-referentie gebruikt het dashboard-referentiemodel **1%** jaarlijkse groei (`0,01`) op deze stock.
+- `woonverdichtingsverbod_niet_geïsoleerde_woningen` — `growth` op
+  `bewoonde_niet_geïsoleerde_woning` (stock += rate × stock)
+- `woonverdichtingsverbod_geïsoleerde_woningen` — `growth` op
+  `bewoonde_geïsoleerde_woning` (stock += rate × stock)
 
-**Active (placeholder):** `0` — onder het verbod stopt de verdichtingsstroom volledig (nog niet
-gekoppeld aan lokale transacties of vergunningen).
+Beide flows hebben identieke baseline/active-waarden.
+
+#### Formule
+
+    rate = aantal_vergunningen_nieuwbouw
+         / (bewoonde_niet_geïsoleerde_woning
+            + bewoonde_geïsoleerde_woning
+            + onbebouwde_bebouwbare_percelen)
+    baseline = rate
+    active   = 0
+
+#### Baseline vs. active
+
+- **Baseline:** historische verdichtingsdruk zonder verbod.
+- **Active:** `0` — het verbod stopt verdichting op de betreffende woningstock.
+
+#### Visualisatie
+
+Twee staafdiagrammen per LDEN-band.
 """
 df_flows = df_flows.with_columns(
-    pl.lit(0).alias("woonverdichtingsverbod_niet_geïsoleerde_woningen_baseline"),
-    pl.lit(0).alias("woonverdichtingsverbod_niet_geïsoleerde_woningen_active"),
+    _nieuwbouw_rate.alias("woonverdichtingsverbod_niet_geïsoleerde_woningen_baseline"),
+    pl.lit(0.0).alias("woonverdichtingsverbod_niet_geïsoleerde_woningen_active"),
+)
+toon_flow_rate_staafdiagram(
+    df_flows, "woonverdichtingsverbod_niet_geïsoleerde_woningen"
 )
 
-"""
-## woonverdichtingsverbod_geïsoleerde_woningen
-
-Beperkt jaarlijkse groei van geïsoleerde bewoonde woningen. Noemer-stock:
-`bewoonde_geïsoleerde_woning`.
-
-**Baseline (placeholder):** `0` — zelfde tijdelijke invulling als bij niet-geïsoleerde woningen;
-referentiemodel: **1%** (`0,01`) per jaar.
-
-**Active (placeholder):** `0` — verbod zet verdichting op geïsoleerde stock uit.
-"""
 df_flows = df_flows.with_columns(
-    pl.lit(0).alias("woonverdichtingsverbod_geïsoleerde_woningen_baseline"),
-    pl.lit(0).alias("woonverdichtingsverbod_geïsoleerde_woningen_active"),
+    _nieuwbouw_rate.alias("woonverdichtingsverbod_geïsoleerde_woningen_baseline"),
+    pl.lit(0.0).alias("woonverdichtingsverbod_geïsoleerde_woningen_active"),
 )
+toon_flow_rate_staafdiagram(df_flows, "woonverdichtingsverbod_geïsoleerde_woningen")
 
 """
-## aankoopbeleid_niet_geïsoleerde_woningen
+## Aankoopbeleid woningen (niet-geïsoleerd / geïsoleerd)
+"""
+toon_maatregel_info(
+    "aankoopbeleid_niet_geïsoleerde_woningen",
+    "aankoopbeleid_geïsoleerde_woningen",
+)
+"""
+Overheid koopt bewoonde woningen aan om bewoning in de geluidszone te verminderen.
+Opgesplitst naar isolatiestatus; zelfde placeholder-factor (25% van transacties).
 
-Overheid koopt niet-geïsoleerde bewoonde woningen aan.
+#### Flows
 
-**Baseline:** `0` — geen aankoopbeleid op woningen.
+- `aankoopbeleid_niet_geïsoleerde_woningen` — `transfer` —
+  `bewoonde_niet_geïsoleerde_woning` → `woning_eigendom_overheid`
+- `aankoopbeleid_geïsoleerde_woningen` — `transfer` —
+  `bewoonde_geïsoleerde_woning` → `woning_eigendom_overheid`
 
-**Active (placeholder):** 25% van het geschatte transactievolume voor niet-geïsoleerde woningen,
-per niet-geïsoleerde stock in de band:
+#### Placeholder
 
-    0,25 × aantal_transacties_niet_geïsoleerde_woningen / bewoonde_niet_geïsoleerde_woning
+**25%** van het geschatte transactievolume per isolatietype (analyse 1: 80/20 of 95/5).
 
-De transacties per isolatietype komen uit analyse 1 (80/20- of 95/5-verdeling per gewest).
+#### Formule
+
+    baseline = 0
+    active_niet = 0,25 × aantal_transacties_niet_geïsoleerde_woningen
+                        / bewoonde_niet_geïsoleerde_woning
+    active_geo  = 0,25 × aantal_transacties_geïsoleerde_woningen
+                        / bewoonde_geïsoleerde_woning
+
+#### Baseline vs. active
+
+- **Baseline:** `0` — zonder aankoopbeleid geen overdracht naar overheid.
+- **Active:** geschatte aankoopintensiteit per isolatietype wanneer het beleid aanstaat.
+
+#### Visualisatie
+
+Twee staafdiagrammen per LDEN-band.
 """
 df_flows = df_flows.with_columns(
     pl.lit(0).alias("aankoopbeleid_niet_geïsoleerde_woningen_baseline"),
@@ -451,17 +765,6 @@ df_flows = df_flows.with_columns(
     ).alias("aankoopbeleid_niet_geïsoleerde_woningen_active"),
 )
 toon_flow_rate_staafdiagram(df_flows, "aankoopbeleid_niet_geïsoleerde_woningen")
-"""
-## aankoopbeleid_geïsoleerde_woningen
-
-Overheid koopt geïsoleerde bewoonde woningen aan.
-
-**Baseline:** `0`
-
-**Active (placeholder):** 25% van transacties geïsoleerde woningen, per geïsoleerde stock:
-
-    0,25 × aantal_transacties_geïsoleerde_woningen / bewoonde_geïsoleerde_woning
-"""
 df_flows = df_flows.with_columns(
     pl.lit(0).alias("aankoopbeleid_geïsoleerde_woningen_baseline"),
     (
@@ -475,17 +778,43 @@ df_flows = df_flows.with_columns(
 toon_flow_rate_staafdiagram(df_flows, "aankoopbeleid_geïsoleerde_woningen")
 
 """
-## voorkooprecht_niet_geïsoleerde_woningen
+## Voorkooprecht woningen (niet-geïsoleerd / geïsoleerd)
+"""
+toon_maatregel_info(
+    "voorkooprecht_niet_geïsoleerde_woningen",
+    "voorkooprecht_geïsoleerde_woningen",
+)
+"""
+Voorkooprecht op bewoonde woningen. Zelfde patroon als aankoopbeleid woningen, met hogere
+intensiteit (50% van transacties).
 
-Voorkooprecht op niet-geïsoleerde bewoonde woningen.
+#### Flows
 
-**Baseline:** `0` — zonder voorkooprecht geen overdracht naar overheid.
+- `voorkooprecht_niet_geïsoleerde_woningen` — `transfer` —
+  `bewoonde_niet_geïsoleerde_woning` → `woning_eigendom_overheid`
+- `voorkooprecht_geïsoleerde_woningen` — `transfer` —
+  `bewoonde_geïsoleerde_woning` → `woning_eigendom_overheid`
 
-**Active (placeholder):** 50% van transacties niet-geïsoleerde woningen, per niet-geïsoleerde stock:
+#### Placeholder
 
-    0,5 × aantal_transacties_niet_geïsoleerde_woningen / bewoonde_niet_geïsoleerde_woning
+**50%** van het transactievolume per isolatietype.
 
-Zelfde patroon als `aankoopbeleid_niet_geïsoleerde_woningen`, maar met factor 50% i.p.v. 25%.
+#### Formule
+
+    baseline = 0
+    active_niet = 0,5 × aantal_transacties_niet_geïsoleerde_woningen
+                       / bewoonde_niet_geïsoleerde_woning
+    active_geo  = 0,5 × aantal_transacties_geïsoleerde_woningen
+                       / bewoonde_geïsoleerde_woning
+
+#### Baseline vs. active
+
+- **Baseline:** `0` — zonder voorkooprecht geen overdracht via dit instrument.
+- **Active:** geschatte intensiteit per isolatietype wanneer voorkooprecht actief is.
+
+#### Visualisatie
+
+Twee staafdiagrammen per LDEN-band.
 """
 df_flows = df_flows.with_columns(
     pl.lit(0).alias("voorkooprecht_niet_geïsoleerde_woningen_baseline"),
@@ -498,17 +827,6 @@ df_flows = df_flows.with_columns(
     ).alias("voorkooprecht_niet_geïsoleerde_woningen_active"),
 )
 toon_flow_rate_staafdiagram(df_flows, "voorkooprecht_niet_geïsoleerde_woningen")
-"""
-## voorkooprecht_geïsoleerde_woningen
-
-Voorkooprecht op geïsoleerde bewoonde woningen.
-
-**Baseline:** `0`
-
-**Active (placeholder):** 50% van transacties geïsoleerde woningen, per geïsoleerde stock:
-
-    0,5 × aantal_transacties_geïsoleerde_woningen / bewoonde_geïsoleerde_woning
-"""
 df_flows = df_flows.with_columns(
     pl.lit(0).alias("voorkooprecht_geïsoleerde_woningen_baseline"),
     (
@@ -521,129 +839,242 @@ df_flows = df_flows.with_columns(
 )
 toon_flow_rate_staafdiagram(df_flows, "voorkooprecht_geïsoleerde_woningen")
 """
-## onteigening_niet_geïsoleerde_woningen
+## Onteigening woningen (niet-geïsoleerd / geïsoleerd)
+"""
+toon_maatregel_info(
+    "onteigening_niet_geïsoleerde_woningen",
+    "onteigening_geïsoleerde_woningen",
+)
+"""
+Gedwongen onteigening van bewoonde woningen, parallel voor beide isolatietypes.
 
-Gedwongen onteigening van niet-geïsoleerde bewoonde woningen.
+#### Flows
 
-**Baseline:** `0`
+- `onteigening_niet_geïsoleerde_woningen` — `transfer` —
+  `bewoonde_niet_geïsoleerde_woning` → `woning_eigendom_overheid`
+- `onteigening_geïsoleerde_woningen` — `transfer` —
+  `bewoonde_geïsoleerde_woning` → `woning_eigendom_overheid`
 
-**Active (placeholder):** vaste rate **5%** per band (`0,05`), onafhankelijk van stock of
-transacties.
+#### Placeholder
+
+Vaste rate **100%** (`1,00`) per band, voor beide flows.
+
+#### Formule
+
+    baseline = 0
+    active   = 1,00   (beide isolatietypes)
+
+#### Baseline vs. active
+
+- **Baseline:** `0` — geen structurele onteigening van woningen in de referentiesituatie.
+- **Active:** volledige jaarlijkse onteigeningsrate wanneer het instrument aanstaat.
+
+#### Visualisatie
+
+Twee staafdiagrammen per LDEN-band.
 """
 df_flows = df_flows.with_columns(
     pl.lit(0).alias("onteigening_niet_geïsoleerde_woningen_baseline"),
-    pl.lit(0.05).alias("onteigening_niet_geïsoleerde_woningen_active"),
+    pl.lit(1.0).alias("onteigening_niet_geïsoleerde_woningen_active"),
 )
 toon_flow_rate_staafdiagram(df_flows, "onteigening_niet_geïsoleerde_woningen")
 
-"""
-## onteigening_geïsoleerde_woningen
-
-Gedwongen onteigening van geïsoleerde bewoonde woningen.
-
-**Baseline:** `0`
-
-**Active (placeholder):** vaste rate **5%** per band (`0,05`).
-"""
 df_flows = df_flows.with_columns(
     pl.lit(0).alias("onteigening_geïsoleerde_woningen_baseline"),
-    pl.lit(0.05).alias("onteigening_geïsoleerde_woningen_active"),
+    pl.lit(1.0).alias("onteigening_geïsoleerde_woningen_active"),
 )
 toon_flow_rate_staafdiagram(df_flows, "onteigening_geïsoleerde_woningen")
 """
-## isolatievoorschriften_nieuwbouw_naar_niet_geïsoleerde_woning
-
-Waar nieuwbouw naartoe stroomt: van `nieuwe_woning` naar niet-geïsoleerde bewoonde stock.
-
-**Baseline (placeholder):** vaste rate **50%** (`0,50`) — helft van nieuwbouw zou zonder
-strengere norm naar niet-geïsoleerde woningen gaan.
-
-**Active:** `0` — strengere voorschriften stoppen deze stroom (alles moet geïsoleerd worden).
+## Isolatievoorschriften nieuwbouw (niet-geïsoleerd / geïsoleerd)
 """
+toon_maatregel_info(
+    "isolatievoorschriften_nieuwbouw_naar_niet_geïsoleerde_woning",
+    "isolatievoorschriften_nieuwbouw_naar_geïsoleerde_woning",
+)
+"""
+Bepaalt waar nieuwbouw naartoe stroomt vanuit `nieuwe_woning`.
+
+**Belangrijk — sequentiële rates:** de engine past eerst de niet-geïsoleerde flow toe, daarna
+de geïsoleerde flow op de **resterende** `nieuwe_woning`. Daarom is baseline naar geïsoleerd
+`1,00` (van de rest), niet `0,50`: anders blijft 25% van nieuwbouw ongeplaatst.
+
+**≤55 dB:** moderne bouw is standaard akoestisch geïsoleerd → alle nieuwbouw naar geïsoleerd
+(niet-flow = 0), ongeacht of de maatregel aanstaat.
+
+#### Flows
+
+- `isolatievoorschriften_nieuwbouw_naar_niet_geïsoleerde_woning` — `transfer` —
+  `nieuwe_woning` → `bewoonde_niet_geïsoleerde_woning`
+- `isolatievoorschriften_nieuwbouw_naar_geïsoleerde_woning` — `transfer` —
+  `nieuwe_woning` → `bewoonde_geïsoleerde_woning`
+
+#### Formule (`db_lden > 55`)
+
+    # naar niet-geïsoleerd
+    baseline = 0,50
+    active   = 0
+
+    # naar geïsoleerd (op rest na vorige flow)
+    baseline = 1,00
+    active   = 1,00
+
+#### Formule (`db_lden ≤ 55`)
+
+    # naar niet-geïsoleerd
+    baseline = 0
+    active   = 0
+
+    # naar geïsoleerd
+    baseline = 1,00
+    active   = 1,00
+
+#### Baseline vs. active
+
+- **Baseline (>55):** 50/50-splitsing zonder strengere norm; `nieuwe_woning` wordt leeggemaakt.
+- **Active (>55):** stroom naar niet-geïsoleerd stopt; alle rest naar geïsoleerd.
+- **≤55:** altijd volledig geïsoleerd (maatregel aan/uit maakt geen verschil).
+
+#### Visualisatie
+
+Twee staafdiagrammen per LDEN-band.
+"""
+_le55 = pl.col("db_lden") <= 55
 df_flows = df_flows.with_columns(
-    pl.lit(0.50).alias(
-        "isolatievoorschriften_nieuwbouw_naar_niet_geïsoleerde_woning_baseline"
-    ),
-    pl.lit(0).alias(
+    pl.when(_le55)
+    .then(0.0)
+    .otherwise(0.50)
+    .alias("isolatievoorschriften_nieuwbouw_naar_niet_geïsoleerde_woning_baseline"),
+    pl.lit(0.0).alias(
         "isolatievoorschriften_nieuwbouw_naar_niet_geïsoleerde_woning_active"
     ),
 )
 toon_flow_rate_staafdiagram(
     df_flows, "isolatievoorschriften_nieuwbouw_naar_niet_geïsoleerde_woning"
 )
-"""
-## isolatievoorschriften_nieuwbouw_naar_geïsoleerde_woning
-
-Nieuwbouw die direct in de geïsoleerde bewoonde stock landt.
-
-**Baseline (placeholder):** vaste rate **50%** (`0,50`).
-
-**Active (placeholder):** vaste rate **100%** (`1,0`) — alle nieuwbouw moet aan
-isolatienormen voldoen en in geïsoleerde stock terechtkomen.
-"""
 df_flows = df_flows.with_columns(
-    pl.lit(0.5).alias(
+    pl.lit(1.0).alias(
         "isolatievoorschriften_nieuwbouw_naar_geïsoleerde_woning_baseline"
     ),
-    pl.lit(1).alias("isolatievoorschriften_nieuwbouw_naar_geïsoleerde_woning_active"),
+    pl.lit(1.0).alias(
+        "isolatievoorschriften_nieuwbouw_naar_geïsoleerde_woning_active"
+    ),
 )
 toon_flow_rate_staafdiagram(
     df_flows, "isolatievoorschriften_nieuwbouw_naar_geïsoleerde_woning"
 )
 """
-## renovatie_zonder_maatregel
+## Renovatie zonder maatregel
+"""
+toon_maatregel_info("renovatie_zonder_maatregel")
+"""
+Spontane renovatie met akoestische isolatie (niet-geïsoleerd → geïsoleerd), zonder extra
+beleidsmaatregel.
 
-Spontane renovatie met akoestische isolatie (niet-geïsoleerd → geïsoleerd), zonder beleidsmaatregel.
+#### Flows
 
-**Baseline:** `0` — in het dashboard staat renovatie zonder maatregel uit in baseline; de
-“natuurlijke” isolatierate zit in de active-schatting hieronder.
+- `renovatie_zonder_maatregel` — `transfer` —
+  `bewoonde_niet_geïsoleerde_woning` → `bewoonde_geïsoleerde_woning`
 
-**Active (placeholder):** 20% van renovatievergunningen per niet-geïsoleerde woning in de band:
+#### Placeholder
 
-    0,20 × aantal_vergunningen_renovatie / bewoonde_niet_geïsoleerde_woning
+- **`db_lden > 55`:** **20%** van renovatievergunningen leidt tot akoestische isolatie.
+- **`db_lden ≤ 55`:** **100%** — moderne renovatie isoleert standaard ook akoestisch.
+
+#### Formule
+
+    baseline = 0
+    active   = factor × aantal_vergunningen_renovatie / bewoonde_niet_geïsoleerde_woning
+    # factor = 1,00 als db_lden ≤ 55, anders 0,20
+
+#### Baseline vs. active
+
+- **Baseline:** `0` — in dit model staat de “natuurlijke” renovatiestroom in active
+  (dashboard-keuze; zie ook `hidden_in_ui` / uitzonderingslogica in `flow_rules`).
+- **Active:** geschatte spontane isolatierate wanneer deze referentiestroom actief is.
+
+#### Visualisatie
+
+Staafdiagram per LDEN-band.
 """
 df_flows = df_flows.with_columns(
     pl.lit(0).alias("renovatie_zonder_maatregel_baseline"),
     (
         pl.col("aantal_vergunningen_renovatie")
         / pl.col("bewoonde_niet_geïsoleerde_woning")
-        * 0.2
+        * pl.when(_le55).then(1.0).otherwise(0.2)
     ).alias("renovatie_zonder_maatregel_active"),
 )
 toon_flow_rate_staafdiagram(df_flows, "renovatie_zonder_maatregel")
 """
-## verplicht_isoleren_renovatie
-
+## Verplicht isoleren bij renovatie
+"""
+toon_maatregel_info("verplicht_isoleren_renovatie")
+"""
 Verplichte akoestische isolatie bij ingrijpende renovatie.
 
-**Baseline:** `0` — geen verplichting in referentiesituatie.
+#### Flows
 
-**Active (placeholder):** 80% van renovatievergunningen leidt tot isolatie, per
-niet-geïsoleerde stock:
+- `verplicht_isoleren_renovatie` — `transfer` —
+  `bewoonde_niet_geïsoleerde_woning` → `bewoonde_geïsoleerde_woning`
 
-    0,80 × aantal_vergunningen_renovatie / bewoonde_niet_geïsoleerde_woning
+#### Placeholder
 
-Schatting: de meeste renovaties worden nog uitgevoerd, maar dan mét isolatie.
+- **`db_lden > 55`:** **80%** van renovatievergunningen leidt tot isolatie.
+- **`db_lden ≤ 55`:** **100%** van renovatievergunningen.
+
+#### Formule
+
+    baseline = 0
+    active   = factor × aantal_vergunningen_renovatie / bewoonde_niet_geïsoleerde_woning
+    # factor = 1,00 als db_lden ≤ 55, anders 0,80
+
+#### Baseline vs. active
+
+- **Baseline:** `0` — geen isolatieplicht in de referentiesituatie.
+- **Active:** geschatte isolatie-intensiteit wanneer de verplichting geldt.
+
+#### Visualisatie
+
+Staafdiagram per LDEN-band.
 """
 df_flows = df_flows.with_columns(
     pl.lit(0).alias("verplicht_isoleren_renovatie_baseline"),
     (
         pl.col("aantal_vergunningen_renovatie")
         / pl.col("bewoonde_niet_geïsoleerde_woning")
-        * 0.8
+        * pl.when(_le55).then(1.0).otherwise(0.8)
     ).alias("verplicht_isoleren_renovatie_active"),
 )
 toon_flow_rate_staafdiagram(df_flows, "verplicht_isoleren_renovatie")
 """
-## gesubsidieerd_isolatieprogramma
+## Gesubsidieerd isolatieprogramma
+"""
+toon_maatregel_info("gesubsidieerd_isolatieprogramma")
+"""
+Subsidie stimuleert vrijwillige isolatie bij renovatie (hogere intensiteit dan spontane renovatie).
 
-Subsidie stimuleert vrijwillige isolatie bij renovatie.
+#### Flows
 
-**Baseline:** `0`
+- `gesubsidieerd_isolatieprogramma` — `transfer` —
+  `bewoonde_niet_geïsoleerde_woning` → `bewoonde_geïsoleerde_woning`
 
-**Active (placeholder):** isolatierate = **2×** de renovatiestroom per niet-geïsoleerde woning:
+#### Placeholder
 
-    2 × aantal_vergunningen_renovatie / bewoonde_niet_geïsoleerde_woning
+Isolatierate = **2×** de renovatiestroom.
+
+#### Formule
+
+    baseline = 0
+    active   = 2 × aantal_vergunningen_renovatie / bewoonde_niet_geïsoleerde_woning
+
+#### Baseline vs. active
+
+- **Baseline:** `0` — geen subsidieprogramma in de referentiesituatie.
+- **Active:** verdubbelde isolatiebereidheid wanneer het programma loopt.
+
+#### Visualisatie
+
+Staafdiagram per LDEN-band.
 """
 df_flows = df_flows.with_columns(
     pl.lit(0).alias("gesubsidieerd_isolatieprogramma_baseline"),
@@ -656,100 +1087,78 @@ df_flows = df_flows.with_columns(
 toon_flow_rate_staafdiagram(df_flows, "gesubsidieerd_isolatieprogramma")
 
 """
-## gestuurd_isolatieprogramma
+## Gestuurd isolatieprogramma
+"""
+toon_maatregel_info("gestuurd_isolatieprogramma")
+"""
+Gestuurd isolatieprogramma: niet alleen verplicht voor wie renoveert, maar voor **iedereen**
+met een niet-geïsoleerde woning.
 
-Actief gestuurd isolatieprogramma (hogere intensiteit dan subsidie).
+#### Flows
 
-**Baseline:** `0`
+- `gestuurd_isolatieprogramma` — `transfer` —
+  `bewoonde_niet_geïsoleerde_woning` → `bewoonde_geïsoleerde_woning`
 
-**Active (placeholder):** isolatierate = **4×** de renovatiestroom:
+#### Placeholder
 
-    4 × aantal_vergunningen_renovatie / bewoonde_niet_geïsoleerde_woning
+Vaste jaarlijkse flow rate **100%** (`1,00`) van de niet-geïsoleerde woningstock —
+onafhankelijk van renovatievergunningen.
+
+#### Formule
+
+    baseline = 0
+    active   = 1,00
+
+#### Baseline vs. active
+
+- **Baseline:** `0` — geen gestuurd programma in de referentiesituatie.
+- **Active:** volledige niet-geïsoleerde stock per jaar naar geïsoleerd (engine clippt op
+  beschikbare stock).
+
+#### Visualisatie
+
+Staafdiagram per LDEN-band.
 """
 df_flows = df_flows.with_columns(
     pl.lit(0).alias("gestuurd_isolatieprogramma_baseline"),
-    (
-        pl.col("aantal_vergunningen_renovatie")
-        / pl.col("bewoonde_niet_geïsoleerde_woning")
-        * 4
-    ).alias("gestuurd_isolatieprogramma_active"),
+    pl.lit(1.0).alias("gestuurd_isolatieprogramma_active"),
 )
 toon_flow_rate_staafdiagram(df_flows, "gestuurd_isolatieprogramma")
 
 """
-## aanleg_geluidsbuffers
+## Aanleg geluidsbuffers
+"""
+toon_maatregel_info("aanleg_geluidsbuffers")
+"""
+Investering in geluidsbuffers; effect op stocks is nog niet gekwantificeerd.
 
-Investering in geluidsbuffers; effect op stocks nog niet gekwantificeerd.
+#### Flows
 
-**Baseline:** `0` — placeholder.
+- `aanleg_geluidsbuffers` — nog geen stock-effect gemodelleerd
 
-**Active:** `0` — placeholder tot effect op woning-/perceelstocks is gemodelleerd.
+#### Placeholder
+
+Beide rates tijdelijk `0`.
+
+#### Formule
+
+    baseline = 0
+    active   = 0
+
+#### Baseline vs. active
+
+- **Baseline:** `0` — geen gemodelleerd effect zonder maatregel.
+- **Active:** `0` — placeholder tot het effect op woning-/perceelstocks is uitgewerkt.
+
+#### Visualisatie
+
+Staafdiagram per LDEN-band (nu leeg / nul).
 """
 df_flows = df_flows.with_columns(
     pl.lit(0).alias("aanleg_geluidsbuffers_baseline"),
     pl.lit(0).alias("aanleg_geluidsbuffers_active"),
 )
 toon_flow_rate_staafdiagram(df_flows, "aanleg_geluidsbuffers")
-
-"""
-## compensatie_buitenzone
-
-Compensatie door verplaatsing naar buiten de contourzone. **Nog niet uitgewerkt.**
-
-**Baseline:** `0` — placeholder.
-
-**Active:** `0` — placeholder.
-"""
-df_flows = df_flows.with_columns(
-    pl.lit(0).alias("compensatie_buitenzone_baseline"),
-    pl.lit(0).alias("compensatie_buitenzone_active"),
-)
-toon_flow_rate_staafdiagram(df_flows, "compensatie_buitenzone")
-
-"""
-## compensatie_verhuis
-
-Compensatie via verhuis binnen/buiten de contour. **Nog niet uitgewerkt.**
-
-**Baseline:** `0` — placeholder.
-
-**Active:** `0` — placeholder.
-"""
-df_flows = df_flows.with_columns(
-    pl.lit(0).alias("compensatie_verhuis_baseline"),
-    pl.lit(0).alias("compensatie_verhuis_active"),
-)
-toon_flow_rate_staafdiagram(df_flows, "compensatie_verhuis")
-
-"""
-## versterken_sociale_cohesie
-
-Maatregel rond sociale cohesie; geen kwantitatieve flow in deze analyse.
-
-**Baseline:** `0` — placeholder.
-
-**Active:** `0` — placeholder.
-"""
-df_flows = df_flows.with_columns(
-    pl.lit(0).alias("versterken_sociale_cohesie_baseline"),
-    pl.lit(0).alias("versterken_sociale_cohesie_active"),
-)
-toon_flow_rate_staafdiagram(df_flows, "versterken_sociale_cohesie")
-
-"""
-## vergroenen_leefomgeving
-
-Maatregel rond vergroening; geen kwantitatieve flow in deze analyse.
-
-**Baseline:** `0` — placeholder.
-
-**Active:** `0` — placeholder.
-"""
-df_flows = df_flows.with_columns(
-    pl.lit(0).alias("vergroenen_leefomgeving_baseline"),
-    pl.lit(0).alias("vergroenen_leefomgeving_active"),
-)
-toon_flow_rate_staafdiagram(df_flows, "vergroenen_leefomgeving")
 
 df_flows.write_csv("input/flow_size.csv")
 
@@ -799,8 +1208,7 @@ df_prices.write_csv("input/stock_prices.csv")
 # Openstaande vragen
 
 - Perceeltransacties: enkel `terrain_batissable` (bebouwbaar).
-- Woonverdichtingsverboden: tijdelijk baseline én active op `0`; referentiemodel suggereert baseline **1%** — nog te koppelen aan data.
-- Compensatiemaatregelen en soft measures (cohesie, vergroening) nog op 0.
+- Compensatiemaatregelen en soft measures verwijderd; geluidsbuffers-kost nog open.
 - Kwetsbare groepen: aantal projecten bekend, wooneenheden per project nog niet.
 - Onbebouwde onbebouwbare percelen in analyse 1 = 3× placeholder.
 """
