@@ -339,6 +339,55 @@ class TestEngineRegression(unittest.TestCase):
             self.assertGreater(sum_vlaanderen, 0.0)
             self.assertGreater(sum_brussel, 0.0)
 
+    def test_ernstig_gehinderden_optie_b_caps_isolated_in_c_d(self):
+        """Optie B verlaagt ernstig gehinderden met isolatie in C/D; rest gelijk aan A."""
+        engine_a, selection_a = self._build_engine()
+        engine_b, selection_b = self._build_engine()
+        engine_b.ernstig_gehinderden_methode = "B"
+
+        for engine, selection in ((engine_a, selection_a), (engine_b, selection_b)):
+            selected = [
+                (name, selection.get_selected_zones(str(name)))
+                for name in selection.get_measure_descriptions().index
+            ]
+            state = engine.load_inputs(BEGINJAAR, EINDJAAR, selected)
+            state = engine.run_simulation_state(state)
+            engine.persist_outputs(engine.build_outputs(state))
+
+        sm_a = engine_a.stock_manager
+        sm_b = engine_b.stock_manager
+        for zone in engine_a.zones:
+            zonder_a = sm_a.get_aantal(
+                "aantal_ernstig_gehinderden_zonder_isolatie", BEGINJAAR, zone
+            )
+            zonder_b = sm_b.get_aantal(
+                "aantal_ernstig_gehinderden_zonder_isolatie", BEGINJAAR, zone
+            )
+            self.assertAlmostEqual(zonder_a, zonder_b, places=6)
+
+            met_a = sm_a.get_aantal(
+                "aantal_ernstig_gehinderden_met_isolatie", BEGINJAAR, zone
+            )
+            met_b = sm_b.get_aantal(
+                "aantal_ernstig_gehinderden_met_isolatie", BEGINJAAR, zone
+            )
+            if zone in ("C", "D"):
+                self.assertLess(met_b, met_a)
+            else:
+                self.assertAlmostEqual(met_a, met_b, places=6)
+
+            totaal_a = sm_a.get_aantal("aantal_ernstig_gehinderden", BEGINJAAR, zone)
+            vl_b = sm_b.get_aantal(
+                "aantal_ernstig_gehinderden_vlaanderen", BEGINJAAR, zone
+            )
+            br_b = sm_b.get_aantal(
+                "aantal_ernstig_gehinderden_brussel", BEGINJAAR, zone
+            )
+            totaal_b = sm_b.get_aantal("aantal_ernstig_gehinderden", BEGINJAAR, zone)
+            self.assertAlmostEqual(totaal_b, vl_b + br_b, places=3)
+            if zone in ("C", "D"):
+                self.assertLess(totaal_b, totaal_a)
+
     def test_regional_gehinderde_personen_sum_matches_total(self):
         engine, selection_manager = self._build_engine()
         selected = [

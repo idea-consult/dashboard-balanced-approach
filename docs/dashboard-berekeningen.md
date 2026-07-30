@@ -101,9 +101,17 @@ Na (of tijdens) flush naar zone-niveau:
 
 | KPI | Idee |
 |-----|------|
-| **Ernstig gehinderden** | Woningen × inwoners/huis × dosis-effectrelatie (per regio) |
-| **Leefbaarheidspunten** | Inwoners × zonegewichten (geïsoleerd / niet-geïsoleerd; UI kan defaults overschrijven) |
+| **Ernstig gehinderden** | Woningen × inwoners/huis × dosis-effectrelatie `(-50,9693 + 1,0168×Lden + 0,0072×Lden²) / 100` |
 | **Kosten** | `\|baseline−effectief\| × stock × eenheidsprijs × rel_cost`; verboden = verhinderde eenheden; alleen bij actieve maatregel |
+
+### Berekeningsopties ernstig gehinderden
+
+Sidebar-keuze bovenaan:
+
+| Optie | Gedrag |
+|-------|--------|
+| **A (standaard)** | Elke geluidsband gebruikt zijn eigen dosis-effect |
+| **B** | Geïsoleerde woningen in zones **C** (60–65 dB) en **D** (55–60 dB) gebruiken de dosis-effect van de **54 dB**-band (~24,93%); niet-geïsoleerd en overige zones blijven als A |
 
 Totale KPI’s over A–F mogen worden opgeteld (zones zijn exclusief). Overlay-KPI’s in de UI zijn **gewogen** met dekking en mogen **niet** bij A–F worden opgeteld.
 

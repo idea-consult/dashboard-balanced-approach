@@ -8,7 +8,7 @@ from models.measure_selection_manager import MeasureSelectionManager
 from models.scenario_manager import NONE_SCENARIO_ID, NONE_SCENARIO_LABEL
 from models.stock_manager import StockManager
 from reports.compile import compile_simulation_report
-from ui.components import SCENARIO_RADIO_KEY
+from ui.components import ERNSTIG_METHODE_KEY, SCENARIO_RADIO_KEY
 
 
 def render_pdf_report_download(
@@ -17,6 +17,7 @@ def render_pdf_report_download(
     measure_selection_manager: MeasureSelectionManager,
     kost_overheid: float,
     kost_prive: float,
+    ernstig_gehinderden_methode: str | None = None,
 ) -> None:
     """Section at bottom of dashboard: generate and download PDF snapshot."""
     st.divider()
@@ -28,6 +29,9 @@ def render_pdf_report_download(
 
     scenario_id = st.session_state.get(SCENARIO_RADIO_KEY, NONE_SCENARIO_ID)
     scenario_label = st.session_state.get("_scenario_radio_label", NONE_SCENARIO_LABEL)
+    methode = ernstig_gehinderden_methode or st.session_state.get(
+        ERNSTIG_METHODE_KEY, "A"
+    )
 
     if st.button("Genereer PDF-rapport", type="primary", key="generate_pdf_report"):
         with st.spinner("Rapport genereren (grafieken + Typst)…"):
@@ -39,6 +43,7 @@ def render_pdf_report_download(
                     kost_prive=kost_prive,
                     scenario_id=str(scenario_id),
                     scenario_label=str(scenario_label),
+                    ernstig_gehinderden_methode=str(methode),
                 )
             except Exception as exc:  # noqa: BLE001 — show in UI
                 st.error(f"PDF-generatie mislukt: {exc}")

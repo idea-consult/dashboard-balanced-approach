@@ -24,6 +24,7 @@ def compile_simulation_report(
     kost_prive: float,
     scenario_id: str | None = None,
     scenario_label: str | None = None,
+    ernstig_gehinderden_methode: str = "A",
 ) -> bytes:
     """Build chart PNGs + JSON context and compile Typst to PDF bytes."""
     try:
@@ -59,6 +60,7 @@ def compile_simulation_report(
             scenario_id=scenario_id or NONE_SCENARIO_ID,
             scenario_label=scenario_label or NONE_SCENARIO_LABEL,
             figures=figures,
+            ernstig_gehinderden_methode=ernstig_gehinderden_methode,
         )
         (root / "data.json").write_text(
             json.dumps(ctx, ensure_ascii=False, indent=2), encoding="utf-8"

@@ -133,9 +133,48 @@ def _split_inwoners_by_region(
     )
 
 
+# Dosis-effect Lden (aandeel ernstig gehinderden):
+#   (Teller_1 + Teller_2 * Lden + Teller_3 * Lden^2) / Noemer
+# met Lden = dB-ondergrens van de 1 dB-band.
+DOSIS_EFFECT_TELLER_1 = -50.9693
+DOSIS_EFFECT_TELLER_2 = 1.0168
+DOSIS_EFFECT_TELLER_3 = 0.0072
+DOSIS_EFFECT_NOEMER = 100.0
+
+# Optie B: geïsoleerde woningen in zones C/D gebruiken dosis-effect van deze band.
+DOSIS_EFFECT_ISOLATIE_CAP_DB = 54
+ZONES_ISOLATIE_DOSIS_CAP = frozenset({"C", "D"})
+
+
+def dosis_effect_for_db(db_ondergrens: int | float) -> float:
+    """Fractie ernstig gehinderden voor een Lden-band (dB-ondergrens)."""
+    lden = float(db_ondergrens)
+    raw = (
+        DOSIS_EFFECT_TELLER_1
+        + DOSIS_EFFECT_TELLER_2 * lden
+        + DOSIS_EFFECT_TELLER_3 * (lden**2)
+    ) / DOSIS_EFFECT_NOEMER
+    return float(min(max(raw, 0.0), 1.0))
+
+
+def dosis_effect_for_isolated(
+    dosis_band: pd.Series,
+    zone: str,
+    methode: str,
+) -> pd.Series:
+    """Dosis-effect voor geïsoleerde woningen (optie A = band; B = cap in C/D)."""
+    if methode == "B" and zone in ZONES_ISOLATIE_DOSIS_CAP:
+        cap = dosis_effect_for_db(DOSIS_EFFECT_ISOLATIE_CAP_DB)
+        return pd.Series(cap, index=dosis_band.index, dtype=float)
+    return dosis_band.astype(float)
+
+
 def _dosis_effect_series(index: pd.Index) -> pd.Series:
-    db = index.astype(float) + 0.5
-    return pd.Series(0.01 * np.exp(0.08 * (db - 45)), index=index, dtype=float)
+    return pd.Series(
+        [dosis_effect_for_db(db) for db in index],
+        index=index,
+        dtype=float,
+    )
 
 
 def _rate_or_zero(value: object) -> float:

@@ -1,6 +1,6 @@
 # Balanced Approach — dashboard luchthaven
 
-Dit project is een **Streamlit-dashboard** voor de Balanced Approach rond Brussels Airport. Het simuleert beleidsmaatregelen in Lden-geluidszones **A–F** (mutueel exclusief) en optioneel in de overlappende contouren **Lnight45** en **NA70**. Per scenario zie je de impact op woning- en perceelstocks, ernstig gehinderden, leefbaarheidspunten en kosten (overheid / privé).
+Dit project is een **Streamlit-dashboard** voor de Balanced Approach rond Brussels Airport. Het simuleert beleidsmaatregelen in Lden-geluidszones **A–F** (mutueel exclusief) en optioneel in de overlappende contouren **Lnight45** en **NA70**. Per scenario zie je de impact op woning- en perceelstocks, ernstig gehinderden en kosten (overheid / privé).
 
 ---
 

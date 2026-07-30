@@ -63,6 +63,21 @@ class TestStockManagerRegional(unittest.TestCase):
         )
         self.assertAlmostEqual(zone_total, band_sum, places=3)
 
+    def test_get_total_aantal_sums_regional_base_name(self) -> None:
+        """PDF-rapport gebruikt basestocknamen; totalen moeten VL+BR zijn."""
+        base = "bewoonde_niet_geïsoleerde_woning"
+        expected = sum(
+            self.manager.get_aantal(f"{base}_{regio}", BEGINJAAR, zone)
+            for regio in StockManager.REGIONS
+            for zone in self.manager.get_zones()
+        )
+        self.assertGreater(expected, 0.0)
+        self.assertAlmostEqual(
+            self.manager.get_total_aantal(base, BEGINJAAR), expected, places=3
+        )
+        # Directe zone-"Totaal" op basenaam bestaat niet → zou 0 geven
+        self.assertEqual(self.manager.get_aantal(base, BEGINJAAR, "Totaal"), 0.0)
+
 
 if __name__ == "__main__":
     unittest.main()

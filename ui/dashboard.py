@@ -26,7 +26,6 @@ from simulation.engine import SimulationEngine
 from ui.components import (
     render_charts,
     render_flow_log_zone_table,
-    render_leefbaarheidspunten_panel,
     render_metrics,
     render_sidebar_controls,
 )
@@ -72,7 +71,9 @@ def render_dashboard() -> None:
     )
     zones = stock_manager.get_zones()
 
-    conflicts = render_sidebar_controls(measure_selection_manager, zones, stock_manager)
+    conflicts, ernstig_methode = render_sidebar_controls(
+        measure_selection_manager, zones, stock_manager
+    )
     if conflicts:
         st.error("**Incompatibele maatregelcombinaties:**")
         for zone, measure1, measure2 in conflicts:
@@ -89,6 +90,7 @@ def render_dashboard() -> None:
         measures_file=MEASURES_FILE,
         flow_rules_file=FLOW_RULES_FILE,
         measure_costs_file=MEASURE_COSTS_FILE,
+        ernstig_gehinderden_methode=ernstig_methode,
     )
     selected_zones = [
         (name, measure_selection_manager.get_selected_zones(str(name)))
@@ -110,9 +112,6 @@ def render_dashboard() -> None:
         render_metrics(stock_manager, kost_overheid, kost_prive)
 
     with st.skeleton():
-        render_leefbaarheidspunten_panel(stock_manager, "Lden", simulation_engine)
-
-    with st.skeleton():
         render_charts(stock_manager)
 
     with st.skeleton():
@@ -124,6 +123,7 @@ def render_dashboard() -> None:
         measure_selection_manager=measure_selection_manager,
         kost_overheid=kost_overheid,
         kost_prive=kost_prive,
+        ernstig_gehinderden_methode=ernstig_methode,
     )
 
     render_showcase_footer()

@@ -179,86 +179,6 @@ def build_overlay_impact_chart(stock_manager: StockManager) -> alt.Chart | None:
     )
 
 
-def build_leefbaarheidspunten_chart(df_stock: pd.DataFrame) -> alt.Chart | None:
-    metric_labels = {
-        "leefbaarheidspunten_zonder_isolatie": "Niet-geïsoleerd",
-        "leefbaarheidspunten_met_isolatie": "Geïsoleerd",
-    }
-    isolatie_kleuren = {
-        "Niet-geïsoleerd": _CHART_KLEUR_A,
-        "Geïsoleerd": _CHART_KLEUR_B,
-    }
-    rows = []
-    for metric_name, isolatie_label in metric_labels.items():
-        subset = df_stock[
-            (df_stock["naam"] == metric_name)
-            & (df_stock["zone"] != "Totaal")
-            & (df_stock["jaar"].isin([BEGINJAAR, EINDJAAR]))
-        ]
-        for _, row in subset.iterrows():
-            rows.append(
-                {
-                    "zone": row["zone"],
-                    "jaar": int(row["jaar"]),
-                    "isolatie": isolatie_label,
-                    "leefbaarheidspunten": float(row["aantal"]),
-                }
-            )
-    df_plot = pd.DataFrame(rows)
-    if df_plot.empty:
-        return None
-
-    jaar_begin, jaar_einde = _jaar_categorieen()
-    df_plot["jaar_label"] = df_plot["jaar"].astype(str)
-    df_plot["jaar_label"] = pd.Categorical(
-        df_plot["jaar_label"], categories=[jaar_begin, jaar_einde], ordered=True
-    )
-    df_plot["isolatie_volgorde"] = df_plot["isolatie"].map(
-        {"Niet-geïsoleerd": 0, "Geïsoleerd": 1}
-    )
-    df_plot["legenda"] = df_plot.apply(
-        lambda row: f"{row['isolatie']} ({row['jaar']})", axis=1
-    )
-    legenda_domain, legenda_range = _legenda_labels_en_kleuren(
-        ("Niet-geïsoleerd", "Geïsoleerd"), isolatie_kleuren
-    )
-    bars = (
-        alt.Chart(df_plot)
-        .mark_bar()
-        .encode(
-            x=alt.X("zone:N", title="Zone", axis=alt.Axis(labelAngle=0)),
-            xOffset=alt.XOffset("jaar_label:N", sort="ascending"),
-            y=alt.Y(
-                "leefbaarheidspunten:Q",
-                title="Leefbaarheidspunten",
-                axis=_integer_axis("Leefbaarheidspunten"),
-            ),
-            color=alt.Color(
-                "legenda:N",
-                scale=alt.Scale(domain=legenda_domain, range=legenda_range),
-                legend=alt.Legend(orient="right", title=None, symbolStrokeWidth=0),
-            ),
-            order=alt.Order("isolatie_volgorde:O", sort="ascending"),
-        )
-    )
-    labels = _bar_value_labels(
-        df_plot,
-        x="zone",
-        y="leefbaarheidspunten",
-        x_offset="jaar_label",
-        label_totals=True,
-    )
-    return (
-        (bars + labels)
-        .properties(
-            title=f"Leefbaarheidspunten per zone ({BEGINJAAR} vs {EINDJAAR})",
-            height=360,
-            width=640,
-        )
-        .configure_view(stroke=None)
-    )
-
-
 def build_stock_line_chart(
     df_stock: pd.DataFrame, stock_name: str, title: str, y_label: str
 ) -> alt.Chart | None:
@@ -294,11 +214,6 @@ def export_report_charts(stock_manager: StockManager, out_dir: Path) -> list[dic
             "overlay_impact.png",
             "Ernstig gehinderden gewogen naar dekking Lnight45 / NA70.",
             build_overlay_impact_chart(stock_manager),
-        ),
-        (
-            "leefbaarheidspunten.png",
-            "Leefbaarheidspunten per zone (niet-geïsoleerd / geïsoleerd).",
-            build_leefbaarheidspunten_chart(df_stock),
         ),
     ]
     for filename, caption, chart in builders:

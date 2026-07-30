@@ -10,6 +10,14 @@ import pandas as pd
 
 from config import BEGINJAAR, EINDJAAR, FLOW_RULES_FILE, FLOW_SIZE_FILE, PERSONEN_PER_WOONUNIT
 from models.flow_help_rates import summarize_measure_rates
+from models.lden_data_loader import (
+    DOSIS_EFFECT_ISOLATIE_CAP_DB,
+    DOSIS_EFFECT_NOEMER,
+    DOSIS_EFFECT_TELLER_1,
+    DOSIS_EFFECT_TELLER_2,
+    DOSIS_EFFECT_TELLER_3,
+    dosis_effect_for_db,
+)
 from models.measure_selection_manager import MeasureSelectionManager
 from models.scenario_manager import NONE_SCENARIO_ID, NONE_SCENARIO_LABEL
 from models.stock_manager import StockManager
@@ -24,6 +32,69 @@ def _format_report_cost(value: float) -> str:
         return "€ 0 mln"
     formatted = format_euro_miljoen(value)
     return formatted if formatted else "€ 0 mln"
+
+
+def _ernstig_methode_context(methode: str) -> dict[str, Any]:
+    """Beschrijving van de gekozen dosis-effectmethode voor het PDF-rapport."""
+    code = methode if methode in ("A", "B") else "A"
+    formula = (
+        f"({DOSIS_EFFECT_TELLER_1:g} + {DOSIS_EFFECT_TELLER_2:g}×Lden + "
+        f"{DOSIS_EFFECT_TELLER_3:g}×Lden²) / {DOSIS_EFFECT_NOEMER:g}"
+    )
+    cap_pct = dosis_effect_for_db(DOSIS_EFFECT_ISOLATIE_CAP_DB) * 100.0
+    base_bullets = [
+        (
+            "Ernstig gehinderden = woningen × gemiddeld aantal inwoners per huis "
+            "× dosis-effectfractie van de Lden-band (dB-ondergrens)."
+        ),
+        f"Standaard dosis-effectrelatie: {formula}, begrensd tussen 0 en 1.",
+        (
+            "Berekening gebeurt per 1 dB-band en wordt geaggregeerd naar zones A–F "
+            "(en Vlaanderen/Brussel waar regionale stocks beschikbaar zijn)."
+        ),
+    ]
+    if code == "B":
+        return {
+            "code": "B",
+            "label": "Optie B — isolatie C/D als 54 dB",
+            "short": (
+                f"Geïsoleerde woningen in zones C (60–65 dB) en D (55–60 dB) "
+                f"gebruiken de dosis-effect van de {DOSIS_EFFECT_ISOLATIE_CAP_DB} dB-band "
+                f"(≈ {cap_pct:.2f}%), niet die van hun eigen geluidsband."
+            ),
+            "bullets": base_bullets
+            + [
+                (
+                    f"Afwijking optie B: voor bewoonde geïsoleerde woningen in zones C en D "
+                    f"wordt Lden = {DOSIS_EFFECT_ISOLATIE_CAP_DB} dB gebruikt in de "
+                    f"dosis-effectformule (≈ {cap_pct:.2f}% kans op ernstige hinder)."
+                ),
+                (
+                    "Niet-geïsoleerde woningen en zones A, B, E en F blijven de "
+                    "band-eigen dosis-effectrelatie gebruiken."
+                ),
+                (
+                    "Voorbeeld: een geïsoleerde woning in band 63 dB telt niet mee met "
+                    f"≈ 41,67%, maar met ≈ {cap_pct:.2f}% (zoals band "
+                    f"{DOSIS_EFFECT_ISOLATIE_CAP_DB} dB)."
+                ),
+            ],
+        }
+    return {
+        "code": "A",
+        "label": "Optie A — standaard",
+        "short": (
+            "Elke geluidsband gebruikt de dosis-effectrelatie die hoort bij de "
+            "dB-ondergrens van die band (zowel geïsoleerd als niet-geïsoleerd)."
+        ),
+        "bullets": base_bullets
+        + [
+            (
+                "Optie A maakt geen onderscheid in dosis-effect tussen geïsoleerde "
+                "en niet-geïsoleerde woningen: beide gebruiken de band-eigen fractie."
+            ),
+        ],
+    }
 
 
 def _kpi_row(stock_manager: StockManager, metric: str, label: str) -> dict[str, Any]:
@@ -118,8 +189,8 @@ def _stock_rows(stock_manager: StockManager) -> list[dict[str, Any]]:
     ]
     rows = []
     for metric, label in stocks:
-        begin = stock_manager.get_aantal(metric, BEGINJAAR, "Totaal")
-        eind = stock_manager.get_aantal(metric, EINDJAAR, "Totaal")
+        begin = stock_manager.get_total_aantal(metric, BEGINJAAR)
+        eind = stock_manager.get_total_aantal(metric, EINDJAAR)
         rows.append(
             {
                 "label": label,
@@ -140,6 +211,7 @@ def build_report_context(
     scenario_id: str | None,
     scenario_label: str | None,
     figures: list[dict],
+    ernstig_gehinderden_methode: str = "A",
 ) -> dict[str, Any]:
     sid = scenario_id or NONE_SCENARIO_ID
     slabel = scenario_label or NONE_SCENARIO_LABEL
@@ -153,6 +225,7 @@ def build_report_context(
         "scenario_id": sid,
         "scenario_label": slabel,
         "personen_per_woonunit": PERSONEN_PER_WOONUNIT,
+        "ernstig_methode": _ernstig_methode_context(ernstig_gehinderden_methode),
         "kpis": [
             _kpi_row(
                 stock_manager,
@@ -169,7 +242,6 @@ def build_report_context(
                 "aantal_ernstig_gehinderden_brussel",
                 "Ernstig gehinderde personen (Brussel)",
             ),
-            _kpi_row(stock_manager, "leefbaarheidspunten", "Leefbaarheidspunten (totaal)"),
         ],
         "kosten": {
             "overheid": _format_report_cost(kost_overheid),

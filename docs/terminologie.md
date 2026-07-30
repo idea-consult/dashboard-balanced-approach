@@ -53,7 +53,6 @@ Korte definities van begrippen die in data, code en UI voorkomen.
 |------|-----------|
 | **Ernstig gehinderden** | KPI: inwoners/woningen × dosis-effectrelatie (vaak opgesplitst Vlaanderen / Brussel). |
 | **Dosis-effectrelatie** | Factor per dB-band die hinderkans weergeeft. |
-| **Leefbaarheidspunten** | Gewogen som van inwoners × punten per zone (anders voor geïsoleerd / niet-geïsoleerd). |
 | **Vlaanderen / Brussel** | Regionale laag van stocks en KPI’s (`*_vlaanderen`, `*_brussel`). |
 
 ---

@@ -75,7 +75,7 @@ Zone-mapping: `min dBel ≤ (db_lden + 0.5) < max dBel` via [`input/lden_zones.c
 - Laden van band-stocks + rates (`lden_data_loader` / `StockManager`)
 - Zone-aggregatie voor KPI’s en grafieken
 - Jaarlijkse simulatie op **1 dB-band** (niet op zone als ruimtelijke eenheid)
-- Afgeleide metrics: ernstig gehinderden, leefbaarheidspunten, kosten
+- Afgeleide metrics: ernstig gehinderden, kosten
 
 Zie [Dashboard-berekeningen](dashboard-berekeningen.md).
 
@@ -88,7 +88,7 @@ Zie [Dashboard-berekeningen](dashboard-berekeningen.md).
 | `stocks.csv` | Intersectie | Regionale startstocks (geaggregeerd naar band bij laden) |
 | `flow_size.csv` | `db_lden` | Bandtotalen + flow rates + `share_lnight45` / `share_na70` |
 | `stock_prices.csv` | `db_lden` | Eenheidsprijzen voor kosten |
-| `lden_zones.csv` | Zone | A–F-grenzen + default leefbaarheidspunten |
+| `lden_zones.csv` | Zone | A–F-grenzen (min/max dB) |
 | `measures.csv` | Maatregel | UI-metadata (`naam_mooi`, `help`, `group_id`, `priority`) |
 | `flow_rules.csv` | Regel | Welke stocks, `flow_mode`, default rates (bandrates uit `flow_size` winnen) |
 | `measure_costs.csv` | Maatregel | `rel_cost_overheid` / `prive`, `kost_stock` |

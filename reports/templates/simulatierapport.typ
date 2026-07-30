@@ -63,6 +63,7 @@
     [*Simulatieperiode:*], [#str(data.beginjaar) – #str(data.eindjaar)],
     [*Contour:*], [#data.contour],
     [*Scenario:*], [#data.scenario_label],
+    [*Ernstig gehinderden:*], [#data.ernstig_methode.label],
     [*Kost overheid:*], [#data.kosten.overheid],
     [*Kost privé:*], [#data.kosten.prive],
   )
@@ -80,6 +81,7 @@ Dit rapport is een *snapshot* van de Balanced Approach-simulatie. Het beschrijft
 - *Active:* rate wanneer de maatregel aanstaat.
 - Zones *A–F* zijn mutueel exclusief. Overlays *Lnight45* en *NA70* overlappen met A–F en met elkaar; cijfers daarvoor niet optellen bij A–F.
 - *Kosten:* som over alle jaren en bands van |baseline − effectieve rate| × stock × eenheidsprijs × relatieve kostfactor (zie sectie Kosten).
+- *Ernstig gehinderden:* in deze run geldt *#data.ernstig_methode.label*. Zie sectie *Berekening ernstig gehinderden*.
 
 = Scenario en maatregelselectie
 
@@ -118,6 +120,8 @@ Dit rapport is een *snapshot* van de Balanced Approach-simulatie. Het beschrijft
     (k.label, k.begin, k.eind, k.delta_pct)
   },
 )
+
+*Gekozen rekenmethode:* #data.ernstig_methode.label. #data.ernstig_methode.short
 
 == Kosten over het traject
 
@@ -221,3 +225,13 @@ Gewogen gemiddelde rates over LDEN-bands (zelfde bron als de simulator: `flow_si
 - Flow rates per band komen uit de analyse-export (`input/flow_size.csv`); sommige rates bevatten *placeholders* (expertinschatting) tot betere brondata beschikbaar is.
 - Kosten zijn modelmatig: `|baseline − effectief| × stock × eenheidsprijs × rel_cost` (overheid/privé), gesommeerd over jaren en bands. Zie sectie *Kosten over het traject*.
 - Dit document is automatisch gegenereerd vanuit de dashboardselectie op #data.exported_at.
+
+== Berekening ernstig gehinderden
+
+*Gekozen methode:* #data.ernstig_methode.label (#data.ernstig_methode.code).
+
+#data.ernstig_methode.short
+
+#for b in data.ernstig_methode.bullets [
+  - #b
+]

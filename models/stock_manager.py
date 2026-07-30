@@ -9,7 +9,7 @@ import pandas as pd
 from typing import Dict, List, Tuple
 
 from config import OUTPUT_STOCK_FILE
-from models.lden_data_loader import LdenLoadedData, load_lden_data
+from models.lden_data_loader import LdenLoadedData, dosis_effect_for_db, load_lden_data
 
 try:
     from contour.schema import (
@@ -243,9 +243,11 @@ class StockManager:
     def _dosis_effect_series(self, mask: pd.Series) -> pd.Series:
         if "dosis_effect_relatie" in self.df_contour.columns:
             return self.df_contour.loc[mask, "dosis_effect_relatie"].astype(float)
-        db = self.df_contour.index[mask].astype(float) + 0.5
-        return pd.Series(0.01 * np.exp(0.08 * (db - 45)), index=self.df_contour.index[mask])
-
+        return pd.Series(
+            [dosis_effect_for_db(db) for db in self.df_contour.index[mask]],
+            index=self.df_contour.index[mask],
+            dtype=float,
+        )
     def _contour_column_name(self, stock_name: str, jaar: int) -> str:
         """Contour-CSV-kolom voor een stock of metric."""
         base, regio = self.split_regional_stock_name(stock_name)
@@ -566,22 +568,6 @@ class StockManager:
         )
         self.df_stock.sort_index(inplace=True)
 
-    def get_default_leefbaarheidspunten_weights(self) -> Dict[str, Dict[str, float]]:
-        required = {"leefbaarheidspunten_geïsoleerd", "leefbaarheidspunten_niet_geïsoleerd"}
-        missing = sorted(required - set(self.df_zones.columns))
-        if missing:
-            raise ValueError(
-                "Zones-bestand mist kolommen voor leefbaarheidspunten: " + ", ".join(missing)
-            )
-        weights: Dict[str, Dict[str, float]] = {}
-        for _, row in self.df_zones.iterrows():
-            zone = str(row["zone"])
-            weights[zone] = {
-                "niet_geïsoleerd": float(row["leefbaarheidspunten_niet_geïsoleerd"]),
-                "geïsoleerd": float(row["leefbaarheidspunten_geïsoleerd"]),
-            }
-        return weights
-
     def get_zone_contour_frame(self, zone: str, jaar: int) -> pd.DataFrame:
         """Contourwaarden per zone/jaar voor afgeleide KPI's."""
         zone_mask = self.df_contour["zone"] == zone
@@ -714,6 +700,25 @@ class StockManager:
         if (naam, jaar, zone) not in self.df_stock.index:
             return 0.0
         return float(self.df_stock.loc[(naam, jaar, zone), "aantal"])
+
+    def get_total_aantal(self, naam: str, jaar: int) -> float:
+        """Totaal over alle zones; bij regionale layer: som Vlaanderen + Brussel.
+
+        Rapport/KPI's gebruiken vaak basestocknamen (`onbebouwde_bebouwbare_percelen`),
+        terwijl de Lden-data als `*_vlaanderen` / `*_brussel` in df_stock staat.
+        """
+        if (naam, jaar, "Totaal") in self.df_stock.index:
+            return float(self.df_stock.loc[(naam, jaar, "Totaal"), "aantal"])
+
+        if self._has_regional_layer:
+            base, regio = self.split_regional_stock_name(naam)
+            if regio is None:
+                return sum(
+                    self.get_total_aantal(f"{base}_{r}", jaar) for r in self.REGIONS
+                )
+
+        zones = self.get_zones()
+        return float(sum(self.get_aantal(naam, jaar, zone) for zone in zones))
 
     def set_aantal(self, naam: str, jaar: int, zone: str, aantal: float) -> None:
         if naam not in self.stock_columns or not self.stock_columns[naam]:

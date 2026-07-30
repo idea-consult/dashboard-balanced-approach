@@ -1,9 +1,14 @@
-"""Showcase: flow rates & prijzen (output of contour_analyse_2.py)."""
+"""Showcase: flow rates & prijzen — presentatie uit contour_analyse_2.py.
+
+Leest vooraf berekende CSV's; markdown, maatregel-help en grafiekvolgorde komen
+rechtstreeks uit ``contour_analyse_2.py`` zodat deze pagina niet kan verouderen.
+"""
 
 from __future__ import annotations
 
+import ast
+from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Callable
 
 import polars as pl
 import streamlit as st
@@ -15,6 +20,8 @@ from contour_vlaanderen_grafieken import (
 
 _FLOW_SIZE_PATH = Path("input/flow_size.csv")
 _DATA_2_PATH = Path("data_2/data_2.csv")
+_MEASURES_PATH = Path("input/measures.csv")
+_ANALYSE_2_PATH = Path("contour_analyse_2.py")
 
 
 @st.cache_data
@@ -31,8 +38,108 @@ def load_intersecties() -> pl.DataFrame:
     return pl.read_csv(_DATA_2_PATH)
 
 
-def _flow_chart(df_flows: pl.DataFrame, measure_id: str) -> None:
-    toon_flow_rate_staafdiagram(df_flows, measure_id)
+@st.cache_data
+def load_maatregel_help() -> dict[str, str]:
+    if not _MEASURES_PATH.is_file():
+        return {}
+    df = pl.read_csv(_MEASURES_PATH)
+    return {
+        str(row["measure_id"]): str(row["help"])
+        for row in df.select("measure_id", "help").iter_rows(named=True)
+    }
+
+
+@dataclass
+class ShowcaseSection:
+    markdown_parts: list[str] = field(default_factory=list)
+    help_measure_ids: list[str] = field(default_factory=list)
+    flow_measure_ids: list[str] = field(default_factory=list)
+    render_prijzen: bool = False
+
+    @property
+    def markdown(self) -> str:
+        return "\n\n".join(part for part in self.markdown_parts if part.strip())
+
+
+def _call_name(call: ast.Call) -> str | None:
+    func = call.func
+    if isinstance(func, ast.Name):
+        return func.id
+    if isinstance(func, ast.Attribute):
+        return func.attr
+    return None
+
+
+def _const_str(node: ast.AST) -> str | None:
+    if isinstance(node, ast.Constant) and isinstance(node.value, str):
+        return node.value
+    return None
+
+
+def _starts_section_heading(text: str) -> bool:
+    first = next((line.strip() for line in text.splitlines() if line.strip()), "")
+    return first.startswith("#")
+
+
+def _parse_analyse_2_sections(source: str) -> list[ShowcaseSection]:
+    """Haal presentatie-secties uit contour_analyse_2.py (markdown + chart-calls)."""
+    tree = ast.parse(source)
+    sections: list[ShowcaseSection] = []
+    current = ShowcaseSection()
+
+    def flush_if_needed() -> None:
+        nonlocal current
+        if (
+            current.markdown_parts
+            or current.help_measure_ids
+            or current.flow_measure_ids
+            or current.render_prijzen
+        ):
+            sections.append(current)
+            current = ShowcaseSection()
+
+    for node in tree.body:
+        if isinstance(node, ast.Expr) and isinstance(node.value, ast.Constant):
+            text = node.value.value
+            if not isinstance(text, str) or not text.strip():
+                continue
+            if _starts_section_heading(text) and (
+                current.markdown_parts
+                or current.help_measure_ids
+                or current.flow_measure_ids
+                or current.render_prijzen
+            ):
+                flush_if_needed()
+            current.markdown_parts.append(text)
+            continue
+
+        if not (isinstance(node, ast.Expr) and isinstance(node.value, ast.Call)):
+            continue
+
+        call = node.value
+        name = _call_name(call)
+        if name == "toon_maatregel_info":
+            for arg in call.args:
+                measure_id = _const_str(arg)
+                if measure_id:
+                    current.help_measure_ids.append(measure_id)
+        elif name == "toon_flow_rate_staafdiagram" and len(call.args) >= 2:
+            measure_id = _const_str(call.args[1])
+            if measure_id:
+                current.flow_measure_ids.append(measure_id)
+        elif name == "toon_staafdiagram_per_gewest":
+            current.render_prijzen = True
+
+    flush_if_needed()
+    return sections
+
+
+@st.cache_data
+def load_showcase_sections(_mtime: float) -> list[ShowcaseSection]:
+    """``_mtime`` bust de cache wanneer ``contour_analyse_2.py`` wijzigt."""
+    if not _ANALYSE_2_PATH.is_file():
+        raise FileNotFoundError(_ANALYSE_2_PATH)
+    return _parse_analyse_2_sections(_ANALYSE_2_PATH.read_text(encoding="utf-8"))
 
 
 def _render_prijzen(df_intersecties: pl.DataFrame) -> None:
@@ -58,347 +165,74 @@ def _render_prijzen(df_intersecties: pl.DataFrame) -> None:
     )
 
 
-FlowSection = dict[str, str | str | Callable[..., None] | None]
-
-FLOW_SECTIONS: list[FlowSection] = [
-    {
-        "markdown": """
-# Aggregatie per LDEN-band
-
-`data_2.csv` heeft één rij per **intersectie** (statistische sector × LDEN-band). Voor flow rates
-werken we op **contourniveau**: alle intersecties met dezelfde `db_lden` worden samengevoegd.
-
-Telbare grootheden worden **opgeteld**. Daarna berekenen we flow rates als teller / noemer op die
-geaggregeerde rij. Het resultaat staat in `input/flow_size.csv`.
-""",
-    },
-    {
-        "markdown": """
-# Stocks
-
-Stocks werden in `contour_analyse_1.py` berekend. Belangrijke placeholders:
-
-| Stock | Opmerking |
-|-------|-----------|
-| `onbebouwde_onbebouwbare_percelen` | 3× bebouwbare percelen |
-| `bewoonde_niet_geïsoleerde_woning` | 80% (VL) / 95% (BXL) van woningen |
-| `bewoonde_geïsoleerde_woning` | 20% (VL) / 5% (BXL) van woningen |
-| `nieuwe_woning` | Simulator-tussenstock; steeds 0 |
-""",
-    },
-    {
-        "markdown": """
-# Flows
-
-Per flow bepalen we een **flow rate** in **baseline** (zonder maatregel) en **active** (maatregel
-aan). Een flow rate is een jaarlijks aandeel: teller / noemer, uitgedrukt als percentage in de
-grafiek. Onderstaande grafieken tonen de vooraf berekende waarden per LDEN-band.
-""",
-    },
-    {
-        "markdown": """
-## verkavelings_verbod
-
-Verkavelingsverbod: beperkt de verdichting op onbebouwde bebouwbare percelen.
-
-**Baseline** en **active:** `0` — nog niet gekoppeld aan brondata.
-""",
-        "measure_id": "verkavelings_verbod",
-    },
-    {
-        "markdown": """
-## Woongebiedverbod
-
-Transfer van onbebouwde onbebouwbare naar bebouwbare percelen (of omgekeerd bij schrapping).
-
-**Baseline:** netto woongebied-creatie / stock onbebouwbare percelen.
-
-**Active:** enkel schrapping (bebouwbaar → onbebouwbaar) / stock onbebouwbare percelen.
-""",
-        "measure_id": "woongebiedverbod",
-    },
-    {
-        "markdown": """
-## aankoopbeleid_percelen
-
-Overheid koopt onbebouwde bebouwbare percelen aan.
-
-**Baseline:** `0`. **Active (placeholder):** 25% van bebouwbare perceeltransacties / stock.
-""",
-        "measure_id": "aankoopbeleid_percelen",
-    },
-    {
-        "markdown": """
-## voorkooprecht_percelen
-
-Gemeente/regio oefent voorkooprecht uit op onbebouwde bebouwbare percelen.
-
-**Baseline:** `0`. **Active (placeholder):** 50% van bebouwbare perceeltransacties / stock.
-""",
-        "measure_id": "voorkooprecht_percelen",
-    },
-    {
-        "markdown": """
-## onteigening_percelen
-
-Gedwongen onteigening van onbebouwde bebouwbare percelen.
-
-**Baseline:** `0`. **Active (placeholder):** vaste rate **5%** per band.
-""",
-        "measure_id": "onteigening_percelen",
-    },
-    {
-        "markdown": """
-## woningverbod
-
-**Baseline:** gedeelde nieuwbouwrate =
-nieuwbouw / (niet-geïsoleerde + geïsoleerde woningen + bebouwbare percelen).
-
-**Active:** `0`. Transfer: percelen → `nieuwe_woning`.
-""",
-        "measure_id": "woningverbod",
-    },
-    {
-        "markdown": """
-## verbod_kwetsbare_groep
-
-**Baseline:** kwetsbare-groepenvergunningen / bebouwbare percelen.
-
-**Active:** `0`.
-""",
-        "measure_id": "verbod_kwetsbare_groep",
-    },
-    {
-        "markdown": """
-## woonverdichtingsverbod_niet_geïsoleerde_woningen
-
-Growth op niet-geïsoleerde woningen. **Zelfde rate als woningverbod.**
-
-**Active:** `0`.
-""",
-        "measure_id": "woonverdichtingsverbod_niet_geïsoleerde_woningen",
-    },
-    {
-        "markdown": """
-## woonverdichtingsverbod_geïsoleerde_woningen
-
-Growth op geïsoleerde woningen. **Zelfde rate als woningverbod.**
-
-**Active:** `0`.
-""",
-        "measure_id": "woonverdichtingsverbod_geïsoleerde_woningen",
-    },
-    {
-        "markdown": """
-## aankoopbeleid_niet_geïsoleerde_woningen
-
-**Baseline:** `0`. **Active (placeholder):** 25% van transacties niet-geïsoleerde woningen /
-niet-geïsoleerde stock.
-""",
-        "measure_id": "aankoopbeleid_niet_geïsoleerde_woningen",
-    },
-    {
-        "markdown": """
-## aankoopbeleid_geïsoleerde_woningen
-
-**Baseline:** `0`. **Active (placeholder):** 25% van transacties geïsoleerde woningen /
-geïsoleerde stock.
-""",
-        "measure_id": "aankoopbeleid_geïsoleerde_woningen",
-    },
-    {
-        "markdown": """
-## voorkooprecht_niet_geïsoleerde_woningen
-
-**Baseline:** `0`. **Active (placeholder):** 50% van transacties niet-geïsoleerde woningen /
-niet-geïsoleerde stock.
-""",
-        "measure_id": "voorkooprecht_niet_geïsoleerde_woningen",
-    },
-    {
-        "markdown": """
-## voorkooprecht_geïsoleerde_woningen
-
-**Baseline:** `0`. **Active (placeholder):** 50% van transacties geïsoleerde woningen /
-geïsoleerde stock.
-""",
-        "measure_id": "voorkooprecht_geïsoleerde_woningen",
-    },
-    {
-        "markdown": """
-## onteigening_niet_geïsoleerde_woningen
-
-**Baseline:** `0`. **Active (placeholder):** vaste rate **5%** per band.
-""",
-        "measure_id": "onteigening_niet_geïsoleerde_woningen",
-    },
-    {
-        "markdown": """
-## onteigening_geïsoleerde_woningen
-
-**Baseline:** `0`. **Active (placeholder):** vaste rate **5%** per band.
-""",
-        "measure_id": "onteigening_geïsoleerde_woningen",
-    },
-    {
-        "markdown": """
-## isolatievoorschriften_nieuwbouw_naar_niet_geïsoleerde_woning
-
-**Baseline (placeholder):** 50%. **Active:** `0`.
-""",
-        "measure_id": "isolatievoorschriften_nieuwbouw_naar_niet_geïsoleerde_woning",
-    },
-    {
-        "markdown": """
-## isolatievoorschriften_nieuwbouw_naar_geïsoleerde_woning
-
-**Baseline (placeholder):** 50%. **Active (placeholder):** 100%.
-""",
-        "measure_id": "isolatievoorschriften_nieuwbouw_naar_geïsoleerde_woning",
-    },
-    {
-        "markdown": """
-## renovatie_zonder_maatregel
-
-Spontane renovatie met akoestische isolatie (niet-geïsoleerd → geïsoleerd).
-
-**Baseline:** `0`. **Active (placeholder):** 20% van renovatievergunningen / niet-geïsoleerde stock.
-""",
-        "measure_id": "renovatie_zonder_maatregel",
-    },
-    {
-        "markdown": """
-## verplicht_isoleren_renovatie
-
-**Baseline:** `0`. **Active (placeholder):** 80% van renovatievergunningen / niet-geïsoleerde stock.
-""",
-        "measure_id": "verplicht_isoleren_renovatie",
-    },
-    {
-        "markdown": """
-## gesubsidieerd_isolatieprogramma
-
-**Baseline:** `0`. **Active (placeholder):** 2× renovatiestroom / niet-geïsoleerde stock.
-""",
-        "measure_id": "gesubsidieerd_isolatieprogramma",
-    },
-    {
-        "markdown": """
-## gestuurd_isolatieprogramma
-
-**Baseline:** `0`. **Active (placeholder):** 4× renovatiestroom / niet-geïsoleerde stock.
-""",
-        "measure_id": "gestuurd_isolatieprogramma",
-    },
-    {
-        "markdown": """
-## aanleg_geluidsbuffers
-
-Investering in geluidsbuffers; effect op stocks nog niet gekwantificeerd.
-
-**Baseline** en **active:** `0` — placeholder.
-""",
-        "measure_id": "aanleg_geluidsbuffers",
-    },
-    {
-        "markdown": """
-## compensatie_buitenzone
-
-Compensatie door verplaatsing naar buiten de contourzone. **Nog niet uitgewerkt.**
-
-**Baseline** en **active:** `0`.
-""",
-        "measure_id": "compensatie_buitenzone",
-    },
-    {
-        "markdown": """
-## compensatie_verhuis
-
-Compensatie via verhuis binnen/buiten de contour. **Nog niet uitgewerkt.**
-
-**Baseline** en **active:** `0`.
-""",
-        "measure_id": "compensatie_verhuis",
-    },
-    {
-        "markdown": """
-## versterken_sociale_cohesie
-
-Maatregel rond sociale cohesie; geen kwantitatieve flow in deze analyse.
-
-**Baseline** en **active:** `0`.
-""",
-        "measure_id": "versterken_sociale_cohesie",
-    },
-    {
-        "markdown": """
-## vergroenen_leefomgeving
-
-Maatregel rond vergroening; geen kwantitatieve flow in deze analyse.
-
-**Baseline** en **active:** `0`.
-""",
-        "measure_id": "vergroenen_leefomgeving",
-    },
-    {
-        "markdown": """
-# Prijzen
-
-Eenheidsprijzen per LDEN-band voor kostberekeningen in de simulator.
-
-| Stock | Prijskolom | Bron |
-|-------|------------|------|
-| `bewoonde_geïsoleerde_woning` | `bewoonde_geïsoleerde_woning_prijs` | `gemiddelde_prijs_van_een_woning` |
-| `bewoonde_niet_geïsoleerde_woning` | `bewoonde_niet_geïsoleerde_woning_prijs` | zelfde |
-| `onbebouwde_bebouwbare_percelen` | `onbebouwde_bebouwbare_percelen_prijs` | `gemiddelde_prijs_bebouwbaar_perceel` |
-""",
-        "render_prijzen": True,
-    },
-    {
-        "markdown": """
-# Openstaande vragen
-
-- Perceeltransacties: enkel `terrain_batissable` (bebouwbaar).
-- Woonverdichtingsverboden: tijdelijk baseline én active op `0`; referentiemodel suggereert
-  baseline **1%** — nog te koppelen aan data.
-- Compensatiemaatregelen en soft measures (cohesie, vergroening) nog op 0.
-- Kwetsbare groepen: aantal projecten bekend, wooneenheden per project nog niet.
-- Onbebouwde onbebouwbare percelen in analyse 1 = 3× placeholder.
-""",
-    },
-]
+def _toon_maatregel_info(
+    measure_ids: list[str],
+    help_by_id: dict[str, str],
+    *,
+    enabled: bool,
+) -> None:
+    if not enabled:
+        return
+    for measure_id in measure_ids:
+        help_text = help_by_id.get(measure_id, "").strip()
+        if help_text:
+            st.info(help_text)
 
 
 def render() -> None:
     st.title("Flow rates & prijzen per LDEN-band")
-    st.caption("Aggregatie en flow-berekening op basis van `data_2/data_2.csv`")
+    st.caption("Presentatie synchroon met `contour_analyse_2.py` (geen herberekening)")
     st.info(
-        "Resultaten uit vooraf berekende data; deze pagina voert geen herberekening uit."
+        "Resultaten uit vooraf berekende data; deze pagina voert geen herberekening uit. "
+        "Tekst en grafiekvolgorde volgen `contour_analyse_2.py`."
     )
 
+    with st.sidebar:
+        toon_maatregel_help = st.toggle(
+            "Toon maatregel-uitleg",
+            value=False,
+            help=(
+                "Toont of verbergt de narratieve helptekst (uit measures.csv) "
+                "onder elke maatregel-titel."
+            ),
+        )
+
     try:
+        if not _ANALYSE_2_PATH.is_file():
+            raise FileNotFoundError(_ANALYSE_2_PATH)
         df_flows = load_flow_size()
         df_intersecties = load_intersecties()
+        sections = load_showcase_sections(_ANALYSE_2_PATH.stat().st_mtime)
     except FileNotFoundError as exc:
         missing = exc.args[0]
         if missing == _FLOW_SIZE_PATH:
             st.error(
                 f"`{_FLOW_SIZE_PATH}` ontbreekt. Voer eerst `contour_analyse_2.py` uit."
             )
+        elif missing == _ANALYSE_2_PATH:
+            st.error(f"`{_ANALYSE_2_PATH}` ontbreekt.")
         else:
             st.error(
                 f"`{_DATA_2_PATH}` ontbreekt. Voer eerst `contour_analyse_1.py` uit."
             )
         return
 
+    help_by_id = load_maatregel_help()
     st.caption(
         f"{df_flows.height} LDEN-banden · {df_flows.width} kolommen in flow_size.csv"
     )
 
-    for section in FLOW_SECTIONS:
-        st.markdown(section["markdown"])
-        measure_id = section.get("measure_id")
-        if measure_id:
-            _flow_chart(df_flows, measure_id)
-        if section.get("render_prijzen"):
+    prijzen_gerenderd = False
+    for section in sections:
+        if section.markdown:
+            st.markdown(section.markdown)
+        _toon_maatregel_info(
+            section.help_measure_ids,
+            help_by_id,
+            enabled=toon_maatregel_help,
+        )
+        for measure_id in section.flow_measure_ids:
+            toon_flow_rate_staafdiagram(df_flows, measure_id)
+        if section.render_prijzen and not prijzen_gerenderd:
             _render_prijzen(df_intersecties)
+            prijzen_gerenderd = True

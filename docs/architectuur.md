@@ -40,7 +40,7 @@ flowchart TB
 | `app.py` | Entry: authenticatie + navigatie |
 | `config.py` | Jaren, paden naar `input/`/`output/` |
 | `models/` | Data laden, selectiestatus, scenario-presets, validatie, SimulationState-bouw |
-| `simulation/` | Jaar-op-jaar engine, helpers voor leefbaarheid |
+| `simulation/` | Jaar-op-jaar engine en helpers |
 | `ui/` | Dashboard, sidebar, grafieken, auth |
 | `contour_analyse_1.py` / `_2.py` | Actieve datapipeline Lden → `input/` |
 | `contour/` + notebooks | Legacy / parallel pad voor contour-export |
@@ -57,7 +57,7 @@ flowchart TB
 3. **SimulationEngine.load_inputs** — `simulation_input_loader` bouwt per band `FlowRule`s (weight 0/1/share).
 4. **run_simulation_state** — carry-over + flows; kosten en flow-log.
 5. **StockManager** — zone-aggregatie, afgeleide metrics, `save` naar `output/stock.csv`.
-6. **UI** — metrics, leefbaarheidspunten, Altair-grafieken (A–F + overlays).
+6. **UI** — metrics en Altair-grafieken (A–F + overlays).
 
 ---
 

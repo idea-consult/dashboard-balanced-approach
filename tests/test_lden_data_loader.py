@@ -90,3 +90,49 @@ class TestLdenDataLoader(unittest.TestCase):
                     math.isfinite(active),
                     f"band {band} {measure_id} active={active}",
                 )
+
+    def test_dosis_effect_matches_quadratic_formula(self) -> None:
+        from models.lden_data_loader import dosis_effect_for_db
+
+        def expected(lden: float) -> float:
+            return (-50.9693 + 1.0168 * lden + 0.0072 * lden**2) / 100.0
+
+        for db in (45, 50, 65, 80):
+            self.assertAlmostEqual(dosis_effect_for_db(db), expected(db), places=9)
+        # Afgeronde tabelwaarden liggen dicht bij de formule
+        self.assertAlmostEqual(dosis_effect_for_db(45), 0.09, places=1)
+        self.assertAlmostEqual(dosis_effect_for_db(50), 0.18, places=1)
+        self.assertAlmostEqual(
+            float(self.loaded.df_contour.loc[45, "dosis_effect_relatie"]),
+            expected(45),
+            places=9,
+        )
+
+    def test_dosis_effect_for_isolated_option_b_caps_zones_c_d(self) -> None:
+        import pandas as pd
+
+        from models.lden_data_loader import (
+            DOSIS_EFFECT_ISOLATIE_CAP_DB,
+            dosis_effect_for_db,
+            dosis_effect_for_isolated,
+        )
+
+        band = pd.Series([dosis_effect_for_db(63)], index=[63], dtype=float)
+        cap = dosis_effect_for_db(DOSIS_EFFECT_ISOLATIE_CAP_DB)
+        self.assertAlmostEqual(cap, 0.2493, places=4)
+
+        for zone in ("C", "D"):
+            out = dosis_effect_for_isolated(band, zone, "B")
+            self.assertAlmostEqual(float(out.iloc[0]), cap, places=9)
+
+        # Optie A of andere zones: band-eigen dosis
+        self.assertAlmostEqual(
+            float(dosis_effect_for_isolated(band, "C", "A").iloc[0]),
+            float(band.iloc[0]),
+            places=9,
+        )
+        self.assertAlmostEqual(
+            float(dosis_effect_for_isolated(band, "A", "B").iloc[0]),
+            float(band.iloc[0]),
+            places=9,
+        )

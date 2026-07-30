@@ -1,9 +1,10 @@
 """Simulation engine for year-by-year stock and flow calculations."""
 
-from typing import Dict, List, Tuple
+from typing import Dict, List, Literal, Tuple
 import csv
 import os
 import numpy as np
+from models.lden_data_loader import dosis_effect_for_isolated
 from models.stock_manager import StockManager
 from models.measure_selection_manager import MeasureSelectionManager
 from models.simulation_input_loader import (
@@ -11,7 +12,6 @@ from models.simulation_input_loader import (
     resolve_regional_flow_targets,
 )
 from simulation.state import SimulationOutputs, SimulationState, FlowRule
-from simulation.helpers import calculate_leefbaarheidspunten_for_contour
 from config import (
     OUTPUT_DIR,
     ZONES_FILE,
@@ -19,6 +19,8 @@ from config import (
     FLOW_RULES_FILE,
     MEASURE_COSTS_FILE,
 )
+
+ErnstigGehinderdenMethode = Literal["A", "B"]
 
 
 class SimulationEngine:
@@ -33,6 +35,7 @@ class SimulationEngine:
         measures_file: str = MEASURES_FILE,
         flow_rules_file: str = FLOW_RULES_FILE,
         measure_costs_file: str = MEASURE_COSTS_FILE,
+        ernstig_gehinderden_methode: ErnstigGehinderdenMethode = "A",
     ):
         """
         Initialize the simulation engine.
@@ -41,6 +44,8 @@ class SimulationEngine:
             stock_manager: StockManager instance
             measure_selection_manager: MeasureSelectionManager instance
             zones: Tuple of zone identifiers
+            ernstig_gehinderden_methode: A = band dosis-effect; B = geïsoleerd
+                in zones C/D gebruikt dosis-effect van 54 dB Lden
         """
         self.stock_manager = stock_manager
         self.measure_selection_manager = measure_selection_manager
@@ -49,6 +54,9 @@ class SimulationEngine:
         self.measures_file = measures_file
         self.flow_rules_file = flow_rules_file
         self.measure_costs_file = measure_costs_file
+        self.ernstig_gehinderden_methode: ErnstigGehinderdenMethode = (
+            ernstig_gehinderden_methode
+        )
         self._flow_log_rows = []
         self._totale_kost_overheid = 0.0
         self._totale_kost_prive = 0.0
@@ -489,7 +497,10 @@ class SimulationEngine:
                         inwoners_per_huis = contour_df["gemiddeld_aantal_inwoners_per_huis"]
                         gem_inw_vl = inwoners_per_huis
                         gem_inw_br = inwoners_per_huis
-                    dosis_effect_relatie = contour_df["dosis_effect_relatie"]
+                    dosis_non_iso = contour_df["dosis_effect_relatie"].astype(float)
+                    dosis_iso = dosis_effect_for_isolated(
+                        dosis_non_iso, zone, self.ernstig_gehinderden_methode
+                    )
 
                     personen_zonder_isolatie = float(
                         (
@@ -506,35 +517,35 @@ class SimulationEngine:
                         (
                             contour_df["bewoonde_niet_geïsoleerde_woning"]
                             * inwoners_per_huis
-                            * dosis_effect_relatie
+                            * dosis_non_iso
                         ).sum()
                     )
                     ernstig_met_isolatie = float(
                         (
                             contour_df["bewoonde_geïsoleerde_woning"]
                             * inwoners_per_huis
-                            * dosis_effect_relatie
+                            * dosis_iso
                         ).sum()
                     )
 
                     ernstig_vlaanderen = float(
                         (
-                            (
-                                contour_df["bewoonde_niet_geïsoleerde_woning_vlaanderen"]
-                                + contour_df["bewoonde_geïsoleerde_woning_vlaanderen"]
-                            )
+                            contour_df["bewoonde_niet_geïsoleerde_woning_vlaanderen"]
                             * gem_inw_vl
-                            * dosis_effect_relatie
+                            * dosis_non_iso
+                            + contour_df["bewoonde_geïsoleerde_woning_vlaanderen"]
+                            * gem_inw_vl
+                            * dosis_iso
                         ).sum()
                     )
                     ernstig_brussel = float(
                         (
-                            (
-                                contour_df["bewoonde_niet_geïsoleerde_woning_brussel"]
-                                + contour_df["bewoonde_geïsoleerde_woning_brussel"]
-                            )
+                            contour_df["bewoonde_niet_geïsoleerde_woning_brussel"]
                             * gem_inw_br
-                            * dosis_effect_relatie
+                            * dosis_non_iso
+                            + contour_df["bewoonde_geïsoleerde_woning_brussel"]
+                            * gem_inw_br
+                            * dosis_iso
                         ).sum()
                     )
                     personen_vlaanderen = float(
@@ -599,62 +610,6 @@ class SimulationEngine:
                     ernstig_zonder_isolatie,
                 )
 
-    def calculate_leefbaarheidspunten(
-        self,
-        beginjaar: int,
-        eindjaar: int,
-        weights_by_zone: Dict[str, Dict[str, float]],
-    ) -> None:
-        """Bereken leefbaarheidspunten per zone/jaar op basis van instelbare punten per inwoner."""
-        default_weights = {"niet_geïsoleerd": 0.0, "geïsoleerd": 0.0}
-        for jaar in range(beginjaar, eindjaar + 1):
-            for zone in self.zones:
-                zone_weights = weights_by_zone.get(zone, default_weights)
-                contour_df = self.stock_manager.get_zone_contour_frame(zone, jaar)
-                leefbaarheidspunten_zonder, leefbaarheidspunten_met, leefbaarheidspunten_totaal = (
-                    calculate_leefbaarheidspunten_for_contour(
-                        contour_df,
-                        float(zone_weights.get("niet_geïsoleerd", 0.0)),
-                        float(zone_weights.get("geïsoleerd", 0.0)),
-                    )
-                )
-                self.stock_manager.set_aantal(
-                    "leefbaarheidspunten_zonder_isolatie",
-                    jaar,
-                    zone,
-                    leefbaarheidspunten_zonder,
-                )
-                self.stock_manager.set_aantal(
-                    "leefbaarheidspunten_met_isolatie", jaar, zone, leefbaarheidspunten_met
-                )
-                self.stock_manager.set_aantal(
-                    "leefbaarheidspunten", jaar, zone, leefbaarheidspunten_totaal
-                )
-
-        self._update_metric_totals(
-            beginjaar,
-            eindjaar,
-            [
-                "leefbaarheidspunten",
-                "leefbaarheidspunten_met_isolatie",
-                "leefbaarheidspunten_zonder_isolatie",
-            ],
-        )
-
-    def _update_metric_totals(
-        self, beginjaar: int, eindjaar: int, metrics: List[str]
-    ) -> None:
-        for jaar in range(beginjaar, eindjaar + 1):
-            for metric in metrics:
-                try:
-                    total = sum(
-                        self.stock_manager.get_aantal(metric, jaar, zone)
-                        for zone in self.zones
-                    )
-                except KeyError:
-                    total = 0.0
-                self.stock_manager.set_aantal(metric, jaar, "Totaal", total)
-
     def _calculate_totals(self, beginjaar: int, eindjaar: int) -> None:
         metrics = [
             "gehinderde_personen_met_isolatie",
@@ -664,9 +619,6 @@ class SimulationEngine:
             "aantal_ernstig_gehinderden_brussel",
             "aantal_ernstig_gehinderden_met_isolatie",
             "aantal_ernstig_gehinderden_zonder_isolatie",
-            "leefbaarheidspunten",
-            "leefbaarheidspunten_met_isolatie",
-            "leefbaarheidspunten_zonder_isolatie",
             "totaal_gehinderde_personen",
             "totaal_gehinderde_personen_vlaanderen",
             "totaal_gehinderde_personen_brussel",

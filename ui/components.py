@@ -4,7 +4,6 @@ import streamlit as st
 import altair as alt
 import pandas as pd
 import os
-from typing import Dict
 
 from config import FLOW_SIZE_FILE, SCENARIOS_FILE
 from models.flow_help_rates import apply_flow_size_rates_to_rules
@@ -16,7 +15,6 @@ from models.scenario_manager import (
     ScenarioManager,
 )
 from models.validation import validate_measure_combinations
-from simulation.engine import SimulationEngine
 from config import BEGINJAAR, EINDJAAR
 from ui.formatting import (
     ALTAIR_INTEGER_FORMAT,
@@ -32,6 +30,11 @@ _CHART_KLEUR_A = {"normaal": "#4E2567", "licht": "#A68BB8"}
 _CHART_KLEUR_B = {"normaal": "#DD5B61", "licht": "#F0A8AC"}
 
 SCENARIO_RADIO_KEY = "scenario_preset"
+ERNSTIG_METHODE_KEY = "ernstig_gehinderden_methode"
+_ERNSTIG_METHODE_LABELS = {
+    "A": "Optie A — standaard",
+    "B": "Optie B — isolatie C/D als 54 dB",
+}
 
 
 def _jaar_categorieen() -> tuple[str, str]:
@@ -221,12 +224,12 @@ def render_sidebar_controls(
     measure_selection_manager: MeasureSelectionManager,
     zones,
     stock_manager: StockManager | None = None,
-):
+) -> tuple:
     """
     Render sidebar controls for measure selection.
 
-    Args:
-        measure_selection_manager: MeasureSelectionManager instance
+    Returns:
+        (conflicts, ernstig_gehinderden_methode) where methode is "A" or "B".
     """
     df_beschrijving_maatregelen = measure_selection_manager.get_measure_descriptions()
     hidden_measures = measure_selection_manager.get_hidden_measures()
@@ -243,6 +246,27 @@ def render_sidebar_controls(
         flow_size = pd.read_csv(FLOW_SIZE_FILE)
 
     with st.sidebar:
+        st.markdown("**Ernstig gehinderden**")
+        if "_ernstig_methode_label" not in st.session_state:
+            default_methode = st.session_state.get(ERNSTIG_METHODE_KEY, "A")
+            st.session_state["_ernstig_methode_label"] = _ERNSTIG_METHODE_LABELS.get(
+                default_methode, _ERNSTIG_METHODE_LABELS["A"]
+            )
+        methode_label = st.radio(
+            "Berekeningsmethode ernstig gehinderden",
+            options=list(_ERNSTIG_METHODE_LABELS.values()),
+            key="_ernstig_methode_label",
+            label_visibility="collapsed",
+        )
+        label_to_methode = {v: k for k, v in _ERNSTIG_METHODE_LABELS.items()}
+        ernstig_methode = label_to_methode.get(methode_label, "A")
+        st.session_state[ERNSTIG_METHODE_KEY] = ernstig_methode
+        st.caption(
+            "Optie B: geïsoleerde woningen in zones C en D gebruiken de "
+            "dosis-effectrelatie van de 54 dB Lden-band."
+        )
+        st.divider()
+
         if SCENARIO_RADIO_KEY not in st.session_state:
             st.session_state[SCENARIO_RADIO_KEY] = NONE_SCENARIO_ID
 
@@ -437,7 +461,7 @@ def render_sidebar_controls(
     conflicts = validate_measure_combinations(
         measure_selection_manager, tuple(zones), stock_manager=stock_manager
     )
-    return conflicts
+    return conflicts, st.session_state.get(ERNSTIG_METHODE_KEY, "A")
 
 
 def _delta_pct(begin: float, eind: float) -> int:
@@ -554,51 +578,6 @@ def render_metrics(
         st.metric("Totale kost privé", format_euro_miljoen(kost_prive))
 
 
-def render_leefbaarheidspunten_metrics(stock_manager: StockManager) -> None:
-    """Leefbaarheidspunten-KPI's (eindjaar) binnen de instellingen-expander."""
-    col_hp_totaal, col_hp_iso, col_hp_niet = st.columns(3)
-    with col_hp_totaal:
-        _render_traject_metric(
-            stock_manager, "leefbaarheidspunten", "Totaal aantal leefbaarheidspunten"
-        )
-    with col_hp_iso:
-        _render_traject_metric(
-            stock_manager, "leefbaarheidspunten_met_isolatie", "Leefbaarheidspunten geïsoleerd"
-        )
-    with col_hp_niet:
-        _render_traject_metric(
-            stock_manager,
-            "leefbaarheidspunten_zonder_isolatie",
-            "Leefbaarheidspunten niet-geïsoleerd",
-        )
-
-
-def render_leefbaarheidspunten_panel(
-    stock_manager: StockManager,
-    contour_type: str,
-    simulation_engine: SimulationEngine,
-) -> None:
-    """Expander: gewichten per zone, berekening en leefbaarheidspunten-KPI's."""
-    panel = st.expander(
-        "Instelling leefbaarheidspunten per zone",
-        expanded=False,
-        key="leefbaarheidspunten_panel",
-        on_change="rerun",
-    )
-    if not panel.open:
-        return
-
-    with panel:
-        leefbaarheidspunten_weights = render_leefbaarheidspunten_weight_controls(
-            stock_manager, contour_type
-        )
-        simulation_engine.calculate_leefbaarheidspunten(
-            BEGINJAAR, EINDJAAR, leefbaarheidspunten_weights
-        )
-        st.divider()
-        render_leefbaarheidspunten_metrics(stock_manager)
-
-
 def _stock_plot_frame(df_stock: pd.DataFrame, base_stock_name: str) -> pd.DataFrame:
     """Plotdata: totaal per zone/jaar (Vlaanderen + Brussel samen)."""
     zone_mask = df_stock["zone"] != "Totaal"
@@ -648,12 +627,80 @@ def plot_metric(
 
 
 def render_charts(stock_manager: StockManager) -> None:
-    """Render charts for ernstig gehinderden, leefbaarheidspunten, and stock line charts."""
+    """Render charts for ernstig gehinderden and stock line charts."""
     df_stock = stock_manager.get_dataframe().reset_index()
     render_ernstig_gehinderden_chart(df_stock)
+    render_dosis_effect_section(stock_manager)
     render_overlay_section(stock_manager, df_stock)
-    render_leefbaarheidspunten_section(stock_manager)
     render_compact_line_charts(df_stock)
+
+
+def render_dosis_effect_section(stock_manager: StockManager) -> None:
+    """Expander met dosis-effectrelatie per LDEN-band (staafdiagram)."""
+    if "dosis_effect_relatie" not in stock_manager.df_contour.columns:
+        return
+
+    panel = st.expander(
+        "Dosis-effectrelatie (inwoners → ernstig gehinderden)",
+        expanded=False,
+        key="dosis_effect_panel",
+        on_change="rerun",
+    )
+    if not panel.open:
+        return
+
+    with panel:
+        render_dosis_effect_chart(stock_manager)
+
+
+def render_dosis_effect_chart(stock_manager: StockManager) -> None:
+    """Staafdiagram: x = dB-band, y = dosis-effectfractie (zelfde type als flow-rategrafieken)."""
+    contour = stock_manager.df_contour
+    df_plot = contour.reset_index()
+    db_col = "db_ondergrens" if "db_ondergrens" in df_plot.columns else df_plot.columns[0]
+    df_plot = df_plot[[db_col, "dosis_effect_relatie", "zone"]].copy()
+    df_plot["db_lden"] = df_plot[db_col].astype(int)
+    df_plot["db_band"] = df_plot["db_lden"].astype(str)
+    df_plot = df_plot.sort_values("db_lden")
+
+    st.caption(
+        "Aandeel van de inwoners dat als ernstig gehinderd telt, per 1 dB-LDEN-band. "
+        "Formule: `(-50,9693 + 1,0168×Lden + 0,0072×Lden²) / 100` "
+        "(Lden = dB-ondergrens). "
+        "Ernstig gehinderden ≈ woningen × inwoners/huis × deze fractie."
+    )
+
+    bars = (
+        alt.Chart(df_plot)
+        .mark_bar(color=_CHART_KLEUR_A["normaal"])
+        .encode(
+            x=alt.X(
+                "db_band:O",
+                title="LDEN-geluidsband (dB)",
+                sort=df_plot["db_band"].tolist(),
+                axis=alt.Axis(labelAngle=0),
+            ),
+            y=alt.Y(
+                "dosis_effect_relatie:Q",
+                title="Dosis-effectrelatie (%)",
+                axis=alt.Axis(format=".1%"),
+            ),
+            tooltip=[
+                alt.Tooltip("db_lden:O", title="dB"),
+                alt.Tooltip("zone:N", title="Zone"),
+                alt.Tooltip(
+                    "dosis_effect_relatie:Q",
+                    title="Dosis-effectrelatie",
+                    format=".2%",
+                ),
+            ],
+        )
+    )
+    chart = bars.properties(
+        title="Dosis-effectrelatie per LDEN-band",
+        height=360,
+    ).configure_view(stroke=None)
+    st.altair_chart(chart, width="stretch")
 
 
 def render_ernstig_gehinderden_chart(df_stock: pd.DataFrame) -> None:
@@ -913,149 +960,6 @@ def render_overlay_coverage_chart(stock_manager: StockManager) -> None:
         "Toont welk deel van de bevolking in elke exclusieve Lden-zone ook in Lnight45 of NA70 valt. "
         "A–D liggen grotendeels in Lnight45; NA70 vooral in A–C."
     )
-
-
-def render_leefbaarheidspunten_weight_controls(
-    stock_manager: StockManager, contour_type: str
-) -> Dict[str, Dict[str, float]]:
-    """Number inputs per zone voor leefbaarheidspunten-gewichten (defaults uit zones-CSV)."""
-    st.caption(
-        "Punten per inwoner per zone. Leefbaarheidspunten = inwoners zonder isolatie × punten "
-        "niet-geïsoleerd + inwoners met isolatie × punten geïsoleerd."
-    )
-    return _collect_leefbaarheidspunten_weights(stock_manager, contour_type)
-
-
-def _collect_leefbaarheidspunten_weights(
-    stock_manager: StockManager, contour_type: str
-) -> Dict[str, Dict[str, float]]:
-    defaults = stock_manager.get_default_leefbaarheidspunten_weights()
-    weights: Dict[str, Dict[str, float]] = {}
-    zones = stock_manager.get_zones()
-    columns = st.columns(len(zones))
-    for column, zone in zip(columns, zones):
-        zone_defaults = defaults[zone]
-        with column:
-            st.caption(f"Zone {zone}")
-            weights[zone] = {
-                "niet_geïsoleerd": st.number_input(
-                    "Niet-geïsoleerd",
-                    min_value=0.0,
-                    value=float(zone_defaults["niet_geïsoleerd"]),
-                    step=1.0,
-                    key=f"leefbaarheidspunten_niet_{contour_type}_{zone}",
-                ),
-                "geïsoleerd": st.number_input(
-                    "Geïsoleerd",
-                    min_value=0.0,
-                    value=float(zone_defaults["geïsoleerd"]),
-                    step=1.0,
-                    key=f"leefbaarheidspunten_iso_{contour_type}_{zone}",
-                ),
-            }
-    return weights
-
-
-def render_leefbaarheidspunten_section(stock_manager: StockManager) -> None:
-    """Render grouped bar chart for leefbaarheidspunten (weights/KPI's staan hoger op de pagina)."""
-    render_leefbaarheidspunten_chart(stock_manager.get_dataframe().reset_index())
-
-
-def render_leefbaarheidspunten_chart(df_stock: pd.DataFrame) -> None:
-    """Staafgrafiek per zone: beginjaar/eindjaar, gestapeld niet-geïsoleerd vs geïsoleerd."""
-    metric_labels = {
-        "leefbaarheidspunten_zonder_isolatie": "Niet-geïsoleerd",
-        "leefbaarheidspunten_met_isolatie": "Geïsoleerd",
-    }
-    isolatie_kleuren = {
-        "Niet-geïsoleerd": _CHART_KLEUR_A,
-        "Geïsoleerd": _CHART_KLEUR_B,
-    }
-    rows = []
-    for metric_name, isolatie_label in metric_labels.items():
-        subset = df_stock[
-            (df_stock["naam"] == metric_name)
-            & (df_stock["zone"] != "Totaal")
-            & (df_stock["jaar"].isin([BEGINJAAR, EINDJAAR]))
-        ]
-        for _, row in subset.iterrows():
-            jaar = int(row["jaar"])
-            rows.append(
-                {
-                    "zone": row["zone"],
-                    "jaar": jaar,
-                    "isolatie": isolatie_label,
-                    "leefbaarheidspunten": float(row["aantal"]),
-                }
-            )
-
-    df_plot = pd.DataFrame(rows)
-    if df_plot.empty:
-        st.warning("Geen data beschikbaar voor leefbaarheidspunten.")
-        return
-
-    jaar_begin, jaar_einde = _jaar_categorieen()
-    df_plot["jaar_label"] = df_plot["jaar"].astype(str)
-    df_plot["jaar_label"] = pd.Categorical(
-        df_plot["jaar_label"],
-        categories=[jaar_begin, jaar_einde],
-        ordered=True,
-    )
-    df_plot["isolatie_volgorde"] = df_plot["isolatie"].map({"Niet-geïsoleerd": 0, "Geïsoleerd": 1})
-    df_plot["legenda"] = df_plot.apply(
-        lambda row: f"{row['isolatie']} ({row['jaar']})", axis=1
-    )
-    legenda_domain, legenda_range = _legenda_labels_en_kleuren(
-        ("Niet-geïsoleerd", "Geïsoleerd"), isolatie_kleuren
-    )
-
-    bars = (
-        alt.Chart(df_plot)
-        .mark_bar()
-        .encode(
-            x=alt.X("zone:N", title="Zone", axis=alt.Axis(labelAngle=0)),
-            xOffset=alt.XOffset("jaar_label:N", sort="ascending"),
-            y=alt.Y(
-                "leefbaarheidspunten:Q",
-                title="Leefbaarheidspunten",
-                axis=_integer_axis("Leefbaarheidspunten"),
-            ),
-            color=alt.Color(
-                "legenda:N",
-                scale=alt.Scale(domain=legenda_domain, range=legenda_range),
-                legend=alt.Legend(
-                    orient="right",
-                    title=None,
-                    symbolStrokeWidth=0,
-                    labelFontSize=12,
-                ),
-            ),
-            order=alt.Order("isolatie_volgorde:O", sort="ascending"),
-            tooltip=[
-                "zone",
-                alt.Tooltip("jaar_label:N", title="Jaar"),
-                "isolatie",
-                _integer_tooltip("leefbaarheidspunten:Q", "Leefbaarheidspunten"),
-            ],
-        )
-    )
-    labels = _bar_value_labels(
-        df_plot,
-        x="zone",
-        y="leefbaarheidspunten",
-        x_offset="jaar_label",
-        label_totals=True,
-    )
-    chart = (
-        (bars + labels)
-        .properties(
-            title=f"Leefbaarheidspunten per zone ({BEGINJAAR} vs {EINDJAAR})",
-            height=560,
-        )
-        .configure_view(stroke=None)
-    )
-    st.altair_chart(chart, width="stretch")
-    st.caption(f"Per zone: links {BEGINJAAR}, rechts {EINDJAAR}.")
 
 
 def plot_metric_compact(
