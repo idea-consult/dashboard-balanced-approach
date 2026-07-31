@@ -451,13 +451,25 @@ class StockManager:
     def _build_aggregated_stock_table(self) -> pd.DataFrame:
         rows: List[Dict[str, object]] = []
         zones = self.get_zones()
+        if not self.stock_columns:
+            return pd.DataFrame(columns=["aantal"]).astype({"aantal": float})
+
+        grouped_cache: Dict[str, pd.Series] = {}
         for stock_name, year_columns in self.stock_columns.items():
             for jaar, col in year_columns.items():
+                if col not in grouped_cache:
+                    grouped_cache[col] = (
+                        self.df_contour.groupby("zone", sort=False)[col].sum()
+                    )
+                grouped = grouped_cache[col]
                 for zone in zones:
-                    zone_mask = self.df_contour["zone"] == zone
-                    aantal = float(self.df_contour.loc[zone_mask, col].sum())
                     rows.append(
-                        {"naam": stock_name, "jaar": int(jaar), "zone": zone, "aantal": aantal}
+                        {
+                            "naam": stock_name,
+                            "jaar": int(jaar),
+                            "zone": zone,
+                            "aantal": float(grouped.get(zone, 0.0)),
+                        }
                     )
         df_stock = pd.DataFrame(rows)
         df_stock.set_index(["naam", "jaar", "zone"], inplace=True)
@@ -566,7 +578,57 @@ class StockManager:
         self.df_stock.loc[(naam, jaar, zone), "aantal"] = float(
             self.df_contour.loc[zone_mask, col].sum()
         )
-        self.df_stock.sort_index(inplace=True)
+
+    def apply_band_sim_state(
+        self,
+        sim_state: np.ndarray,
+        stock_names: List[str],
+        beginjaar: int,
+        eindjaar: int,
+        bands: Tuple[int, ...],
+    ) -> None:
+        """Bulk-write band simulation array into contour + rebuild zone stock table."""
+        band_index = pd.Index([int(b) for b in bands])
+        pending_cols: Dict[str, np.ndarray] = {}
+        for year_offset, jaar in enumerate(range(beginjaar, eindjaar + 1)):
+            for stock_idx, stock_name in enumerate(stock_names):
+                col = self._ensure_stock_year_column(stock_name, jaar)
+                pending_cols[col] = np.asarray(
+                    sim_state[year_offset, :, stock_idx], dtype=float
+                )
+        self._flush_pending_contour_columns()
+        for col, values in pending_cols.items():
+            self.df_contour.loc[band_index, col] = values
+        self.df_stock = self._build_aggregated_stock_table()
+
+    def set_metric_aantallen(
+        self, rows: List[Tuple[str, int, str, float]]
+    ) -> None:
+        """Bulk-insert metric rows into df_stock (no contour redistribution)."""
+        if not rows:
+            return
+        extra = pd.DataFrame(
+            [
+                {"naam": naam, "jaar": int(jaar), "zone": zone, "aantal": float(aantal)}
+                for naam, jaar, zone, aantal in rows
+            ]
+        ).set_index(["naam", "jaar", "zone"])
+        # Drop overlapping keys then append — avoids slow unsorted MultiIndex.loc.
+        if not self.df_stock.empty:
+            overlap = extra.index.intersection(self.df_stock.index)
+            if len(overlap):
+                self.df_stock = self.df_stock.drop(index=overlap)
+            self.df_stock = pd.concat([self.df_stock, extra])
+        else:
+            self.df_stock = extra
+        self.finalize_stock_index()
+
+    def finalize_stock_index(self) -> None:
+        """Sort df_stock once after many loc updates."""
+        if self.df_stock.empty:
+            return
+        if not self.df_stock.index.is_monotonic_increasing:
+            self.df_stock.sort_index(inplace=True)
 
     def get_zone_contour_frame(self, zone: str, jaar: int) -> pd.DataFrame:
         """Contourwaarden per zone/jaar voor afgeleide KPI's."""
@@ -723,14 +785,12 @@ class StockManager:
     def set_aantal(self, naam: str, jaar: int, zone: str, aantal: float) -> None:
         if naam not in self.stock_columns or not self.stock_columns[naam]:
             self.df_stock.loc[(naam, jaar, zone), "aantal"] = float(aantal)
-            self.df_stock.sort_index(inplace=True)
             return
 
         col = self._ensure_stock_year_column(naam, jaar)
         zone_mask = self.df_contour["zone"] == zone
         if not zone_mask.any():
             self.df_stock.loc[(naam, jaar, zone), "aantal"] = float(aantal)
-            self.df_stock.sort_index(inplace=True)
             return
 
         current_zone_total = float(self.df_contour.loc[zone_mask, col].sum())
@@ -745,7 +805,6 @@ class StockManager:
         self.df_stock.loc[(naam, jaar, zone), "aantal"] = float(
             self.df_contour.loc[zone_mask, col].sum()
         )
-        self.df_stock.sort_index(inplace=True)
 
     def save(self, output_file: str) -> None:
         df_to_save = self.df_stock.reset_index()

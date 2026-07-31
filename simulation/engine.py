@@ -293,15 +293,13 @@ class SimulationEngine:
     ) -> None:
         """Write simulated stock totals back into StockManager."""
         if bands:
-            for year_offset, jaar in enumerate(range(beginjaar, eindjaar + 1)):
-                for band_idx, band in enumerate(bands):
-                    for stock_idx, stock_name in enumerate(stock_names):
-                        self.stock_manager.set_aantal_for_band(
-                            stock_name,
-                            jaar,
-                            band,
-                            float(sim_state[year_offset, band_idx, stock_idx]),
-                        )
+            self.stock_manager.apply_band_sim_state(
+                sim_state=sim_state,
+                stock_names=stock_names,
+                beginjaar=beginjaar,
+                eindjaar=eindjaar,
+                bands=bands,
+            )
             return
 
         for year_offset, jaar in enumerate(range(beginjaar, eindjaar + 1)):
@@ -313,6 +311,7 @@ class SimulationEngine:
                         zone,
                         float(sim_state[year_offset, zone_idx, stock_idx]),
                     )
+        self.stock_manager.finalize_stock_index()
 
     def _load_zone_definitions(self) -> List[Tuple[str, float, float]]:
         """Load 5 dB zone definitions from input/zones.csv."""
@@ -473,6 +472,7 @@ class SimulationEngine:
         - aantal_ernstig_gehinderden_met_isolatie
         - aantal_ernstig_gehinderden_zonder_isolatie
         """
+        metric_rows: List[Tuple[str, int, str, float]] = []
         for j in range(beginjaar, eindjaar + 1):
             for zone in self.zones:
                 contour_df = self.stock_manager.get_zone_contour_frame(zone, j)
@@ -570,45 +570,72 @@ class SimulationEngine:
                 totaal_gehinderde_personen = personen_vlaanderen + personen_brussel
                 aantal_ernstig_gehinderden = ernstig_vlaanderen + ernstig_brussel
 
-                self.stock_manager.set_aantal(
-                    "gehinderde_personen_zonder_isolatie",
-                    j,
-                    zone,
-                    personen_zonder_isolatie,
+                metric_rows.extend(
+                    [
+                        (
+                            "gehinderde_personen_zonder_isolatie",
+                            j,
+                            zone,
+                            personen_zonder_isolatie,
+                        ),
+                        (
+                            "gehinderde_personen_met_isolatie",
+                            j,
+                            zone,
+                            personen_met_isolatie,
+                        ),
+                        (
+                            "totaal_gehinderde_personen",
+                            j,
+                            zone,
+                            totaal_gehinderde_personen,
+                        ),
+                        (
+                            "totaal_gehinderde_personen_vlaanderen",
+                            j,
+                            zone,
+                            personen_vlaanderen,
+                        ),
+                        (
+                            "totaal_gehinderde_personen_brussel",
+                            j,
+                            zone,
+                            personen_brussel,
+                        ),
+                        (
+                            "aantal_ernstig_gehinderden_vlaanderen",
+                            j,
+                            zone,
+                            ernstig_vlaanderen,
+                        ),
+                        (
+                            "aantal_ernstig_gehinderden_brussel",
+                            j,
+                            zone,
+                            ernstig_brussel,
+                        ),
+                        (
+                            "aantal_ernstig_gehinderden",
+                            j,
+                            zone,
+                            aantal_ernstig_gehinderden,
+                        ),
+                        (
+                            "aantal_ernstig_gehinderden_met_isolatie",
+                            j,
+                            zone,
+                            ernstig_met_isolatie,
+                        ),
+                        (
+                            "aantal_ernstig_gehinderden_zonder_isolatie",
+                            j,
+                            zone,
+                            ernstig_zonder_isolatie,
+                        ),
+                    ]
                 )
-                self.stock_manager.set_aantal(
-                    "gehinderde_personen_met_isolatie", j, zone, personen_met_isolatie
-                )
-                self.stock_manager.set_aantal(
-                    "totaal_gehinderde_personen", j, zone, totaal_gehinderde_personen
-                )
-                self.stock_manager.set_aantal(
-                    "totaal_gehinderde_personen_vlaanderen", j, zone, personen_vlaanderen
-                )
-                self.stock_manager.set_aantal(
-                    "totaal_gehinderde_personen_brussel", j, zone, personen_brussel
-                )
-                self.stock_manager.set_aantal(
-                    "aantal_ernstig_gehinderden_vlaanderen", j, zone, ernstig_vlaanderen
-                )
-                self.stock_manager.set_aantal(
-                    "aantal_ernstig_gehinderden_brussel", j, zone, ernstig_brussel
-                )
-                self.stock_manager.set_aantal(
-                    "aantal_ernstig_gehinderden", j, zone, aantal_ernstig_gehinderden
-                )
-                self.stock_manager.set_aantal(
-                    "aantal_ernstig_gehinderden_met_isolatie",
-                    j,
-                    zone,
-                    ernstig_met_isolatie,
-                )
-                self.stock_manager.set_aantal(
-                    "aantal_ernstig_gehinderden_zonder_isolatie",
-                    j,
-                    zone,
-                    ernstig_zonder_isolatie,
-                )
+
+        self.stock_manager.set_metric_aantallen(metric_rows)
 
     def _calculate_totals(self, beginjaar: int, eindjaar: int) -> None:
         metrics = [
@@ -625,6 +652,7 @@ class SimulationEngine:
             *self.stock_manager.get_simulation_stock_names(),
         ]
 
+        total_rows: List[Tuple[str, int, str, float]] = []
         for j in range(beginjaar, eindjaar + 1):
             for metric in metrics:
                 try:
@@ -632,6 +660,6 @@ class SimulationEngine:
                         self.stock_manager.get_aantal(metric, j, z) for z in self.zones
                     )
                 except KeyError:
-                    total = 0
-
-                self.stock_manager.set_aantal(metric, j, "Totaal", total)
+                    total = 0.0
+                total_rows.append((metric, j, "Totaal", float(total)))
+        self.stock_manager.set_metric_aantallen(total_rows)

@@ -1,6 +1,26 @@
-.streamlit/
+# Virtual environments
+.venv/
 venv/
-util/__pycache__/
-output/
+
+# Python
 __pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+*.egg-info/
+.coverage
+htmlcov/
+
+# Streamlit local config / secrets
+.streamlit/
+
+# Simulation runtime outputs (rewritten every dashboard run)
 output/
+
+# OS / editors
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
