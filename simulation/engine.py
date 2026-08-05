@@ -255,6 +255,7 @@ class SimulationEngine:
         self._calculate_derived_metrics(outputs.beginjaar, outputs.eindjaar)
         self._calculate_totals(outputs.beginjaar, outputs.eindjaar)
 
+        os.makedirs(OUTPUT_DIR, exist_ok=True)
         log_path = os.path.join(OUTPUT_DIR, "flow_log.csv")
         fieldnames = [
             "db_ondergrens",

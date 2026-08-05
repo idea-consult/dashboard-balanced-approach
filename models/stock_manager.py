@@ -807,6 +807,7 @@ class StockManager:
         )
 
     def save(self, output_file: str) -> None:
+        Path(output_file).parent.mkdir(parents=True, exist_ok=True)
         df_to_save = self.df_stock.reset_index()
         df_to_save.to_csv(output_file, sep=";", index=False)
 
