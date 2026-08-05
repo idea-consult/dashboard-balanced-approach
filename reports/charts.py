@@ -19,6 +19,7 @@ from ui.components import (
     _jaar_categorieen,
     _legenda_labels_en_kleuren,
     _stock_plot_frame,
+    _zone_color_encoding,
 )
 
 
@@ -191,7 +192,7 @@ def build_stock_line_chart(
         .encode(
             x=alt.X("jaar:O", title="Jaar"),
             y=alt.Y("aantal:Q", title=y_label, axis=_integer_axis(y_label)),
-            color=alt.Color("zone:N", title="Zone"),
+            color=_zone_color_encoding(),
             tooltip=["zone", "jaar", _integer_tooltip("aantal:Q", y_label)],
         )
         .properties(title=title, height=280, width=480)

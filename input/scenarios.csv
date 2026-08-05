@@ -32,3 +32,17 @@ maximaal,Maximaal ambitieniveau,4,verplicht_isoleren_renovatie,,lnight45
 maximaal,Maximaal ambitieniveau,4,aankoopbeleid_percelen,A,
 maximaal,Maximaal ambitieniveau,4,aankoopbeleid_niet_geïsoleerde_woningen,A,
 maximaal,Maximaal ambitieniveau,4,aankoopbeleid_geïsoleerde_woningen,A,
+idea,Scenario IDEA,5,verkavelingsverbod,A;B;C;D,
+idea,Scenario IDEA,5,woongebiedverbod,,lnight45
+idea,Scenario IDEA,5,voorkooprecht_percelen,C;D,
+idea,Scenario IDEA,5,onteigening_percelen,A;B,
+idea,Scenario IDEA,5,woningverbod,A;B;C;D,
+idea,Scenario IDEA,5,verbod_kwetsbare_groep,,lnight45
+idea,Scenario IDEA,5,woonverdichtingsverbod_niet_geïsoleerde_woningen,,lnight45
+idea,Scenario IDEA,5,woonverdichtingsverbod_geïsoleerde_woningen,,lnight45
+idea,Scenario IDEA,5,voorkooprecht_niet_geïsoleerde_woningen,A;B;C;D,
+idea,Scenario IDEA,5,voorkooprecht_geïsoleerde_woningen,A;B;C;D,
+idea,Scenario IDEA,5,onteigening_niet_geïsoleerde_woningen,A;B,
+idea,Scenario IDEA,5,onteigening_geïsoleerde_woningen,A;B,
+idea,Scenario IDEA,5,verplicht_isoleren_renovatie,C;D,
+idea,Scenario IDEA,5,gestuurd_isolatieprogramma,C;D,

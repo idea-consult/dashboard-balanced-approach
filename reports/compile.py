@@ -11,7 +11,13 @@ from typing import Any
 from models.measure_selection_manager import MeasureSelectionManager
 from models.scenario_manager import NONE_SCENARIO_ID, NONE_SCENARIO_LABEL
 from models.stock_manager import StockManager
-from reports.brand import APTOS_FONT_PATHS, LOGO_PATH, RESOURCES_DIR, TEMPLATES_DIR
+from reports.brand import (
+    APTOS_FONT_PATHS,
+    CONTOUR_MAP_PATH,
+    LOGO_PATH,
+    RESOURCES_DIR,
+    TEMPLATES_DIR,
+)
 from reports.charts import export_report_charts
 from reports.context import build_report_context
 
@@ -40,6 +46,8 @@ def compile_simulation_report(
         raise FileNotFoundError(f"Typst-template ontbreekt: {template_src}")
     if not LOGO_PATH.exists():
         raise FileNotFoundError(f"Logo ontbreekt: {LOGO_PATH}")
+    if not CONTOUR_MAP_PATH.exists():
+        raise FileNotFoundError(f"Contourkaart ontbreekt: {CONTOUR_MAP_PATH}")
     missing_fonts = [p for p in APTOS_FONT_PATHS if not p.exists()]
     if missing_fonts:
         raise FileNotFoundError(
@@ -66,6 +74,7 @@ def compile_simulation_report(
             json.dumps(ctx, ensure_ascii=False, indent=2), encoding="utf-8"
         )
         shutil.copy2(LOGO_PATH, root / "logo.png")
+        shutil.copy2(CONTOUR_MAP_PATH, root / "kaart_contouren.png")
         shutil.copy2(template_src, root / "simulatierapport.typ")
 
         pdf: Any = typst.compile(

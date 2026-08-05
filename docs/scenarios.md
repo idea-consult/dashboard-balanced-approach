@@ -1,6 +1,6 @@
 # Scenario-presets
 
-Bovenaan de sidebar kun je één van vier beleidsscenario’s kiezen. Dat zet automatisch de juiste maatregel-zones of overlays aan, volgens [`input/scenarios.csv`](../input/scenarios.csv).
+Bovenaan de sidebar kun je één van de beleidsscenario’s kiezen. Dat zet automatisch de juiste maatregel-zones of overlays aan, volgens [`input/scenarios.csv`](../input/scenarios.csv).
 
 [← Terug naar README](../readme.md)
 
@@ -39,6 +39,7 @@ Standaardscenario’s in de repo:
 2. Studie hoger ruimtelijk rendement  
 3. Studie hoger ruimtelijk rendement + kleinste nachtzone  
 4. Maximaal ambitieniveau  
+5. Scenario IDEA  
 
 Vul zelf de maatregelrijen in (vertaling vanuit de opdrachtgever-tabel naar dashboard-`measure_id`s).
 

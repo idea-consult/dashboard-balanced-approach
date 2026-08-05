@@ -24,10 +24,20 @@ from ui.formatting import (
     format_percent,
 )
 from ui.measure_help import combine_measure_help
+from reports.brand import ZONE_CHART_DOMAIN, ZONE_CHART_RANGE
 
 # Idea Consult-kleuren: paars (serie A) en roze (serie B), licht = beginjaar, normaal = eindjaar
 _CHART_KLEUR_A = {"normaal": "#4E2567", "licht": "#A68BB8"}
 _CHART_KLEUR_B = {"normaal": "#DD5B61", "licht": "#F0A8AC"}
+
+
+def _zone_color_encoding() -> alt.Color:
+    """Vaste kleur per Lden-zone (6 unieke kleuren; theme heeft er maar 5)."""
+    return alt.Color(
+        "zone:N",
+        title="Zone",
+        scale=alt.Scale(domain=list(ZONE_CHART_DOMAIN), range=list(ZONE_CHART_RANGE)),
+    )
 
 SCENARIO_RADIO_KEY = "scenario_preset"
 ERNSTIG_METHODE_KEY = "ernstig_gehinderden_methode"
@@ -614,7 +624,7 @@ def plot_metric(
         .encode(
             x=alt.X("jaar:O", title="Jaar"),
             y=alt.Y("aantal:Q", title=y_label, axis=_integer_axis(y_label)),
-            color=alt.Color("zone:N", title="Zone"),
+            color=_zone_color_encoding(),
             tooltip=[
                 "zone",
                 "jaar",
@@ -980,7 +990,7 @@ def plot_metric_compact(
         .encode(
             x=alt.X("jaar:O", title="Jaar"),
             y=alt.Y("aantal:Q", title=y_label, axis=_integer_axis(y_label)),
-            color=alt.Color("zone:N", title="Zone"),
+            color=_zone_color_encoding(),
             tooltip=[
                 "zone",
                 "jaar",

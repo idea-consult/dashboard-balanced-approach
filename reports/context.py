@@ -108,6 +108,45 @@ def _kpi_row(stock_manager: StockManager, metric: str, label: str) -> dict[str, 
     }
 
 
+def _parse_measure_help(help_text: str) -> tuple[str, str]:
+    """Extract short uitleg/effect text and 'Type maatregel' from help markdown."""
+    sections: dict[str, list[str]] = {}
+    current: str | None = None
+    for raw in str(help_text or "").splitlines():
+        line = raw.strip()
+        if line.startswith("#### "):
+            current = line[5:].strip().lower()
+            sections.setdefault(current, [])
+            continue
+        if current is None or not line or line.startswith("#") or line == "---":
+            continue
+        sections[current].append(line)
+
+    parts: list[str] = []
+    for key in ("uitleg", "beoogd effect"):
+        if sections.get(key):
+            parts.append(" ".join(sections[key]))
+    short = " ".join(parts).strip()
+    if not short:
+        fallback = [
+            ln.strip()
+            for ln in str(help_text or "").splitlines()
+            if ln.strip() and not ln.strip().startswith("#") and ln.strip() != "---"
+        ]
+        short = " ".join(fallback[:3])
+    short = short[:500]
+
+    measure_type = " ".join(sections.get("type maatregel", [])).strip()
+    return short, measure_type
+
+
+def _title_case_type(measure_type: str) -> str:
+    text = measure_type.strip()
+    if not text:
+        return "Overige maatregelen"
+    return text[:1].upper() + text[1:]
+
+
 def _applied_measures(
     measure_selection_manager: MeasureSelectionManager,
 ) -> list[dict[str, Any]]:
@@ -123,13 +162,7 @@ def _applied_measures(
             continue
         naam = str(descriptions.at[measure_id, "naam_mooi"])
         help_text = str(descriptions.at[measure_id, "help"]).strip()
-        # Shorten help: first non-empty paragraph after title
-        lines = [
-            ln.strip()
-            for ln in help_text.splitlines()
-            if ln.strip() and not ln.strip().startswith("#")
-        ]
-        short = " ".join(lines[:4])[:500]
+        short, measure_type = _parse_measure_help(help_text)
         coverage = (
             f"Overlay {overlay}"
             if overlay
@@ -141,9 +174,27 @@ def _applied_measures(
                 "naam": naam,
                 "coverage": coverage,
                 "help_short": short,
+                "measure_type": measure_type,
+                "measure_type_title": _title_case_type(measure_type),
             }
         )
     return rows
+
+
+def _group_applied_measures(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Group applied measures by type, preserving first-seen type order."""
+    groups: dict[str, dict[str, Any]] = {}
+    order: list[str] = []
+    for row in rows:
+        key = row.get("measure_type") or ""
+        if key not in groups:
+            order.append(key)
+            groups[key] = {
+                "title": row["measure_type_title"],
+                "measures": [],
+            }
+        groups[key]["measures"].append(row)
+    return [groups[k] for k in order]
 
 
 def _flow_rate_rows(
@@ -215,6 +266,7 @@ def build_report_context(
 ) -> dict[str, Any]:
     sid = scenario_id or NONE_SCENARIO_ID
     slabel = scenario_label or NONE_SCENARIO_LABEL
+    applied = _applied_measures(measure_selection_manager)
     return {
         "title": REPORT_TITLE,
         "opdrachtregel": OPDRACHTREGEL,
@@ -224,6 +276,7 @@ def build_report_context(
         "contour": "Lden (1 dB)",
         "scenario_id": sid,
         "scenario_label": slabel,
+        "scenario_is_none": sid == NONE_SCENARIO_ID or slabel == NONE_SCENARIO_LABEL,
         "personen_per_woonunit": PERSONEN_PER_WOONUNIT,
         "ernstig_methode": _ernstig_methode_context(ernstig_gehinderden_methode),
         "kpis": [
@@ -247,7 +300,8 @@ def build_report_context(
             "overheid": _format_report_cost(kost_overheid),
             "prive": _format_report_cost(kost_prive),
         },
-        "applied_measures": _applied_measures(measure_selection_manager),
+        "applied_measures": applied,
+        "measure_groups": _group_applied_measures(applied),
         "flow_rates": _flow_rate_rows(measure_selection_manager),
         "stocks": _stock_rows(stock_manager),
         "figures": figures,

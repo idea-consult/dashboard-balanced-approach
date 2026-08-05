@@ -10,6 +10,7 @@ ASSETS_DIR = REPORTS_DIR / "assets"
 TEMPLATES_DIR = REPORTS_DIR / "templates"
 RESOURCES_DIR = PROJECT_ROOT / "resources"
 LOGO_PATH = ASSETS_DIR / "ideaconsultlogo.png"
+CONTOUR_MAP_PATH = RESOURCES_DIR / "kaart contouren.png"
 APTOS_FONT_PATHS = (
     RESOURCES_DIR / "Aptos.ttf",
     RESOURCES_DIR / "Aptos-Bold.ttf",
@@ -40,6 +41,17 @@ COLOR_PURPLE_LIGHT = "#A68BB8"
 COLOR_RED = "#DD5B61"
 COLOR_RED_LIGHT = "#F0A8AC"
 COLOR_TEXT = "#333333"
+
+# Expliciete zonekleuren voor stock-lijngrafieken (6 zones; theme heeft maar 5 categoriekleuren).
+ZONE_CHART_DOMAIN = ("A", "B", "C", "D", "E", "F")
+ZONE_CHART_RANGE = (
+    "#9B4F96",  # A — violet (niet #4E2567, anders identiek aan F)
+    COLOR_RED,  # B
+    "#EB914D",  # C
+    "#36A3C9",  # D
+    "#00989A",  # E
+    COLOR_PURPLE,  # F
+)
 
 OPDRACHTREGEL = (
     "Gemaakt door IDEA Consult in opdracht van het "

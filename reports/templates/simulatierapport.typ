@@ -42,6 +42,12 @@
   it
   v(0.15cm)
 }
+#show heading.where(level: 3): it => {
+  set text(fill: rgb("#4E2567"), weight: "bold", size: 11pt)
+  v(0.3cm)
+  it
+  v(0.1cm)
+}
 #set par(justify: true, leading: 0.65em)
 
 // —— Voorblad ——
@@ -57,15 +63,21 @@
   #grid(
     columns: (auto, auto),
     column-gutter: 1.2cm,
-    row-gutter: 0.35cm,
+    row-gutter: 0.4cm,
     align: (right, left),
-    [*Export:*], [#data.exported_at],
+    [*Datum van deze export:*], [#data.exported_at],
     [*Simulatieperiode:*], [#str(data.beginjaar) – #str(data.eindjaar)],
-    [*Contour:*], [#data.contour],
-    [*Scenario:*], [#data.scenario_label],
-    [*Ernstig gehinderden:*], [#data.ernstig_methode.label],
-    [*Kost overheid:*], [#data.kosten.overheid],
-    [*Kost privé:*], [#data.kosten.prive],
+    [*Geluidscontour:*], [#data.contour],
+    [*Gekozen scenario / maatregelenbundel:*], [
+      #data.scenario_label
+      #if data.scenario_is_none [
+        #linebreak()
+        #text(size: 9pt, fill: rgb("#666666"))[(geen preset — handmatige maatregelselectie)]
+      ]
+    ],
+    [*Rekenmethode ernstig gehinderden:*], [#data.ernstig_methode.label],
+    [*Cumulatieve modelkost overheid:*], [#data.kosten.overheid],
+    [*Cumulatieve modelkost privé:*], [#data.kosten.prive],
   )
 ]
 
@@ -73,7 +85,9 @@
 
 = Leeswijzer
 
-Dit rapport is een *snapshot* van de Balanced Approach-simulatie. Het beschrijft welke maatregelen actief waren, welke flow rates golden, hoe stocks en hinderindicatoren evolueerden tussen #str(data.beginjaar) en #str(data.eindjaar), en welke *modelkosten* (overheid / privé) daarbij horen.
+Dit rapport geeft een overzicht van de *simulatie van kosten van een maatregelenbundel* binnen de *tweede pijler* van de Balanced Approach voor de luchthaven van *Brussels-Nationaal (Zaventem)*. De kostensimulatie-toepassing laat toe om interactief verschillende maatregelenbundels te testen binnen de Lden-geluidscontouren rond de luchthaven.
+
+Dit document beschrijft *één gekozen set van maatregelen*, de overige parameters die in de simulatie zijn gebruikt, en de evolutie van de modelkostprijs en hinderindicatoren tussen #str(data.beginjaar) en #str(data.eindjaar).
 
 *Stock* = voorraad (bv. woningen of percelen) in een zone. *Flow* = jaarlijkse verandering als aandeel van een noemer-stock.
 
@@ -85,7 +99,13 @@ Dit rapport is een *snapshot* van de Balanced Approach-simulatie. Het beschrijft
 
 = Scenario en maatregelselectie
 
-*Gekozen scenario:* #data.scenario_label.
+In de dashboardtoepassing kun je een *voorgeprogrammeerd scenario* (maatregelenbundel) selecteren, of *zelf* per maatregel de ruimtelijke dekking kiezen (zones A–F of een overlay).
+
+#if data.scenario_is_none [
+  *Gekozen scenario:* Geen (handmatige selectie). De onderstaande tabel toont de maatregelen die in deze run ruimtelijk actief stonden.
+] else [
+  *Gekozen scenario:* #data.scenario_label. De onderstaande tabel volgt die maatregelenbundel (eventueel plus later handmatig bijgestelde selecties).
+]
 
 #if data.applied_measures.len() == 0 [
   Er werden geen (zichtbare) maatregelen ruimtelijk geactiveerd. De simulatie loopt dan vooral op baseline- en altijd-actieve stromen.
@@ -102,6 +122,20 @@ Dit rapport is een *snapshot* van de Balanced Approach-simulatie. Het beschrijft
     },
   )
 ]
+
+== Ruimtelijke zones en overlays
+
+Zones *A–F* verdelen de Lden-contour in mutueel exclusieve 5 dB-buckets. Daarnaast bestaan twee *overlays* die geografisch overlappen met A–F (en deels met elkaar):
+
+- *Lnight45:* nachtcontour vanaf 45 dB — doorgaans de *bredere* overlay (ruwweg A–D en deels E).
+- *NA70:* NA70-contour — *kleiner*; typisch vooral zones A–B en deels C/D.
+
+Omdat overlays met A–F overlappen, zijn zone- en overlayselectie in de tool wederzijds uitsluitend. Cijfers voor overlays mag je niet optellen bij A–F of bij elkaar.
+
+#figure(
+  image("kaart_contouren.png", width: 100%),
+  caption: [Zones A–F (Lden) met overlays Lnight45 en NA70 rond Brussels-Nationaal.],
+)
 
 = Resultatensamenvatting
 
@@ -164,14 +198,17 @@ Onderstaande figuren komen overeen met de kernvisualisaties in het dashboard (ID
 
 = Toegepaste maatregelen (detail)
 
-#if data.applied_measures.len() == 0 [
+#if data.measure_groups.len() == 0 [
   Geen actieve maatregelen om toe te lichten.
 ] else [
-  #for m in data.applied_measures [
-    == #m.naam
-    *Dekking:* #m.coverage
+  #for group in data.measure_groups [
+    == #group.title
+    #for m in group.measures [
+      === #m.naam
+      *Dekking:* #m.coverage
 
-    #m.help_short
+      #m.help_short
+    ]
   ]
 ]
 
