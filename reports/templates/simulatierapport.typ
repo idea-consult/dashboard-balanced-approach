@@ -1,5 +1,11 @@
 #let data = json("data.json")
 
+#let grid-figure-cell(fig) = block(breakable: false)[
+  #image("figures/" + fig.file, width: 100%)
+  #v(0.12cm)
+  #text(size: 8pt, fill: rgb("#666666"))[#fig.caption]
+]
+
 #set page(
   paper: "a4",
   margin: (x: 2cm, y: 2.2cm),
@@ -184,15 +190,29 @@ Voor *aankoop* of *isolatie* (baseline ≈ 0) komt het volume ongeveer overeen m
 
 Onderstaande figuren komen overeen met de kernvisualisaties in het dashboard (IDEA-huisstijlkleuren).
 
-#if data.figures.len() == 0 [
+#if data.figures_full.len() + data.figures_grid.len() == 0 [
   _Geen figuren beschikbaar voor deze run._
 ] else [
-  #for fig in data.figures [
+  #for fig in data.figures_full [
     #block(breakable: false)[
       #image("figures/" + fig.file, width: 100%)
       #text(size: 9pt, fill: rgb("#666666"))[#fig.caption]
       #v(0.5cm)
     ]
+  ]
+
+  #let gfs = data.figures_grid
+  #if gfs.len() > 0 [
+    #v(0.3cm)
+    #grid(
+      columns: (1fr, 1fr),
+      column-gutter: 0.6cm,
+      row-gutter: 0.5cm,
+      if gfs.len() > 0 { grid-figure-cell(gfs.at(0)) },
+      if gfs.len() > 1 { grid-figure-cell(gfs.at(1)) },
+      if gfs.len() > 2 { grid-figure-cell(gfs.at(2)) },
+      if gfs.len() > 3 { grid-figure-cell(gfs.at(3)) },
+    )
   ]
 ]
 

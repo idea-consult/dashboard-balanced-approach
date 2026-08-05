@@ -109,7 +109,9 @@ def build_ernstig_gehinderden_chart(df_stock: pd.DataFrame) -> alt.Chart | None:
     )
 
 
-def build_overlay_impact_chart(stock_manager: StockManager) -> alt.Chart | None:
+def build_overlay_impact_chart(
+    stock_manager: StockManager, *, compact: bool = False
+) -> alt.Chart | None:
     if "share_lnight45" not in stock_manager.df_contour.columns:
         return None
     rows: list[dict] = []
@@ -169,24 +171,38 @@ def build_overlay_impact_chart(stock_manager: StockManager) -> alt.Chart | None:
     labels = _bar_value_labels(
         df_plot, x="overlay", y="aantal", x_offset="jaar_label", label_totals=True
     )
-    return (
+    chart_height = 220 if compact else 360
+    chart_width = 300 if compact else 640
+    title_size = 10 if compact else None
+    chart = (
         (bars + labels)
         .properties(
             title=f"Ernstig gehinderden in overlappende contouren ({BEGINJAAR} vs {EINDJAAR})",
-            height=360,
-            width=640,
+            height=chart_height,
+            width=chart_width,
         )
         .configure_view(stroke=None)
     )
+    if title_size is not None:
+        chart = chart.configure_title(fontSize=title_size)
+    return chart
 
 
 def build_stock_line_chart(
-    df_stock: pd.DataFrame, stock_name: str, title: str, y_label: str
+    df_stock: pd.DataFrame,
+    stock_name: str,
+    title: str,
+    y_label: str,
+    *,
+    compact: bool = False,
 ) -> alt.Chart | None:
     df_plot = _stock_plot_frame(df_stock, stock_name)
     if df_plot.empty:
         return None
-    return (
+    chart_height = 180 if compact else 280
+    chart_width = 300 if compact else 480
+    title_size = 10 if compact else None
+    chart = (
         alt.Chart(df_plot)
         .mark_line(point=True)
         .encode(
@@ -195,8 +211,11 @@ def build_stock_line_chart(
             color=_zone_color_encoding(),
             tooltip=["zone", "jaar", _integer_tooltip("aantal:Q", y_label)],
         )
-        .properties(title=title, height=280, width=480)
+        .properties(title=title, height=chart_height, width=chart_width)
     )
+    if title_size is not None:
+        chart = chart.configure_title(fontSize=title_size)
+    return chart
 
 
 def export_report_charts(stock_manager: StockManager, out_dir: Path) -> list[dict]:
@@ -205,23 +224,25 @@ def export_report_charts(stock_manager: StockManager, out_dir: Path) -> list[dic
     df_stock = stock_manager.get_dataframe().reset_index()
     figures: list[dict] = []
 
-    builders: list[tuple[str, str, alt.Chart | None]] = [
+    builders: list[tuple[str, str, str, alt.Chart | None]] = [
         (
             "ernstig_gehinderden.png",
             "Ernstig gehinderden per zone (Vlaanderen / Brussel).",
+            "full",
             build_ernstig_gehinderden_chart(df_stock),
         ),
         (
             "overlay_impact.png",
             "Ernstig gehinderden gewogen naar dekking Lnight45 / NA70.",
-            build_overlay_impact_chart(stock_manager),
+            "grid",
+            build_overlay_impact_chart(stock_manager, compact=True),
         ),
     ]
-    for filename, caption, chart in builders:
+    for filename, caption, layout, chart in builders:
         if chart is None:
             continue
         _save_png(chart, out_dir / filename)
-        figures.append({"file": filename, "caption": caption})
+        figures.append({"file": filename, "caption": caption, "layout": layout})
 
     stock_specs = [
         (
@@ -244,10 +265,12 @@ def export_report_charts(stock_manager: StockManager, out_dir: Path) -> list[dic
         ),
     ]
     for filename, stock_name, title, y_label in stock_specs:
-        chart = build_stock_line_chart(df_stock, stock_name, title, y_label)
+        chart = build_stock_line_chart(
+            df_stock, stock_name, title, y_label, compact=True
+        )
         if chart is None:
             continue
         _save_png(chart, out_dir / filename)
-        figures.append({"file": filename, "caption": title + "."})
+        figures.append({"file": filename, "caption": title + ".", "layout": "grid"})
 
     return figures

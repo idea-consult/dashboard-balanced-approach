@@ -304,5 +304,6 @@ def build_report_context(
         "measure_groups": _group_applied_measures(applied),
         "flow_rates": _flow_rate_rows(measure_selection_manager),
         "stocks": _stock_rows(stock_manager),
-        "figures": figures,
+        "figures_full": [f for f in figures if f.get("layout") == "full"],
+        "figures_grid": [f for f in figures if f.get("layout") == "grid"],
     }
